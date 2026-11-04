@@ -1,0 +1,238 @@
+import { prisma } from '@a-health/database';
+import { enqueue } from '@a-health/notification/enqueue';
+import { appendAudit, forbidden, notFound } from '@a-health/http';
+import type { GrantConsentInput } from '../types/patient.types.js';
+import type { Caller, Meta } from './profile.service.js';
+
+function serialise(c: {
+  id: string; patientProfileId: string; granteeType: string;
+  granteeClinicianId: string | null; granteeFacilityId: string | null;
+  careThreadId: string | null; scope: string; allowed: boolean;
+  breakGlass: boolean; reason: string | null;
+  grantedAt: Date; expiresAt: Date | null; revokedAt: Date | null;
+  version: number; updatedAt: Date;
+}) {
+  return {
+    id: c.id,
+    patient_profile_id: c.patientProfileId,
+    grantee_type: c.granteeType,
+    grantee_clinician_id: c.granteeClinicianId,
+    grantee_facility_id: c.granteeFacilityId,
+    care_thread_id: c.careThreadId,
+    scope: c.scope,
+    allowed: c.allowed,
+    break_glass: c.breakGlass,
+    reason: c.reason,
+    granted_at: c.grantedAt.toISOString(),
+    expires_at: c.expiresAt?.toISOString() ?? null,
+    revoked_at: c.revokedAt?.toISOString() ?? null,
+    version: c.version,
+    updated_at: c.updatedAt.toISOString(),
+  };
+}
+
+async function assertOwner(profileId: string, caller: Caller) {
+  const profile = await prisma.patientProfile.findUnique({ where: { id: profileId } });
+  if (!profile) throw notFound('Patient profile not found');
+  const owns = profile.userId === caller.sub || profile.guardianUserId === caller.sub;
+  if (!owns && caller.role !== 'platform_admin') {
+    throw forbidden('NOT_RESOURCE_OWNER', 'This profile does not belong to you');
+  }
+  return profile;
+}
+
+/**
+ * Who may see what. The blueprint's promise is that a patient controls this,
+ * so every grant and revoke is both explicit and audited — this list is what
+ * a "who has seen my records" screen reads from.
+ */
+export async function listConsents(profileId: string, caller: Caller) {
+  await assertOwner(profileId, caller);
+  const rows = await prisma.patientConsent.findMany({
+    // Keep revoked grants in the patient's view: the history is needed to
+    // confirm that access was withdrawn after a refresh.
+    where: { patientProfileId: profileId },
+    orderBy: { grantedAt: 'desc' },
+  });
+  return { data: rows.map(serialise) };
+}
+
+export async function grantConsent(
+  profileId: string, caller: Caller, input: GrantConsentInput, meta: Meta,
+) {
+  await assertOwner(profileId, caller);
+
+  return prisma.$transaction(async (tx) => {
+    const consent = await tx.patientConsent.create({
+      data: {
+        patientProfileId: profileId,
+        granteeType: input.grantee_type as never,
+        granteeClinicianId: input.grantee_clinician_id ?? null,
+        granteeFacilityId: input.grantee_facility_id ?? null,
+        careThreadId: input.care_thread_id ?? null,
+        scope: input.scope as never,
+        reason: input.reason ?? null,
+        expiresAt: input.expires_at ? new Date(input.expires_at) : null,
+      },
+    });
+
+    await appendAudit({
+      actorUserId: caller.sub, action: 'consent.granted',
+      entityType: 'patient_consents', entityId: consent.id,
+      metadata: { scope: input.scope, granteeType: input.grantee_type },
+      ipAddress: meta.ip, requestId: meta.requestId,
+    }, tx);
+
+    return serialise(consent);
+  });
+}
+
+/**
+ * Revoke, never delete. The record that access was granted and later
+ * withdrawn is itself part of the accountability trail the platform promises.
+ */
+export async function revokeConsent(profileId: string, consentId: string, caller: Caller, meta: Meta) {
+  await assertOwner(profileId, caller);
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Collaboration reads and grants lock consent before locking collaboration
+    // rows. Keep the same order here so revocation cannot deadlock with an
+    // in-flight case access or request, and so it cannot miss a new grant.
+    await tx.$queryRaw`SELECT "id" FROM "patient_consents" WHERE "id" = ${consentId}::uuid FOR UPDATE`;
+    const consent = await tx.patientConsent.findUnique({ where: { id: consentId } });
+    if (!consent || consent.patientProfileId !== profileId) throw notFound('Consent not found');
+
+    const activeCollaborations = await tx.providerClinicalCollaboration.findMany({
+      where: { patientConsentId: consentId, status: { in: ['requested', 'accepted'] } },
+      select: { id: true, status: true },
+    });
+
+    for (const collaboration of activeCollaborations) {
+      const changed = await tx.providerClinicalCollaboration.updateMany({
+        where: { id: collaboration.id, status: collaboration.status },
+        data: {
+          status: 'revoked',
+          revokedAt: new Date(),
+          revokedByUserId: caller.sub,
+          version: { increment: 1 },
+        },
+      });
+      if (changed.count === 1) {
+        await appendAudit({
+          actorUserId: caller.sub,
+          action: 'provider_collaboration.revoked',
+          entityType: 'provider_clinical_collaborations',
+          entityId: collaboration.id,
+          metadata: { scope: 'consultation_summary', reason: 'patient_consent_revoked' },
+          ipAddress: meta.ip,
+          requestId: meta.requestId,
+        }, tx);
+      }
+    }
+
+    const affectedReferrals = await tx.digitalReferral.findMany({
+      where: { patientConsentId: consentId, status: { in: ['draft', 'submitted', 'received', 'accepted', 'in_care'] } },
+      include: {
+        sourceClinician: { select: { userId: true } },
+        destinationClinician: { select: { userId: true } },
+        receivedByClinician: { select: { userId: true } },
+        patient: { select: { userId: true, guardianUserId: true } },
+      },
+    });
+    for (const referral of affectedReferrals) {
+      const changed = await tx.digitalReferral.updateMany({
+        where: { id: referral.id, status: referral.status, version: referral.version },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          cancellationReason: 'patient_consent_revoked',
+          version: { increment: 1 },
+        },
+      });
+      if (changed.count === 1) {
+        await appendAudit({
+          actorUserId: caller.sub,
+          action: 'referral.cancelled',
+          entityType: 'digital_referrals',
+          entityId: referral.id,
+          metadata: { reason: 'patient_consent_revoked' },
+          ipAddress: meta.ip,
+          requestId: meta.requestId,
+        }, tx);
+      }
+    }
+
+    const updated = await tx.patientConsent.update({
+      where: { id: consentId },
+      data: { allowed: false, revokedAt: new Date(), version: { increment: 1 } },
+    });
+
+    await appendAudit({
+      actorUserId: caller.sub, action: 'consent.revoked',
+      entityType: 'patient_consents', entityId: consentId,
+      metadata: { scope: consent.scope, granteeType: consent.granteeType },
+      ipAddress: meta.ip, requestId: meta.requestId,
+    }, tx);
+
+    return {
+      consent: updated,
+      recipients: affectedReferrals.flatMap((referral) => [
+        referral.patient.userId ?? referral.patient.guardianUserId,
+        referral.sourceClinician.userId,
+        referral.destinationClinician?.userId ?? null,
+        referral.receivedByClinician?.userId ?? null,
+      ]).filter((id): id is string => Boolean(id)),
+    };
+  });
+  await Promise.allSettled([...new Set(result.recipients)].map((userId) => enqueue({
+    userId,
+    templateKey: 'referral.update',
+  })));
+  return serialise(result.consent);
+}
+
+/** A patient or guardian may see only their own safe consent/access events. */
+export async function listOwnAuditHistory(profileId: string, caller: Caller) {
+  if (caller.role !== 'patient') {
+    throw forbidden('ROLE_NOT_PERMITTED', 'Patient audit history is available to patient accounts only');
+  }
+  await assertOwner(profileId, caller);
+
+  const consents = await prisma.patientConsent.findMany({
+    where: { patientProfileId: profileId },
+    select: { id: true, scope: true, granteeType: true },
+  });
+  const consentById = new Map(consents.map((consent) => [consent.id, consent]));
+  const rows = await prisma.auditLog.findMany({
+    where: {
+      action: { in: ['consent.granted', 'consent.revoked', 'emergency.context_break_glass_access'] },
+      OR: [
+        { entityType: 'patient_profiles', entityId: profileId },
+        { entityType: 'patient_consents', entityId: { in: consents.map((consent) => consent.id) } },
+      ],
+    },
+    orderBy: { seq: 'desc' },
+    take: 100,
+    select: { action: true, entityId: true, metadata: true, createdAt: true },
+  });
+
+  return {
+    data: rows.map((row) => {
+      const linkedConsent = row.entityId ? consentById.get(row.entityId) : undefined;
+      const metadata = row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+        ? row.metadata as Record<string, unknown>
+        : {};
+      const scope = typeof metadata.scope === 'string' ? metadata.scope : linkedConsent?.scope;
+      const granteeType = typeof metadata.granteeType === 'string'
+        ? metadata.granteeType
+        : linkedConsent?.granteeType;
+
+      return {
+        event_type: row.action,
+        occurred_at: row.createdAt.toISOString(),
+        ...(row.action.startsWith('consent.') && scope ? { scope } : {}),
+        ...(row.action.startsWith('consent.') && granteeType ? { grantee_type: granteeType } : {}),
+      };
+    }),
+  };
+}
