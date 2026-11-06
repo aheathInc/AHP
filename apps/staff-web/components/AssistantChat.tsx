@@ -29,8 +29,8 @@ export function AssistantChat() {
         id = res.data.id;
         setConversationId(id);
       }
-      const res = await api.post<{ text: string }>(`/ai/conversations/${id}/messages`, { body: text }, idem());
-      setTurns((t) => [...t, { role: 'assistant', text: res.data.text }]);
+      const res = await api.post<{ text?: string; body?: string }>(`/ai/conversations/${id}/messages`, { body: text }, idem());
+      setTurns((t) => [...t, { role: 'assistant', text: res.data.text ?? res.data.body ?? 'Msaidizi hakurudisha jibu.' }]);
     } catch (e) {
       setError(errorMessage(e, 'Msaidizi hakupatikana. Jaribu tena.'));
     } finally { setBusy(false); }

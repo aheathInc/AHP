@@ -1,4 +1,5 @@
 import '../core/l10n.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -25,6 +26,73 @@ class PremiumCard extends StatefulWidget {
   State<PremiumCard> createState() => _PremiumCardState();
 }
 
+/// A restrained bento frame for grouping actions without turning every row
+/// into a separate visual container. The faint line pattern provides a shared
+/// surface cue across the home and services destinations.
+class PremiumBentoFrame extends StatelessWidget {
+  const PremiumBentoFrame({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(10),
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    Localizations.localeOf(context);
+    final palette = AppPalette.of(context);
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            palette.mintWash.withValues(alpha: .72),
+            palette.surface.withValues(alpha: .82),
+          ],
+        ),
+        border: Border.all(color: palette.line.withValues(alpha: .72)),
+        boxShadow: [
+          BoxShadow(
+            color: palette.ink.withValues(alpha: .06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -38,
+            top: -42,
+            child: ExcludeSemantics(
+              child: Transform.rotate(
+                angle: -.28,
+                child: Container(
+                  width: 150,
+                  height: 92,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: palette.petrol.withValues(alpha: .08),
+                      width: 12,
+                    ),
+                    borderRadius: BorderRadius.circular(32),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(padding: padding, child: child),
+        ],
+      ),
+    );
+  }
+}
+
 class _PremiumCardState extends State<PremiumCard> {
   bool _pressed = false;
 
@@ -35,8 +103,9 @@ class _PremiumCardState extends State<PremiumCard> {
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return AnimatedScale(
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 140),
       curve: Curves.easeOutCubic,
       scale: widget.onTap != null && _pressed ? .985 : 1,
       child: Material(
@@ -112,8 +181,9 @@ class _PremiumAuroraHeroState extends State<PremiumAuroraHero>
       child: Padding(padding: widget.padding, child: widget.child),
       builder: (context, foreground) {
         final palette = AppPalette.of(context);
-        final t =
-            _reduced ? .55 : Curves.easeOutCubic.transform(_animation.value);
+        final t = _reduced
+            ? .55
+            : Curves.easeOutCubic.transform(_animation.value);
         return Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
@@ -204,8 +274,9 @@ class _PremiumHeroButtonState extends State<PremiumHeroButton> {
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return AnimatedScale(
       scale: _pressed ? .98 : 1,
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 130),
+      duration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 130),
       child: Material(
         color: palette.surface,
         borderRadius: BorderRadius.circular(14),
@@ -259,8 +330,10 @@ class PremiumSectionHeading extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(L.tr(title),
-                style: Theme.of(context).textTheme.titleMedium),
+            child: Text(
+              L.tr(title),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
           ),
           if (action != null && onAction != null)
             TextButton(onPressed: onAction, child: Text(action!)),
@@ -312,10 +385,7 @@ class PremiumAction extends StatelessWidget {
           Text(L.tr(title), style: Theme.of(context).textTheme.titleSmall),
           if (subtitle != null) ...[
             const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text(subtitle!, style: Theme.of(context).textTheme.bodySmall),
           ],
         ],
       ),
@@ -364,12 +434,16 @@ class PremiumLinkRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(L.tr(title),
-                      style: Theme.of(context).textTheme.titleSmall),
+                  Text(
+                    L.tr(title),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 3),
-                    Text(subtitle!,
-                        style: Theme.of(context).textTheme.bodySmall),
+                    Text(
+                      subtitle!,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ],
               ),
