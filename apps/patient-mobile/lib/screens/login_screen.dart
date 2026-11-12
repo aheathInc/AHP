@@ -8,6 +8,7 @@ import '../core/strings.dart';
 import '../widgets/common.dart';
 import '../widgets/login_shell.dart';
 import 'verify_screen.dart';
+import 'emergency_screen.dart';
 import 'auth_destination.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -79,10 +80,11 @@ class _LoginScreenState extends State<LoginScreen> {
           'password': _password.text,
           'device_id': await Session.deviceId()
         });
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
         final destination =
             await authenticationDestination(Map<String, dynamic>.from(data));
         _password.clear();
-        if (mounted) {
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
           Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => destination), (_) => false);
         }
@@ -90,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       final data = await Api.post(
           '/auth/otp/request', {'phone_number': e164, 'channel': 'sms'});
-      if (!mounted) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       final echoedCode = data['dev_code'];
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => VerifyScreen(
@@ -131,9 +133,10 @@ class _LoginScreenState extends State<LoginScreen> {
         'device_id': deviceId,
       });
 
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       final destination =
           await authenticationDestination(Map<String, dynamic>.from(session));
-      if (!mounted) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => destination),
         (_) => false,
@@ -161,13 +164,19 @@ class _LoginScreenState extends State<LoginScreen> {
               : L.tr('Unganisha account kwenye simu'))
           : L.tr('Ingia'),
       showBack: widget.phoneSetup,
-      footer: kDebugMode
-          ? TextButton.icon(
+      footer: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextButton.icon(
+            key: const Key('login-emergency-access'),
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const EmergencyScreen())),
+            icon: const Icon(Icons.sos),
+            label: Text(L.tr('Dharura / SOS — bila kuingia'))),
+        if (kDebugMode)
+          TextButton.icon(
               onPressed: _busy ? null : _devLogin,
               icon: const Icon(Icons.developer_mode_rounded, size: 18),
-              label: Text(L.tr('Ingia kama tester wa ndani')),
-            )
-          : null,
+              label: Text(L.tr('Ingia kama tester wa ndani'))),
+      ]),
       contentBuilder: (context) =>
           Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(
@@ -220,7 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: InputDecoration(
                   labelText: S.phoneLabel,
                   hintText: S.phoneHint,
-                  prefixIcon: Icon(Icons.phone_outlined, size: 20)),
+                  prefixIcon: const Icon(Icons.phone_outlined, size: 20)),
               onChanged: (value) {
                 final formatted = formatLocal(value);
                 if (formatted != value) {

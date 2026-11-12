@@ -20,6 +20,7 @@ export interface DomainEvent {
     | 'consultation.message'
     | 'checkin.deviation'
     | 'emergency.dispatched'
+    | 'emergency.updated'
     | 'device.alert';
   entity: string;
   id: string;

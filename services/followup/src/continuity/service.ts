@@ -1,5 +1,6 @@
 import { prisma, type Prisma } from '@a-health/database';
 import { appendAudit, conflict, forbidden, notFound, unprocessable } from '@a-health/http';
+import { requiresUrgentReview } from '../engine/red-flags.js';
 import { buildSchedule, doseState, ScheduleError, type ScheduleInput } from './schedule.js';
 
 export interface Caller { sub: string; role: string; cpid?: string; ppid?: string }
@@ -171,18 +172,28 @@ export async function markRead(id: string, caller: Caller) {
   if (!result.count && !await prisma.careReminder.findFirst({ where: { id, patient: own(caller.sub) }, select: { id: true } })) throw forbidden('NOT_RESOURCE_OWNER', 'Reminder is not yours.');
   return { id, read: true };
 }
-export async function worklist(caller: Caller, query: { status: string; limit: number; cursor?: string }, now = new Date()) {
+export async function worklist(caller: Caller, query: { status: string; limit: number; cursor?: string; exceptions_only?: boolean }, now = new Date()) {
   const cpid = await clinician(caller);
-  const rows = await prisma.followUpCycle.findMany({ where: { clinicianId: cpid, status: query.status as never },
+  const rows = await prisma.followUpCycle.findMany({ where: { clinicianId: cpid, status: query.status as never, ...(query.exceptions_only ? { OR: [{ checkIns: { some: { isDeviation: true, reviewedAt: null } } }, { afpePlan: { is: { alerts: { some: { acknowledgedAt: null } } } } }] } : {}) },
     include: { patient: { select: { fullName: true } }, _count: { select: { checkIns: { where: { reviewedAt: null, isDeviation: true } } } } },
-    orderBy: [{ endDate: 'asc' }, { id: 'asc' }], take: query.limit + 1,
+    orderBy: [{ openDeviationCount: 'desc' }, { endDate: 'asc' }, { id: 'asc' }], take: query.limit + 1,
     ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
   });
   const data = rows.slice(0, query.limit);
+  const urgentCounts = new Map<string, number>();
+  if (data.length) {
+    const urgentCheckIns = await prisma.checkIn.findMany({
+      where: { followUpCycleId: { in: data.map(c => c.id) }, isDeviation: true, reviewedAt: null },
+      select: { followUpCycleId: true, deviationReasons: true },
+    });
+    for (const row of urgentCheckIns) {
+      if (requiresUrgentReview(row.deviationReasons)) urgentCounts.set(row.followUpCycleId, (urgentCounts.get(row.followUpCycleId) ?? 0) + 1);
+    }
+  }
   return { data: data.map(c => ({ id: c.id, patient_name: c.patient.fullName, patient_profile_id: c.patientProfileId,
     care_thread_id: c.careThreadId, start_date: iso(c.startDate), end_date: iso(c.endDate),
     status: c.status, outcome: c.outcome, review_due: c.status === 'active' && c.endDate < now,
-    unreviewed_checkins: c._count.checkIns, version: c.version })),
+    unreviewed_checkins: c._count.checkIns, urgent_checkins: urgentCounts.get(c.id) ?? 0, version: c.version })),
     meta: { has_more: rows.length > query.limit, next_cursor: rows.length > query.limit ? data.at(-1)?.id ?? null : null } };
 }
 export async function workDetail(id: string, caller: Caller, now = new Date()) {
@@ -199,7 +210,7 @@ export async function workDetail(id: string, caller: Caller, now = new Date()) {
     status: cycle.status, outcome: cycle.outcome, end_date: iso(cycle.endDate), version: cycle.version,
     review_due: cycle.status === 'active' && cycle.endDate < now,
     checkins: checkins.slice(0, 100).map(c => ({ id: c.id, scheduled_at: iso(c.scheduledAt), status: c.status,
-      is_deviation: c.isDeviation, responses: c.responses, deviation_reasons: c.deviationReasons,
+      is_deviation: c.isDeviation, urgent_care_required: requiresUrgentReview(c.deviationReasons), responses: c.responses, deviation_reasons: c.deviationReasons,
       reviewed_at: iso(c.reviewedAt), review_note: c.reviewNote, version: c.version })), checkins_truncated: checkins.length > 100,
     prescriptions: prescriptions.slice(0, 20).map(p => ({ id: p.id, status: p.status, can_schedule: p.prescribedById === caller.cpid,
       items: p.items.map(i => ({ id: i.id, medication_name: i.medicationName, dosage: i.dosage,

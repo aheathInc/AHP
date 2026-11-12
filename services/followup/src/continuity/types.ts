@@ -18,6 +18,7 @@ export const contactOutcomeSchema = z.object({
 export const patientQuerySchema = z.object({ patient_profile_id: z.string().uuid().optional(), cursor: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30) });
 export const worklistQuerySchema = z.object({ cursor: z.string().uuid().optional(), limit: z.coerce.number().int().min(1).max(100).default(30),
+  exceptions_only: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
   status: z.enum(['active', 'completed', 'cancelled']).default('active') });
 
 export const medicationQuerySchema = z.object({ cursor: z.string().uuid().optional(), limit: z.coerce.number().int().min(1).max(50).default(20) });

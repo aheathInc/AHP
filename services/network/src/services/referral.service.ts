@@ -332,8 +332,10 @@ export async function createReferral(caller: ReferralCaller, input: CreateReferr
         consultationId: consultation.id,
         sourceClinicianId: source.id,
         destinationFacilityId: destination.id,
-        status: { in: [...activeStatuses] },
-        expiresAt: { gt: new Date() },
+        OR: [
+          { status: { in: ['accepted', 'in_care'] } },
+          { status: { in: ['draft', 'submitted', 'received'] }, expiresAt: { gt: new Date() } },
+        ],
       },
     });
     if (existing) throw conflict('REFERRAL_ALREADY_EXISTS', 'An active referral already exists for this consultation and destination');
@@ -496,13 +498,16 @@ type ReferralAction = 'submit' | 'receive' | 'accept' | 'decline' | 'startCare' 
 
 async function transition(
   action: ReferralAction, id: string, caller: ReferralCaller, meta: ReferralMeta,
-  input?: { reason?: string; outcome?: CompleteReferralInput },
+  input?: { reason?: string; outcome?: CompleteReferralInput; base_version?: number },
 ) {
   await expireOrCancelIfNeeded(id);
-  const clinician = caller.role === 'clinician' ? await currentClinician(caller) : null;
   const updated = await prisma.$transaction(async (tx) => {
+    const clinician = caller.role === 'clinician' ? await currentClinician(caller, tx) : null;
     const row = await lockReferral(tx, id);
     if (!row) throw notFound('Referral not found');
+    if (input?.base_version !== undefined && input.base_version !== row.version) {
+      throw conflict('VERSION_CONFLICT', 'This referral has changed. Refresh and review it before taking action.');
+    }
     const now = new Date();
     const hasConsent = consentActive(row, now);
     if (!hasConsent && action !== 'cancel') {
@@ -594,13 +599,13 @@ async function transition(
   return serialise(updated, { includeClinical: true, includeOutcome: true });
 }
 
-export const submitReferral = (id: string, caller: ReferralCaller, meta: ReferralMeta) => transition('submit', id, caller, meta);
-export const receiveReferral = (id: string, caller: ReferralCaller, meta: ReferralMeta) => transition('receive', id, caller, meta);
-export const acceptReferral = (id: string, caller: ReferralCaller, meta: ReferralMeta) => transition('accept', id, caller, meta);
-export const declineReferral = (id: string, caller: ReferralCaller, reason: string, meta: ReferralMeta) => transition('decline', id, caller, meta, { reason });
-export const startReferralCare = (id: string, caller: ReferralCaller, meta: ReferralMeta) => transition('startCare', id, caller, meta);
-export const completeReferral = (id: string, caller: ReferralCaller, input: CompleteReferralInput, meta: ReferralMeta) => transition('complete', id, caller, meta, { outcome: input });
-export const cancelReferral = (id: string, caller: ReferralCaller, meta: ReferralMeta) => transition('cancel', id, caller, meta);
+export const submitReferral = (id: string, caller: ReferralCaller, meta: ReferralMeta, base_version?: number) => transition('submit', id, caller, meta, { base_version });
+export const receiveReferral = (id: string, caller: ReferralCaller, meta: ReferralMeta, base_version?: number) => transition('receive', id, caller, meta, { base_version });
+export const acceptReferral = (id: string, caller: ReferralCaller, meta: ReferralMeta, base_version?: number) => transition('accept', id, caller, meta, { base_version });
+export const declineReferral = (id: string, caller: ReferralCaller, reason: string, meta: ReferralMeta, base_version?: number) => transition('decline', id, caller, meta, { reason, base_version });
+export const startReferralCare = (id: string, caller: ReferralCaller, meta: ReferralMeta, base_version?: number) => transition('startCare', id, caller, meta, { base_version });
+export const completeReferral = (id: string, caller: ReferralCaller, input: CompleteReferralInput, meta: ReferralMeta) => transition('complete', id, caller, meta, { outcome: input, base_version: input.base_version });
+export const cancelReferral = (id: string, caller: ReferralCaller, meta: ReferralMeta, base_version?: number) => transition('cancel', id, caller, meta, { base_version });
 
 const messageAuthor = { author: { select: { user: { select: { fullName: true } } } } } as const;
 function serialiseMessage(row: Prisma.DigitalReferralMessageGetPayload<{ include: typeof messageAuthor }>) {

@@ -1,4 +1,4 @@
-import { prisma } from '@a-health/database';
+import { prisma, type Prisma } from '@a-health/database';
 import { appendAudit } from '@a-health/http';
 
 export interface EmergencyContext {
@@ -8,35 +8,33 @@ export interface EmergencyContext {
   breakGlass: boolean;
 }
 
-/**
- * Resolves what a receiving facility may know about a patient at dispatch.
- *
- * A conscious patient with an existing `emergency_minimum` or broader consent
- * grant is served from that grant. An unconscious patient with no grant is
- * served anyway — a person collapsed in the street cannot consent — but that
- * path is named `breakGlass` in the audit trail and always writes an entry,
- * exactly as the schema's own comment on PatientConsent describes. Silence
- * would be worse than either withholding the context or logging the access.
+/** Evaluates minimum emergency-context access. Standing consent is scoped;
+ * access without a grant requires an operator's explicit, audited justification.
+ * Returning an object is not confirmation that a hospital received a handover.
  */
 export async function resolveEmergencyContext(
   patientProfileId: string,
   emergencyId: string,
   actorUserId: string | undefined,
+  options: { transaction?: Prisma.TransactionClient; breakGlassReason?: string } = {},
 ): Promise<EmergencyContext | null> {
-  const patient = await prisma.patientProfile.findUnique({ where: { id: patientProfileId } });
-  if (!patient) return null;
+  const db = options.transaction ?? prisma;
 
-  const grant = await prisma.patientConsent.findFirst({
+  const grant = await db.patientConsent.findFirst({
     where: {
       patientProfileId,
       granteeType: 'emergency_responder',
       allowed: true,
+      scope: { in: ['emergency_minimum','full_history'] },
       revokedAt: null,
       OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
   });
 
   const breakGlass = !grant;
+  if (breakGlass && (!options.breakGlassReason || options.breakGlassReason.trim().length < 10)) return null;
+  const patient = await db.patientProfile.findUnique({ where: { id: patientProfileId }, select: { allergies:true, chronicConditions:true,bloodType:true } });
+  if (!patient) return null;
 
   if (breakGlass) {
     await appendAudit({
@@ -44,10 +42,12 @@ export async function resolveEmergencyContext(
       action: 'emergency.context_break_glass_access',
       entityType: 'patient_profiles',
       entityId: patientProfileId,
-      reason: 'No standing emergency-responder consent at time of dispatch',
+      reason: options.breakGlassReason,
       metadata: { emergencyRequestId: emergencyId },
-    });
+    }, options.transaction);
   }
+
+  if (!breakGlass) await appendAudit({ actorUserId: actorUserId ?? null, action:'emergency.context_consent_access', entityType:'patient_profiles', entityId:patientProfileId, metadata:{emergencyRequestId:emergencyId} }, options.transaction);
 
   return {
     allergies: Array.isArray(patient.allergies) ? (patient.allergies as string[]) : [],

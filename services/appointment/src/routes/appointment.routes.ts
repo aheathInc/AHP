@@ -11,9 +11,13 @@ const { requireAuth } = createAuthGuards(tokens);
 const idempotency = createIdempotency(env.IDEMPOTENCY_TTL_HOURS);
 
 export const appointmentRouter = Router();
+appointmentRouter.use('/appointments', (_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
 
 appointmentRouter.post('/appointments', requireAuth, idempotency, c.create);
 appointmentRouter.get('/appointments', requireAuth, c.list);
 appointmentRouter.get('/appointments/:appointment_id', requireAuth, c.getOne);
 appointmentRouter.post('/appointments/:appointment_id/start', requireAuth, idempotency, c.start);
 appointmentRouter.post('/appointments/:appointment_id/cancel', requireAuth, idempotency, c.cancel);
+
+appointmentRouter.get('/appointments/:appointment_id/reschedule-options', requireAuth, c.rescheduleOptions);
+appointmentRouter.post('/appointments/:appointment_id/reschedule', requireAuth, c.requireRescheduleOwner, idempotency, c.reschedule);

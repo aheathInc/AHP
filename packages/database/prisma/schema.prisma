@@ -619,8 +619,9 @@ model Slot {
   durationMin Int                  @map("duration_minutes")
   modality    ConsultationModality @default(chat)
   isBooked    Boolean              @default(false) @map("is_booked")
+  isPublished Boolean              @default(true) @map("is_published")
 
-  appointment Appointment?
+  appointments Appointment[]
 
   version   Int      @default(1)
   createdAt DateTime @default(now()) @map("created_at")
@@ -633,7 +634,7 @@ model Slot {
 
 model Appointment {
   id     String @id @default(uuid()) @db.Uuid
-  slotId String @unique @map("slot_id") @db.Uuid
+  slotId String @map("slot_id") @db.Uuid
   slot   Slot   @relation(fields: [slotId], references: [id], onDelete: Restrict)
 
   careThreadId String?     @map("care_thread_id") @db.Uuid
@@ -657,6 +658,7 @@ model Appointment {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([slotId])
   @@index([patientProfileId, startsAt])
   @@index([clinicianId, startsAt])
   @@index([status, startsAt])
@@ -1017,6 +1019,7 @@ model AdherenceLog {
 // ---------------------------------------------------------------------------
 
 model FollowUpCycle {
+  afpePlan AfpePlan?
   id           String     @id @default(uuid()) @db.Uuid
   careThreadId String     @map("care_thread_id") @db.Uuid
   careThread   CareThread @relation(fields: [careThreadId], references: [id], onDelete: Cascade)
@@ -1058,6 +1061,9 @@ model FollowUpCycle {
 }
 
 model CheckIn {
+  afpeAssessment AfpeAssessment?
+  afpeInteractions AfpeInteraction[]
+  afpeDelivery AfpeDelivery?
   id              String        @id @default(uuid()) @db.Uuid
   followUpCycleId String        @map("follow_up_cycle_id") @db.Uuid
   followUpCycle   FollowUpCycle @relation(fields: [followUpCycleId], references: [id], onDelete: Cascade)
@@ -1791,9 +1797,11 @@ model ProviderClinicalCollaborationMessage {
   authorClinicianId String           @map("author_clinician_id") @db.Uuid
   author            ClinicianProfile @relation(fields: [authorClinicianId], references: [id], onDelete: Restrict)
 
+  clientMessageId String? @map("client_message_id") @db.Uuid
   body      String   @db.VarChar(8000)
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@unique([collaborationId, authorClinicianId, clientMessageId], map:"collaboration_message_client_key")
   @@index([collaborationId, createdAt])
   @@map("provider_clinical_collaboration_messages")
 }
@@ -2013,6 +2021,15 @@ model AiInference {
 // ===========================================================================
 
 model EmergencyRequest {
+  clientRequestId String? @unique @map("client_request_id") @db.Uuid
+  clientPayloadHash String? @map("client_payload_hash") @db.VarChar(64)
+  // 2=highest, 1=not yet assessed, 0=other; selected by a trained dispatcher.
+  dispatchPriority Int @default(1) @map("dispatch_priority")
+  acknowledgedAt DateTime? @map("acknowledged_at")
+  locationSource String @default("manual") @map("location_source") @db.VarChar(20)
+  locationAccuracyM Float? @map("location_accuracy_m")
+  locationCapturedAt DateTime? @map("location_captured_at")
+  landmark String? @db.VarChar(500)
   id       String            @id @default(uuid()) @db.Uuid
   scale    EmergencyScale
   category EmergencyCategory @default(other)
@@ -2548,6 +2565,16 @@ model InvestigationOrder {
   status            InvestigationStatus @default(ordered)
   clinicalNotes     String?             @map("clinical_notes")
 
+  specimenReference String? @map("specimen_reference") @db.VarChar(100)
+  specimenType String? @map("specimen_type") @db.VarChar(100)
+  collectedAt DateTime? @map("collected_at")
+  receivedAt DateTime? @map("received_at")
+  receivedById String? @map("received_by_id") @db.Uuid
+  reportPreparedAt DateTime? @map("report_prepared_at")
+  enteredById String? @map("entered_by_id") @db.Uuid
+  releasedById String? @map("released_by_id") @db.Uuid
+  releasedByName String? @map("released_by_name") @db.VarChar(200)
+
   narrative     String?
   attachmentKey String? @map("attachment_key")
 
@@ -2563,6 +2590,7 @@ model InvestigationOrder {
   resultedAt DateTime? @map("resulted_at")
 
   values InvestigationValue[]
+  reportRevisions InvestigationReportRevision[]
 
   version   Int      @default(1)
   createdAt DateTime @default(now()) @map("created_at")
@@ -2576,6 +2604,18 @@ model InvestigationOrder {
   @@map("investigation_orders")
 }
 
+model InvestigationReportRevision {
+  id String @id @default(uuid()) @db.Uuid
+  orderId String @map("order_id") @db.Uuid
+  order InvestigationOrder @relation(fields:[orderId],references:[id],onDelete:Cascade)
+  version Int
+  snapshot Json
+  correctedById String @map("corrected_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([orderId,version])
+  @@map("investigation_report_revisions")
+}
+
 model InvestigationValue {
   id      String             @id @default(uuid()) @db.Uuid
   orderId String             @map("order_id") @db.Uuid
@@ -2586,6 +2626,8 @@ model InvestigationValue {
   unit          String?    @db.VarChar(40)
   referenceLow  Float?     @map("reference_low")
   referenceHigh Float?     @map("reference_high")
+  criticalLow Float? @map("critical_low")
+  criticalHigh Float? @map("critical_high")
   flag          ResultFlag @default(normal)
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -2644,11 +2686,14 @@ model Discussion {
 
   isCaseDiscussion Boolean @default(false) @map("is_case_discussion")
 
-  /// Present for case discussions. The thread is de-identified on the way in —
-  /// what is shared is the clinical question, not the patient.
+  /// Legacy case link; never serialized into group DTOs. Free text is not automatically de-identified.
   careThreadId String?     @map("care_thread_id") @db.Uuid
   careThread   CareThread? @relation(fields: [careThreadId], references: [id], onDelete: Restrict)
 
+  clientRequestId String? @map("client_request_id") @db.Uuid
+  hiddenAt DateTime? @map("hidden_at")
+  moderatedByUserId String? @map("moderated_by_user_id") @db.Uuid
+  reports ProfessionalContentReport[]
   replyCount Int @default(0) @map("reply_count")
 
   replies DiscussionReply[]
@@ -2658,6 +2703,7 @@ model Discussion {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@unique([authorClinicianId, clientRequestId], map:"network_post_request_key")
   @@index([communityId, createdAt])
   @@index([authorClinicianId])
   @@map("discussions")
@@ -2671,6 +2717,9 @@ model DiscussionReply {
   authorClinicianId String           @map("author_clinician_id") @db.Uuid
   author            ClinicianProfile @relation(fields: [authorClinicianId], references: [id], onDelete: Restrict)
 
+  clientReplyId String? @map("client_reply_id") @db.Uuid
+  hiddenAt DateTime? @map("hidden_at")
+  moderatedByUserId String? @map("moderated_by_user_id") @db.Uuid
   body String
   parentReplyId String? @map("parent_reply_id") @db.Uuid
   parent DiscussionReply? @relation("ReplyThread", fields: [parentReplyId], references: [id], onDelete: Restrict)
@@ -2681,10 +2730,29 @@ model DiscussionReply {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@unique([discussionId, authorClinicianId, clientReplyId], map:"network_reply_request_key")
   @@index([discussionId, createdAt])
   @@unique([id, discussionId])
   @@index([parentReplyId])
   @@map("discussion_replies")
+}
+
+model ProfessionalContentReport {
+ id String @id @default(uuid()) @db.Uuid
+ discussionId String @map("discussion_id") @db.Uuid
+ discussion Discussion @relation(fields:[discussionId],references:[id],onDelete:Cascade)
+ replyId String? @map("reply_id") @db.Uuid
+ targetKey String @map("target_key") @db.VarChar(40)
+ reporterClinicianId String @map("reporter_clinician_id") @db.Uuid
+ category String @db.VarChar(30)
+ status String @default("open") @db.VarChar(20)
+ reviewerUserId String? @map("reviewer_user_id") @db.Uuid
+ reviewedAt DateTime? @map("reviewed_at")
+ createdAt DateTime @default(now()) @map("created_at")
+ version Int @default(1)
+ @@unique([discussionId,reporterClinicianId,targetKey],map:"network_report_target_key")
+ @@index([status,createdAt,id])
+ @@map("professional_content_reports")
 }
 
 enum CommunityNotificationMode {
@@ -2816,6 +2884,7 @@ model Family {
 
   members     FamilyMember[]
   assignments FamilyAssignment[]
+  subscriptionRequests FamilySubscriptionRequest[]
 
   version   Int      @default(1)
   createdAt DateTime @default(now()) @map("created_at")
@@ -2824,6 +2893,43 @@ model Family {
   @@index([subscriptionTier])
   @@index([updatedAt])
   @@map("families")
+}
+
+/// Administrative package catalogue. Prices do not create payment transactions.
+model FamilyPlan {
+  tier SubscriptionTier @id
+  name String @db.VarChar(100)
+  description String @db.VarChar(600)
+  benefits String[] @default([])
+  exclusions String[] @default([])
+  priceMinor Int? @map("price_minor")
+  currency String @default("TZS") @db.VarChar(3)
+  billingPeriod String @default("monthly") @map("billing_period") @db.VarChar(12)
+  acceptingRequests Boolean @default(false) @map("accepting_requests")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("family_plans")
+}
+
+model FamilySubscriptionRequest {
+  id String @id @default(uuid()) @db.Uuid
+  familyId String @map("family_id") @db.Uuid
+  family Family @relation(fields:[familyId],references:[id],onDelete:Cascade)
+  tier SubscriptionTier
+  planVersion Int @map("plan_version")
+  planSnapshot Json @default("{}") @map("plan_snapshot")
+  familyVersion Int @map("family_version")
+  requestedByUserId String @map("requested_by_user_id") @db.Uuid
+  clientRequestId String @map("client_request_id") @db.Uuid
+  status String @default("pending") @db.VarChar(12)
+  reviewedByUserId String? @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt DateTime? @map("reviewed_at")
+  reviewNote String? @map("review_note") @db.VarChar(600)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([requestedByUserId,clientRequestId], map: "family_subscription_request_key")
+  @@index([status,createdAt,id])
+  @@map("family_subscription_requests")
 }
 
 model FamilyMember {
@@ -4105,4 +4211,94 @@ model PatientEnrollment {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   @@map("patient_enrollments")
+}
+
+// AFPE records retain the exact policy, baseline and evidence used at assessment time.
+model AfpePlan {
+  id String @id @default(uuid()) @db.Uuid
+  cycleId String @unique @map("cycle_id") @db.Uuid
+  cycle FollowUpCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  category String @db.VarChar(20)
+  baseline Json
+  diagnosisCodes Json @map("diagnosis_codes")
+  diagnosisRuleIds Json @default("[]") @map("diagnosis_rule_ids")
+  durationDays Int @map("duration_days")
+  intervalDays Int @map("interval_days")
+  nextDueAt DateTime @map("next_due_at")
+  consentConfirmedAt DateTime @map("consent_confirmed_at")
+  ruleVersion String @map("rule_version") @db.VarChar(40)
+  createdAt DateTime @default(now()) @map("created_at")
+  assessments AfpeAssessment[]
+  interactions AfpeInteraction[]
+  deliveries AfpeDelivery[]
+  fallbackChannel String? @map("fallback_channel") @db.VarChar(20)
+  fallbackUserId String? @map("fallback_user_id") @db.Uuid
+  fallbackConsentAt DateTime? @map("fallback_consent_at")
+  alerts AfpeAlert[]
+  @@index([nextDueAt])
+  @@map("afpe_plans")
+}
+model AfpeAssessment {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  plan AfpePlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  checkInId String @unique @map("check_in_id") @db.Uuid
+  checkIn CheckIn @relation(fields: [checkInId], references: [id], onDelete: Restrict)
+  score Int?
+  band String @db.VarChar(20)
+  components Json
+  missing Json
+  sources Json
+  clinicalSummary Json @map("clinical_summary")
+  patientReport Json @map("patient_report")
+  ruleVersion String @map("rule_version") @db.VarChar(40)
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([planId, createdAt])
+  @@map("afpe_assessments")
+}
+model AfpeAlert {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  plan AfpePlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  dedupeKey String @unique @map("dedupe_key") @db.VarChar(200)
+  reason String @db.VarChar(60)
+  acknowledgedAt DateTime? @map("acknowledged_at")
+  acknowledgedBy String? @map("acknowledged_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([planId, acknowledgedAt])
+  @@map("afpe_alerts")
+}
+model AfpeInteraction {
+  externalMessageId String? @unique @map("external_message_id") @db.VarChar(180)
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  plan AfpePlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  checkInId String @map("check_in_id") @db.Uuid
+  checkIn CheckIn @relation(fields: [checkInId], references: [id], onDelete: Restrict)
+  actorUserId String @map("actor_user_id") @db.Uuid
+  patientText String @map("patient_text") @db.VarChar(2000)
+  reply Json
+  mode String @db.VarChar(30)
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([planId, createdAt])
+  @@map("afpe_interactions")
+}
+
+model AfpeDelivery {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  plan AfpePlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  checkInId String @unique @map("check_in_id") @db.Uuid
+  checkIn CheckIn @relation(fields: [checkInId], references: [id], onDelete: Restrict)
+  channel String @db.VarChar(20)
+  recipientUserId String @map("recipient_user_id") @db.Uuid
+  status String @default("queued") @db.VarChar(20)
+  attempts Int @default(0)
+  claimToken String? @map("claim_token") @db.Uuid
+  claimUntil DateTime? @map("claim_until")
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at")
+  providerRef String? @map("provider_ref") @db.VarChar(180)
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([status, nextAttemptAt])
+  @@map("afpe_deliveries")
 }

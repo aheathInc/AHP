@@ -85,9 +85,10 @@ describe('ordering', () => {
   it('creates an order for the thread\u2019s patient', async () => {
     const { thread, profile } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
 
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'FBC', investigation_type: 'laboratory' },
       meta,
     );
@@ -111,8 +112,9 @@ describe('ordering', () => {
   it('does not expose clinician-only clinical notes to the owning patient', async () => {
     const { user, thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       {
         care_thread_id: thread.id,
         investigation_code: 'SYNTHETIC-TEST',
@@ -127,7 +129,7 @@ describe('ordering', () => {
     assert.equal(Object.hasOwn(patientView, 'clinical_notes'), false);
 
     const clinicianView = await investigations.getOrder(order.id, {
-      sub: randomUUID(), role: 'clinician', cpid: clinician.id,
+      sub: clinician.userId, role: 'clinician', cpid: clinician.id,
     });
     assert.equal(clinicianView.clinical_notes, 'Synthetic clinician-only test note');
   });
@@ -137,15 +139,16 @@ describe('filing results', () => {
   it('computes is_critical server-side from a breached critical bound', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'K', investigation_type: 'laboratory' },
       meta,
     );
     orderIds.push(order.id);
 
     const result = await investigations.fileResult(
-      order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { values: [{ analyte: 'Potassium', value: '6.8', reference_low: 3.5, reference_high: 5.0, critical_high: 6.5 }] },
       meta,
     );
@@ -160,15 +163,16 @@ describe('filing results', () => {
   it('does not mark a normal result critical', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'FBC', investigation_type: 'laboratory' },
       meta,
     );
     orderIds.push(order.id);
 
     const result = await investigations.fileResult(
-      order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { values: [{ analyte: 'Haemoglobin', value: '13.5', reference_low: 12, reference_high: 16 }] },
       meta,
     );
@@ -178,8 +182,9 @@ describe('filing results', () => {
   it('refuses a patient from filing a result', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'FBC', investigation_type: 'laboratory' },
       meta,
     );
@@ -208,16 +213,17 @@ describe('filing results', () => {
   it('refuses a different clinician from filing another clinician\u2019s result', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const otherClinician = await makeClinician();
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'FBC', investigation_type: 'laboratory' },
       meta,
     );
     orderIds.push(order.id);
     await assert.rejects(
       () => investigations.fileResult(
-        order.id, { sub: randomUUID(), role: 'clinician', cpid: otherClinician.id },
+        order.id, { sub: otherClinician.userId, role: 'clinician', cpid: otherClinician.id },
         { values: [{ analyte: 'Haemoglobin', value: '13.5' }] }, meta,
       ),
       (e: AppError) => e.code === 'ROLE_NOT_PERMITTED',
@@ -227,20 +233,21 @@ describe('filing results', () => {
   it('refuses to file a result twice', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'FBC', investigation_type: 'laboratory' },
       meta,
     );
     orderIds.push(order.id);
     await investigations.fileResult(
-      order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { values: [{ analyte: 'Haemoglobin', value: '13.5' }] }, meta,
     );
 
     await assert.rejects(
       () => investigations.fileResult(
-        order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+        order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
         { values: [{ analyte: 'Haemoglobin', value: '13.5' }] }, meta,
       ),
       (e: AppError) => e.code === 'STATE_TRANSITION_INVALID',
@@ -252,18 +259,19 @@ describe('acknowledging', () => {
   it('closes the loop on a critical result', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'K', investigation_type: 'laboratory' },
       meta,
     );
     orderIds.push(order.id);
     await investigations.fileResult(
-      order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { values: [{ analyte: 'Potassium', value: '6.8', critical_high: 6.5 }] }, meta,
     );
 
-    const acknowledged = await investigations.acknowledgeResult(order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id }, meta);
+    const acknowledged = await investigations.acknowledgeResult(order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id }, meta);
     assert.equal(acknowledged.status, 'acknowledged');
     assert.ok(acknowledged.acknowledged_at);
   });
@@ -271,15 +279,16 @@ describe('acknowledging', () => {
   it('refuses to acknowledge before a result exists', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'FBC', investigation_type: 'laboratory' },
       meta,
     );
     orderIds.push(order.id);
 
     await assert.rejects(
-      () => investigations.acknowledgeResult(order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id }, meta),
+      () => investigations.acknowledgeResult(order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id }, meta),
       (e: AppError) => e.code === 'STATE_TRANSITION_INVALID',
     );
   });
@@ -287,20 +296,21 @@ describe('acknowledging', () => {
   it('refuses to acknowledge the same result twice', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'FBC', investigation_type: 'laboratory' },
       meta,
     );
     orderIds.push(order.id);
     await investigations.fileResult(
-      order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { values: [{ analyte: 'Haemoglobin', value: '13.5' }] }, meta,
     );
-    await investigations.acknowledgeResult(order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id }, meta);
+    await investigations.acknowledgeResult(order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id }, meta);
 
     await assert.rejects(
-      () => investigations.acknowledgeResult(order.id, { sub: randomUUID(), role: 'clinician', cpid: clinician.id }, meta),
+      () => investigations.acknowledgeResult(order.id, { sub: clinician.userId, role: 'clinician', cpid: clinician.id }, meta),
       (e: AppError) => e.code === 'RESULT_ALREADY_ACKNOWLEDGED',
     );
   });
@@ -310,8 +320,9 @@ describe('visibility', () => {
   it('refuses a stranger reading someone else\u2019s order', async () => {
     const { thread } = await makePatient();
     const clinician = await makeClinician();
+    await prisma.careThread.update({where:{id:thread.id},data:{primaryClinicianId:clinician.id}});
     const order = await investigations.createOrder(
-      { sub: randomUUID(), role: 'clinician', cpid: clinician.id },
+      { sub: clinician.userId, role: 'clinician', cpid: clinician.id },
       { care_thread_id: thread.id, investigation_code: 'FBC', investigation_type: 'laboratory' },
       meta,
     );

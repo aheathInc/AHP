@@ -193,7 +193,9 @@ describe('synthetic prescription handoff', () => {
     assert.ok(noLocation.data.every((row) => row.pharmacy.distance_km === null));
     await putStock(far.id, 0, 'TEST OUT OF STOCK MEDICINE');
     const outOfStock = await pharmacies.searchMedication({ medication_name: 'TEST OUT OF STOCK MEDICINE' });
-    assert.equal(outOfStock.data.length, 0);
+    assert.equal(outOfStock.data.length, 1);
+    assert.equal(outOfStock.data[0]!.fulfillment_status, 'unavailable');
+    assert.equal(outOfStock.data[0]!.quantity_on_hand, 0);
     await putStock(near.id, null, 'TEST QUALITATIVE MEDICINE');
     const unknown = await pharmacies.searchMedication({ medication_name: 'TEST QUALITATIVE MEDICINE' });
     assert.equal(unknown.data[0]!.fulfillment_status, 'unknown');
@@ -310,4 +312,31 @@ describe('synthetic prescription handoff', () => {
     assert.equal(result.ok, true);
     assert.ok(result.eventsChecked > 0);
   });
+});
+
+
+it('automatic recommendations match the full medication name before limiting results', async () => {
+  const pharmacy = await makePharmacy();
+  const name = `TEST EXACT MEDICINE ${randomUUID()}`;
+  await putStock(pharmacy.id, 20, name);
+  await putStock(pharmacy.id, 40, `${name} DIFFERENT STRENGTH`);
+  const exact = await pharmacies.searchMedication({ medication_name: name.toLowerCase(), exact_match: true, lat: -6.8, lng: 39.28, required_quantity: 10 });
+  assert.equal(exact.data.length, 1);
+  assert.equal(exact.data[0]!.medication_name, name);
+  assert.equal(exact.data[0]!.fulfillment_status, 'available');
+  const broad = await pharmacies.searchMedication({ medication_name: name });
+  assert.equal(broad.data.length, 2);
+});
+
+it('stale facility stock is unknown rather than falsely suppressing alternatives', async () => {
+  const facility = await makeFacility();
+  const pharmacy = await makePharmacy(facility.id);
+  const { prescription, patient } = await makePrescription({ facilityId: facility.id });
+  const stock = await putStock(pharmacy.id, 20);
+  let result = await dispensing.getPrescriptionFulfillment(prescription.id, { sub: patient.id, role: 'patient' });
+  assert.equal(result.facility_pharmacy!.items[0]!.availability, 'available');
+  await prisma.pharmacyStock.update({ where: { id: stock.id }, data: { lastReportedAt: new Date(Date.now() - 25 * 3600000) } });
+  result = await dispensing.getPrescriptionFulfillment(prescription.id, { sub: patient.id, role: 'patient' });
+  assert.equal(result.facility_pharmacy!.items[0]!.availability, 'unknown');
+  assert.equal(result.facility_pharmacy!.items[0]!.quantity_on_hand, null);
 });

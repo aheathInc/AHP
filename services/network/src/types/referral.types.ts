@@ -20,11 +20,15 @@ export const createReferralSchema = z.object({
   priority: z.enum(['routine', 'urgent', 'emergency']).default('routine'),
 });
 
-export const declineReferralSchema = z.object({
+export const referralActionSchema = z.object({
+  base_version: z.number().int().positive().optional(),
+});
+
+export const declineReferralSchema = referralActionSchema.extend({
   reason: z.string().trim().min(3).max(500),
 });
 
-export const completeReferralSchema = z.object({
+export const completeReferralSchema = referralActionSchema.extend({
   outcome_status: z.enum(['care_provided', 'redirected', 'unable_to_complete']),
   follow_up_recommendation: z.string().trim().max(1000).optional(),
   patient_instructions: z.string().trim().max(1000).optional(),

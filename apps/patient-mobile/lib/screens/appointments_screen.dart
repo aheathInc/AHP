@@ -1,3 +1,4 @@
+import 'appointment_reschedule_screen.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,13 @@ import '../core/patient_care.dart';
 import '../core/phone.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
+
+String _appointmentDate(String? raw) {
+  final date = DateTime.tryParse(raw ?? '')?.toLocal();
+  return date == null
+      ? L.tr('Muda haujulikani')
+      : '${DateFormat('EEE d MMM y, HH:mm').format(date)} (${date.timeZoneName})';
+}
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
@@ -142,24 +150,41 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  Future<void> _cancel(String id) async {
+  Future<void> _cancel(Map<String, dynamic> appointment) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final id = appointment['id'] as String;
     final key = newOpId();
     try {
-      await _care.cancelAppointment(id, opId: key);
+      await _care.cancelAppointment(id,
+          opId: key, baseVersion: appointment['version'] as int?);
       await _load();
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
       if (mounted) setState(() => _error = L.tr('Miadi haikughairiwa.'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  String _date(String? raw) {
-    final d = DateTime.tryParse(raw ?? '');
-    return d == null
-        ? L.tr('Muda haujulikani')
-        : DateFormat('EEE d MMM, HH:mm').format(d.toLocal());
+  Future<void> _reschedule(Map<String, dynamic> appointment) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(
+        builder: (_) => AppointmentRescheduleScreen(
+            appointmentId: appointment['id'] as String)));
+    if (!mounted) return;
+    await _load();
+    if (mounted) {
+      setState(() => _busy = false);
+      if (changed == true)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(L.tr('Muda mpya wa miadi umethibitishwa na seva.'))));
+    }
   }
+
+  String _date(String? raw) => _appointmentDate(raw);
 
   @override
   Widget build(BuildContext context) {
@@ -205,13 +230,21 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                                 a['modality'] ?? ''
                               ]),
                             ),
+                            if (a['status'] == 'booked' &&
+                                DateTime.tryParse(
+                                            a['starts_at'] as String? ?? '')
+                                        ?.isAfter(DateTime.now()) ==
+                                    true)
+                              TextButton.icon(
+                                  onPressed:
+                                      _busy ? null : () => _reschedule(a),
+                                  icon: const Icon(Icons.edit_calendar),
+                                  label: Text(L.tr('Badilisha muda'))),
                             if (a['status'] == 'booked')
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _cancel(a['id'] as String),
+                                  onPressed: _busy ? null : () => _cancel(a),
                                   child: Text(L.tr('Ghairi miadi')),
                                 ),
                               ),
@@ -300,13 +333,27 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(_appointment!['starts_at'] as String? ??
-                    L.tr('Muda haujulikani')),
+                Text(_appointmentDate(_appointment!['starts_at'] as String?)),
                 Text(
                   L.tr("Muda wa huduma: {0} min",
                       [_appointment!['duration_minutes'] ?? '—']),
                 ),
                 Text(L.tr("Njia: {0}", [_appointment!['modality'] ?? '—'])),
+                if (_appointment!['status'] == 'booked' &&
+                    DateTime.tryParse(
+                                _appointment!['starts_at'] as String? ?? '')
+                            ?.isAfter(DateTime.now()) ==
+                        true)
+                  OutlinedButton.icon(
+                      onPressed: () async {
+                        await Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => AppointmentRescheduleScreen(
+                                appointmentId: widget.appointmentId)));
+                        if (mounted) await _load();
+                      },
+                      icon: const Icon(Icons.edit_calendar),
+                      label: Text(L.tr('Badilisha muda'))),
+                if (_error != null) Notice(_error!),
                 if (_appointment!['reason'] != null)
                   Text(L.tr("Sababu: {0}", [_appointment!['reason']])),
                 if (_appointment!['cancelled_reason'] != null)

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {diagnosticStatus} from './DiagnosticReport';
 import { useEffect, useRef, useState } from 'react';
 import { api, errorMessage, type InvestigationOrder, type Page } from '@/lib/api';
 import { dateTime } from '@/lib/format';
@@ -38,7 +39,7 @@ export function LabWorkspace() {
   return <section aria-label="Laboratory orders">
     <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
       <Field label="Order status" htmlFor="lab-status"><select id="lab-status" value={status} disabled={busy} onChange={e => setStatus(e.target.value)} className={inputClass}>
-        <option value="">All statuses</option><option value="ordered">Awaiting sample</option><option value="collected">Sample received</option>
+        <option value="">All statuses</option><option value="ordered">Awaiting sample</option><option value="collected">In laboratory / awaiting release</option>
         <option value="resulted">Results submitted</option><option value="acknowledged">Acknowledged</option><option value="cancelled">Cancelled</option>
       </select></Field>
       <Button type="button" variant="quiet" disabled={busy} onClick={() => void load()}>Refresh orders</Button>
@@ -48,14 +49,14 @@ export function LabWorkspace() {
       {!orders.length ? <Empty>{facilities.length ? 'No orders match this status in your assigned laboratories.' : 'Orders will appear after laboratory access is assigned.'}</Empty> :
         <><ul className="divide-y divide-line sm:hidden">{orders.map(o => <li key={o.id} className="space-y-2 py-5">
           <h2 className="break-words font-semibold">{o.patient_name ?? o.patient_profile_id}</h2>
-          <p className="break-words">{o.investigation_code}</p><p className="text-sm text-ink-soft">{o.facility_name} · {o.urgency}</p>
-          <Badge tone={o.is_critical ? 'problem' : 'neutral'}>{o.is_critical ? 'Critical · ' : ''}{o.status === 'collected' ? 'Sample received' : o.status}</Badge>
+          <p className="break-words">{o.investigation_code}</p><p className="text-sm text-ink-soft">{o.facility_name} · {o.urgency}{o.specimen_reference?` · ${o.specimen_reference}`:''}</p>
+          <Badge tone={o.is_critical ? 'problem' : 'neutral'}>{o.is_critical ? 'Critical · ' : ''}{diagnosticStatus(o)}</Badge>
           <p className="text-sm text-ink-soft">{dateTime(o.ordered_at)}</p>
           <Link className="ahp-view-link" href={`/lab/${o.id}`}>Open order<span className="sr-only"> {o.investigation_code}</span></Link>
         </li>)}</ul>
         <div className="ahp-card hidden min-w-0 p-0 sm:block"><div className="ahp-table-wrap max-w-full" tabIndex={0} role="region" aria-label="Laboratory order table, scroll horizontally for all columns"><table className="!table min-w-[680px]"><thead><tr><th scope="col">Patient / order</th><th scope="col">Laboratory</th><th scope="col">Status</th><th scope="col">Ordered</th><th scope="col">Action</th></tr></thead><tbody>
           {orders.map(o => <tr key={o.id}><td><span className="ahp-row-title">{o.patient_name ?? o.patient_profile_id}</span><small className="ahp-row-secondary">{o.investigation_code} · {o.urgency}</small></td>
-            <td>{o.facility_name}</td><td><Badge tone={o.is_critical ? 'problem' : 'neutral'}>{o.is_critical ? 'Critical · ' : ''}{o.status === 'collected' ? 'Sample received' : o.status}</Badge></td>
+            <td>{o.facility_name}<small className="ahp-row-secondary">{o.specimen_reference??'Awaiting specimen reference'}</small></td><td><Badge tone={o.is_critical ? 'problem' : 'neutral'}>{o.is_critical ? 'Critical · ' : ''}{diagnosticStatus(o)}</Badge></td>
             <td>{dateTime(o.ordered_at)}</td><td><Link className="ahp-view-link" href={`/lab/${o.id}`}>Open<span className="sr-only"> {o.investigation_code}</span></Link></td></tr>)}
         </tbody></table></div></div></>}
       {cursor && <div className="mt-4"><Button disabled={busy} onClick={() => void load(cursor)}>Load more orders</Button></div>}

@@ -746,13 +746,17 @@ void main() {
     );
     await tester.pumpWidget(const MaterialApp(home: EmergencyScreen()));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('emergency-category-medical')));
+    await tester.ensureVisible(find.text('Weka koordineti mwenyewe'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Weka koordineti mwenyewe'));
     await tester.pump();
     Future<void> reveal(Finder target) async {
       for (var attempt = 0; attempt < 8 && !tester.any(target); attempt++) {
         await tester.drag(find.byType(ListView), const Offset(0, -400));
         await tester.pumpAndSettle();
       }
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
       expect(target, findsOneWidget);
     }
 
@@ -769,7 +773,8 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, 900));
     await tester.pumpAndSettle();
     expect(
-      find.text('ONLINE REQUEST UNAVAILABLE. Hakuna ombi lililotumwa.'),
+      find.text(
+          'Ombi halijathibitishwa; hakuna uthibitisho wa msaada kutumwa. Piga 112 au jaribu tena ombi lilelile ukiwa na intaneti.'),
       findsOneWidget,
     );
     expect(find.text('Ombi lililorekodiwa'), findsNothing);

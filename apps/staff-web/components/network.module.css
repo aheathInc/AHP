@@ -265,3 +265,6 @@
 .groups>summary{font-size:1.15rem;font-weight:700;cursor:pointer;min-height:44px;align-content:center;margin-bottom:12px}
 @media(max-width:850px){.groups>summary{margin-bottom:0}.groups[open]>summary{margin-bottom:16px}.sidebar{padding-bottom:12px}}
 @media(max-width:620px){.thread :global(.ahp-hero-visual){display:none}}
+
+.workspace input[type="checkbox"] { width:20px; min-height:20px; height:20px; flex:0 0 20px; accent-color:var(--ahp-brand); }
+.muted,.group label,.reply time,.replyContext { font-size:0.875rem; }

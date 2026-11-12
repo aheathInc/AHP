@@ -108,18 +108,33 @@ export interface InvestigationOrder {
   narrative: string | null;
   ordered_at: string;
   resulted_at: string | null;
+  report_state?: 'pending'|'preliminary'|'final'|'acknowledged';
+  specimen_reference?: string|null;
+  specimen_type?: string|null;
+  collected_at?: string|null;
+  received_at?: string|null;
+  report_prepared_at?: string|null;
+  ordering_clinician?: string|null;
+  entered_by_id?: string|null;
+  released_by_id?: string|null;
+  released_by_name?: string|null;
+  acknowledged_at?: string|null;
   values: {
     analyte: string;
     value: string;
     unit: string | null;
     reference_low: number | null;
     reference_high: number | null;
+    critical_low?: number|null;
+    critical_high?: number|null;
     flag: string;
   }[];
 }
 
 export interface Discussion {
   id: string;
+  version?:number;
+  moderation_status?: 'visible'|'hidden';
   community_id: string;
   title: string;
   body: string;
@@ -147,6 +162,18 @@ export type EmergencyStatus =
   | 'reported' | 'triaged' | 'dispatched' | 'en_route' | 'arrived' | 'resolved' | 'cancelled';
 
 export interface EmergencyRequest {
+  version: number;
+  priority?: 'highest' | 'other' | 'unassessed';
+  acknowledged_at?: string | null;
+  reporter_phone?: string | null;
+  landmark?: string | null;
+  location_source?: string;
+  location_accuracy_m?: number | null;
+  location_captured_at?: string | null;
+  as_of?: string;
+  timeline?: {status: EmergencyStatus; occurred_at: string; notes?: string|null;kind?: 'priority_assessment'|'status'}[];
+  response_unit?: {id:string;call_sign:string;status:string;version:number;location_updated_at:string|null;location_is_stale:boolean} | null;
+  destination_facility?: {id:string;name:string} | null;
   id: string;
   scale: 'individual' | 'mass_casualty';
   category: string;
@@ -166,6 +193,8 @@ export interface EmergencyRequest {
 }
 
 export interface TransportUnit {
+  version?: number;
+  location_is_stale?: boolean;
   id: string;
   call_sign: string;
   capability: string;
@@ -282,7 +311,7 @@ export interface ProviderClinicalCollaboration {
   viewer_role: 'requester' | 'invitee';
   scope: 'consultation_summary';
   status: ProviderCollaborationStatus;
-  question: string;
+  question: string | null;
   requested_at: string;
   responded_at: string | null;
   expires_at: string;

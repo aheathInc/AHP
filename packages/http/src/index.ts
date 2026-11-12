@@ -12,3 +12,5 @@ export * from './middleware/error.js';
 export * from './middleware/auth.js';
 export * from './middleware/idempotency.js';
 export * from './middleware/gatewaySignature.js';
+
+export { signEmergencyDeviceReport, verifyEmergencyDeviceReport } from './emergency-device.js';

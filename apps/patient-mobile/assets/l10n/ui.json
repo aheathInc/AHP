@@ -105,7 +105,7 @@
     "Type : {0}"
   ],
   "Ajali ya barabarani": [
-    "Road accident",
+    "Road traffic incident",
     "Accident de la route"
   ],
   "Akaunti hii haina wasifu wa mgonjwa.": [
@@ -527,8 +527,9 @@
     "Symptômes"
   ],
   "Dalili za hatari": [
-    "Warning signs",
-    "Signes d'alerte"
+    "Danger signs",
+    "Signes d’alerte",
+    "Dalili za hatari"
   ],
   "Dalili za kuangalia": [
     "Symptoms to watch for",
@@ -1041,8 +1042,8 @@
     "Statut non confirmé"
   ],
   "Hali haijulikani": [
-    "Unknown status",
-    "Statut inconnu"
+    "Status unknown",
+    "État inconnu"
   ],
   "Hali haikuthibitishwa. Usilipe tena kabla ya kuhakiki ombi hili.": [
     "Status unconfirmed. Verify this request before paying again.",
@@ -3860,8 +3861,8 @@
     "Délivrance : {0}"
   ],
   "Uzazi": [
-    "Maternity",
-    "Maternité"
+    "Maternity emergency",
+    "Urgence obstétricale"
   ],
   "Vibaya": [
     "Poor",
@@ -4553,8 +4554,1004 @@
     "Your reported supply is running low. Open A-Health to check your information and contact your care provider.",
     "Votre réserve déclarée diminue. Ouvrez A-Health pour vérifier les informations et contacter votre professionnel de santé."
   ],
+  "Jibu maswali yote ya dalili za hatari kabla ya kutuma.": [
+    "Answer all danger-sign questions before submitting.",
+    "Répondez à toutes les questions sur les signes d’alerte avant l’envoi.",
+    "Jibu maswali yote ya dalili za hatari kabla ya kutuma."
+  ],
+  "Weka joto sahihi kwa °C, au acha wazi ikiwa hujalipima.": [
+    "Enter a valid temperature in °C, or leave it blank if you have not measured it.",
+    "Saisissez une température valide en °C, ou laissez le champ vide si vous ne l’avez pas mesurée.",
+    "Weka joto sahihi kwa °C, au acha wazi ikiwa hujalipima."
+  ],
+  "Dalili ya hatari imeripotiwa na imewekewa alama kwa mapitio ya kliniki. Tafuta huduma ya dharura sasa; usisubiri ujumbe mwingine wa follow-up.": [
+    "A danger sign was reported and flagged for clinical review. Seek emergency care now; do not wait for another follow-up message.",
+    "Un signe d’alerte a été signalé et transmis pour examen clinique. Consultez les urgences maintenant ; n’attendez pas un autre message de suivi.",
+    "Dalili ya hatari imeripotiwa na imewekewa alama kwa mapitio ya kliniki. Tafuta huduma ya dharura sasa; usisubiri ujumbe mwingine wa follow-up."
+  ],
+  "Ikiwa una maumivu ya kifua, shida ya kupumua, damu nyingi, homa kali au hali inazidi kuwa mbaya, tafuta huduma ya dharura sasa.": [
+    "If you have chest pain, difficulty breathing, heavy bleeding, a high fever, or your condition is worsening, seek emergency care now.",
+    "En cas de douleur thoracique, difficulté à respirer, saignement abondant, forte fièvre ou aggravation, consultez les urgences maintenant.",
+    "Ikiwa una maumivu ya kifua, shida ya kupumua, damu nyingi, homa kali au hali inazidi kuwa mbaya, tafuta huduma ya dharura sasa."
+  ],
+  "Chagua Ndiyo au Hapana kwa kila swali. Jibu la Ndiyo litawekewa alama kwa mapitio ya kliniki.": [
+    "Choose Yes or No for each question. A Yes answer will be flagged for clinical review.",
+    "Choisissez Oui ou Non pour chaque question. Une réponse Oui sera signalée pour examen clinique.",
+    "Chagua Ndiyo au Hapana kwa kila swali. Jibu la Ndiyo litawekewa alama kwa mapitio ya kliniki."
+  ],
+  "Una maumivu ya kifua?": [
+    "Do you have chest pain?",
+    "Avez-vous une douleur thoracique ?",
+    "Una maumivu ya kifua?"
+  ],
+  "Una damu nyingi au kutokwa damu sana?": [
+    "Are you bleeding heavily?",
+    "Avez-vous un saignement abondant ?",
+    "Una damu nyingi au kutokwa damu sana?"
+  ],
+  "Una shida kubwa ya kupumua?": [
+    "Are you having severe difficulty breathing?",
+    "Avez-vous de grandes difficultés à respirer ?",
+    "Una shida kubwa ya kupumua?"
+  ],
+  "Joto la mwili °C (hiari)": [
+    "Body temperature °C (optional)",
+    "Température corporelle °C (facultatif)",
+    "Joto la mwili °C (hiari)"
+  ],
+  "Mfano: 37.5": [
+    "Example: 37.5",
+    "Exemple : 37,5",
+    "Mfano: 37.5"
+  ],
   "Vikumbusho vimehifadhiwa hadi {0}. Fungua app ukiwa na intaneti kusasisha ratiba.": [
     "Reminders are saved through {0}. Open the app online to update your schedule.",
     "Les rappels sont enregistrés jusqu’au {0}. Ouvrez l’application en ligne pour actualiser le calendrier."
+  ],
+  "Ripoti haipatikani. Unganisha intaneti na ujaribu tena.": [
+    "Report unavailable. Connect to the internet and try again.",
+    "Rapport indisponible. Connectez-vous à Internet et réessayez."
+  ],
+  "Mwenendo wa afya yangu": [
+    "My health progress",
+    "Mon suivi de santé"
+  ],
+  "Mpango wa ufuatiliaji wa afya haujawekwa.": [
+    "A longitudinal follow-up plan has not been configured.",
+    "Aucun plan de suivi longitudinal n’a été configuré."
+  ],
+  "Alama za utafiti za AFPE zinahitaji uthibitisho wa kliniki kabla ya kutumiwa kuamua matibabu.": [
+    "AFPE research scores require clinical validation before they can guide treatment.",
+    "Les scores de recherche AFPE nécessitent une validation clinique avant de guider un traitement."
+  ],
+  "Alama ya ufuatiliaji": [
+    "Follow-up score",
+    "Score de suivi"
+  ],
+  "Taarifa hazitoshi": [
+    "Insufficient information",
+    "Informations insuffisantes"
+  ],
+  "Dozi zilizothibitishwa mfululizo: {0}": [
+    "Consecutive confirmed doses: {0}",
+    "Prises consécutives confirmées : {0}"
+  ],
+  "Baadhi ya vipimo au uthibitisho wa dozi haujapatikana. Alama haijakamilika.": [
+    "Some measurements or dose confirmations are missing. The score is incomplete.",
+    "Certaines mesures ou confirmations de prise manquent. Le score est incomplet."
+  ],
+  "Njia ya ziada ya ufuatiliaji": [
+    "Follow-up fallback channel",
+    "Canal de suivi complémentaire"
+  ],
+  "Ndani ya app pekee": [
+    "In-app only",
+    "Dans l’application uniquement"
+  ],
+  "Mabadiliko hayajahifadhiwa. Jaribu tena.": [
+    "Changes were not saved. Try again.",
+    "Modifications non enregistrées. Réessayez."
+  ],
+  "Ukichagua SMS au WhatsApp unakubali kupokea ufuatiliaji kwenye namba yako iliyosajiliwa. Ujumbe unaweza kuonekana kwa mwenye simu.": [
+    "Choosing SMS or WhatsApp opts you into follow-up at your registered number. Messages may be visible to anyone using that phone.",
+    "Choisir SMS ou WhatsApp autorise le suivi sur votre numéro enregistré. Les messages peuvent être visibles par toute personne utilisant ce téléphone."
+  ],
+  "Historia ya ufuatiliaji": [
+    "Follow-up history",
+    "Historique du suivi"
+  ],
+  "Chagua ukali wa dalili kabla ya kutuma.": [
+    "Choose your symptom severity before submitting.",
+    "Choisissez la gravité de vos symptômes avant l’envoi."
+  ],
+  "Weka vipimo kwa namba au acha wazi ikiwa hujapima.": [
+    "Enter numeric readings or leave them blank if not measured.",
+    "Saisissez des mesures numériques ou laissez les champs vides si elles ne sont pas disponibles."
+  ],
+  "Msaidizi hapatikani. Endelea kujibu maswali hapa chini.": [
+    "The assistant is unavailable. Continue with the questions below.",
+    "L’assistant est indisponible. Continuez avec les questions ci-dessous."
+  ],
+  "Msaidizi wa ufuatiliaji": [
+    "Follow-up assistant",
+    "Assistant de suivi"
+  ],
+  "Ukali wa dalili (0 hakuna, 10 kali zaidi): {0}": [
+    "Symptom severity (0 none, 10 most severe): {0}",
+    "Gravité des symptômes (0 aucun, 10 maximale) : {0}"
+  ],
+  "Madhara ya dawa uliyoona (hiari)": [
+    "Medication side effects noticed (optional)",
+    "Effets indésirables observés (facultatif)"
+  ],
+  "Shinikizo la damu systolic (mmHg)": [
+    "Systolic blood pressure (mmHg)",
+    "Pression artérielle systolique (mmHg)"
+  ],
+  "Shinikizo la damu diastolic (mmHg)": [
+    "Diastolic blood pressure (mmHg)",
+    "Pression artérielle diastolique (mmHg)"
+  ],
+  "Sukari ya damu (mmol/L)": [
+    "Blood glucose (mmol/L)",
+    "Glycémie (mmol/L)"
+  ],
+  "Oksijeni kwenye damu (%)": [
+    "Blood oxygen saturation (%)",
+    "Saturation en oxygène (%)"
+  ],
+  "green": [
+    "Within plan",
+    "Dans les limites du plan",
+    "Ndani ya mpango"
+  ],
+  "yellow": [
+    "Needs attention",
+    "À surveiller",
+    "Inahitaji kuangaliwa"
+  ],
+  "red": [
+    "Urgent review",
+    "Examen urgent",
+    "Mapitio ya haraka"
+  ],
+  "incomplete": [
+    "Incomplete",
+    "Incomplet",
+    "Haijakamilika"
+  ],
+  "SMS na WhatsApp bado hazijawezeshwa. Ufuatiliaji ndani ya app unapatikana.": [
+    "SMS and WhatsApp have not been enabled yet. In-app follow-up is available.",
+    "Les SMS et WhatsApp ne sont pas encore activés. Le suivi dans l’application est disponible."
+  ],
+  "Badilisha muda wa miadi": [
+    "Reschedule appointment",
+    "Reprogrammer le rendez-vous"
+  ],
+  "Badilisha muda": [
+    "Reschedule",
+    "Reprogrammer"
+  ],
+  "Daktari wako": [
+    "Your clinician",
+    "Votre professionnel de santé"
+  ],
+  "Chagua muda mpya": [
+    "Choose a new time",
+    "Choisir un nouvel horaire"
+  ],
+  "Thibitisha muda mpya": [
+    "Confirm the new time",
+    "Confirmer le nouvel horaire"
+  ],
+  "Muda wa sasa: {0}": [
+    "Current time: {0}",
+    "Horaire actuel : {0}"
+  ],
+  "Muda mpya: {0}": [
+    "New time: {0}",
+    "Nouvel horaire : {0}"
+  ],
+  "Muda wa zamani utaachiliwa baada ya muda mpya kuthibitishwa na seva.": [
+    "Your old slot will be released once the new time is confirmed by the server.",
+    "Votre ancien créneau sera libéré une fois le nouvel horaire confirmé par le serveur."
+  ],
+  "Thibitisha mabadiliko": [
+    "Confirm rescheduling",
+    "Confirmer le changement"
+  ],
+  "Daktari, njia ya huduma na muda wa huduma havibadiliki.": [
+    "Your clinician, consultation method and duration stay the same.",
+    "Votre professionnel, le mode de consultation et la durée restent identiques."
+  ],
+  "Hakuna nafasi nyingine inayolingana ndani ya siku 90. Miadi yako ya sasa bado ipo.": [
+    "No matching alternative slots are available within 90 days. Your current booking remains in place.",
+    "Aucun autre créneau correspondant n’est disponible dans les 90 jours. Votre réservation actuelle est conservée."
+  ],
+  "Onyesha nafasi zaidi": [
+    "Load more available times",
+    "Afficher d’autres créneaux"
+  ],
+  "Inathibitisha muda mpya…": [
+    "Confirming the new time…",
+    "Confirmation du nouvel horaire…"
+  ],
+  "Endelea kuthibitisha": [
+    "Review and confirm",
+    "Vérifier et confirmer"
+  ],
+  "Pakia nafasi upya": [
+    "Refresh available times",
+    "Actualiser les créneaux"
+  ],
+  "Kubadilisha muda kunahitaji intaneti. Nafasi iliyochaguliwa haijahifadhiwa hadi seva ithibitishe.": [
+    "Rescheduling requires an internet connection. Your selected slot is not reserved until the server confirms it.",
+    "Une connexion Internet est nécessaire. Le créneau choisi n’est réservé qu’après confirmation du serveur."
+  ],
+  "Miadi imebadilika. Pakia taarifa upya kabla ya kuchagua muda.": [
+    "This appointment has changed. Refresh its details before choosing a time.",
+    "Ce rendez-vous a changé. Actualisez les informations avant de choisir un horaire."
+  ],
+  "Nafasi hazikupatikana. Pakia taarifa upya.": [
+    "Available times could not be loaded. Refresh and try again.",
+    "Impossible de charger les créneaux. Actualisez et réessayez."
+  ],
+  "Mabadiliko hayajathibitishwa. Pakia miadi upya kuangalia muda uliopo kabla ya kujaribu tena.": [
+    "The change is not confirmed. Refresh the appointment to check its current time before retrying.",
+    "Le changement n’est pas confirmé. Actualisez le rendez-vous pour vérifier son horaire avant de réessayer."
+  ],
+  "Muda mpya wa miadi umethibitishwa na seva.": [
+    "Your new appointment time is confirmed by the server.",
+    "Le nouvel horaire de votre rendez-vous est confirmé par le serveur."
+  ],
+  "Nafasi hiyo haipatikani tena. Pakia nafasi upya uchague muda mwingine.": [
+    "That time is no longer available. Refresh the available times and choose another.",
+    "Ce créneau n’est plus disponible. Actualisez les créneaux et choisissez un autre horaire."
+  ],
+  "Onyesha QR hii kwa mfamasia aliyeidhinishwa.": [
+    "Show this QR to an authorized pharmacist.",
+    "Montrez ce QR à un pharmacien autorisé."
+  ],
+  "QR ya reference salama ya pharmacy": [
+    "Secure pharmacy reference QR",
+    "QR de référence sécurisée de pharmacie"
+  ],
+  "Pharmacy za karibu kwa dawa zilizobaki": [
+    "Nearby pharmacies for remaining medicines",
+    "Pharmacies proches pour les médicaments restants"
+  ],
+  "Dawa haipo, haitoshi au hali yake haijathibitishwa kwenye duka la kituo. Matokeo ni kwa dawa iliyoandikwa pekee; si mbadala wa dawa.": [
+    "The facility pharmacy has insufficient or unconfirmed stock. Results match the prescribed medicine only; they are not substitutes.",
+    "Le stock de la pharmacie de l’établissement est insuffisant ou non confirmé. Les résultats correspondent uniquement au médicament prescrit, sans substitution."
+  ],
+  "Ruhusu location ili kuona maduka yaliyo karibu nawe.": [
+    "Allow location to see nearby pharmacies.",
+    "Autorisez la localisation pour voir les pharmacies proches."
+  ],
+  "Ndani ya kilomita {0} kutoka eneo {1}.": [
+    "Within {0} km of {1}.",
+    "Dans un rayon de {0} km de {1}."
+  ],
+  "lililohifadhiwa": [
+    "your saved location",
+    "votre position enregistrée"
+  ],
+  "la simu yako": [
+    "your phone’s location",
+    "la position de votre téléphone"
+  ],
+  "Tumia location ya simu": [
+    "Use phone location",
+    "Utiliser la position du téléphone"
+  ],
+  "Location haikupatikana. Washa location na ruhusa yake, kisha jaribu tena. Unaweza pia kutafuta kwa eneo uliloweka hapa chini.": [
+    "Location unavailable. Enable location and its permission, then retry. You can also search using coordinates below.",
+    "Position indisponible. Activez la localisation et son autorisation, puis réessayez. Vous pouvez aussi utiliser les coordonnées ci-dessous."
+  ],
+  "Ramani haikufunguka. Tumia jina la pharmacy kutafuta njia.": [
+    "The map could not open. Use the pharmacy name to find directions.",
+    "Impossible d’ouvrir la carte. Utilisez le nom de la pharmacie pour trouver l’itinéraire."
+  ],
+  "Kiasi kilichobaki: {0}": [
+    "Remaining quantity: {0}",
+    "Quantité restante : {0}"
+  ],
+  "Utafutaji haujafaulu. Angalia intaneti na ujaribu tena.": [
+    "Search failed. Check your connection and retry.",
+    "La recherche a échoué. Vérifiez votre connexion et réessayez."
+  ],
+  "Hakuna pharmacy yenye stock iliyothibitishwa kwa umbali huu. Hii haimaanishi kuwa dawa haipo kila mahali.": [
+    "No pharmacy has confirmed stock within this radius. This does not mean the medicine is unavailable everywhere.",
+    "Aucun stock confirmé dans ce rayon. Cela ne signifie pas que le médicament est indisponible partout."
+  ],
+  "Zilizopo: {0}": [
+    "On hand: {0}",
+    "En stock : {0}"
+  ],
+  "Kiasi kinatosha": [
+    "Full quantity available",
+    "Quantité complète disponible"
+  ],
+  "Kiasi hakitoshi chote": [
+    "Only part of the quantity available",
+    "Quantité partielle disponible"
+  ],
+  "Fungua njia kwenye ramani": [
+    "Open directions",
+    "Ouvrir l’itinéraire"
+  ],
+  "Stock haijahifadhiwa kwa ajili yako. Thibitisha upatikanaji na pharmacy kabla ya kwenda.": [
+    "Stock is not reserved. Confirm availability with the pharmacy before travelling.",
+    "Le stock n’est pas réservé. Confirmez la disponibilité auprès de la pharmacie avant de vous déplacer."
+  ],
+  "Sasisha pharmacy za karibu": [
+    "Refresh nearby pharmacies",
+    "Actualiser les pharmacies proches"
+  ],
+  "Tafuta hadi kilomita 50": [
+    "Search within 50 km",
+    "Rechercher dans un rayon de 50 km"
+  ],
+  "Aina ya tukio": [
+    "Incident type",
+    "Type d’incident"
+  ],
+  "Alama ya eneo / namna ya kufika (hiari)": [
+    "Landmark / access directions (optional)",
+    "Repère / indications d’accès (facultatif)"
+  ],
+  "Anza ombi jipya": [
+    "Start a new report",
+    "Créer un nouveau signalement"
+  ],
+  "Chagua eneo kwenye ramani": [
+    "Choose location on map",
+    "Choisir la position sur la carte"
+  ],
+  "Chagua eneo la tukio": [
+    "Choose incident location",
+    "Choisir le lieu de l’incident"
+  ],
+  "Chagua eneo la tukio kwa GPS, ramani au koordineti halali.": [
+    "Choose the incident location using GPS, the map or valid coordinates.",
+    "Choisissez le lieu de l’incident par GPS, sur la carte ou avec des coordonnées valides."
+  ],
+  "Dispatcher amepokea: {0}": [
+    "Dispatcher acknowledged: {0}",
+    "Accusé de réception du régulateur : {0}"
+  ],
+  "Dispatcher bado hajathibitisha kupokea ombi hili. Usidhani ambulance imetumwa.": [
+    "A dispatcher has not acknowledged this report yet. Do not assume an ambulance has been dispatched.",
+    "Un régulateur n’a pas encore accusé réception. Ne supposez pas qu’une ambulance a été envoyée."
+  ],
+  "Eneo la gari halijasasishwa; halionyeshi mahali gari lilipo sasa.": [
+    "The vehicle position is stale; it does not show its current location.",
+    "La position du véhicule est ancienne et n’indique pas sa position actuelle."
+  ],
+  "Eneo la tukio: {0}, {1}": [
+    "Incident location: {0}, {1}",
+    "Lieu de l’incident : {0}, {1}"
+  ],
+  "Eneo lilipatikana: {0}": [
+    "Location captured: {0}",
+    "Position relevée : {0}"
+  ],
+  "GPS haikupatikana. Washa location na ruhusa yake, chagua eneo kwenye ramani, au piga 112.": [
+    "GPS unavailable. Enable location and its permission, choose the location on the map, or call 112.",
+    "GPS indisponible. Activez la localisation et son autorisation, choisissez la position sur la carte ou appelez le 112."
+  ],
+  "Gari lililopangiwa: {0}": [
+    "Assigned vehicle: {0}",
+    "Véhicule affecté : {0}"
+  ],
+  "Gari limepangiwa; kuanza safari bado hakujaripotiwa.": [
+    "A vehicle is assigned; departure has not been reported yet.",
+    "Un véhicule est affecté ; son départ n’a pas encore été signalé."
+  ],
+  "Gusa ramani kuweka alama mahali tukio lilipo. Eneo halijachaguliwa mpaka uliweke mwenyewe.": [
+    "Tap the map to mark the incident location. No location is selected until you place the pin.",
+    "Touchez la carte pour marquer le lieu de l’incident. Aucun lieu n’est choisi avant de placer le repère."
+  ],
+  "Hali haijasasishwa. Taarifa iliyo hapa inaweza kuwa ya zamani; piga 112 ikiwa unahitaji msaada sasa.": [
+    "Status refresh failed. This information may be outdated; call 112 if you need help now.",
+    "La mise à jour a échoué. Ces informations peuvent être anciennes ; appelez le 112 si vous avez besoin d’aide maintenant."
+  ],
+  "Hali ilisomwa: {0}": [
+    "Last checked: {0}",
+    "Dernière vérification : {0}"
+  ],
+  "Hali iliyohifadhiwa haikuweza kufunguliwa. Tumia namba ya ombi au piga 112.": [
+    "Saved status could not be opened. Use your report number or call 112.",
+    "Impossible d’ouvrir le suivi enregistré. Utilisez votre numéro de signalement ou appelez le 112."
+  ],
+  "Inatafuta eneo…": [
+    "Locating…",
+    "Localisation…"
+  ],
+  "Inatuma…": [
+    "Sending…",
+    "Envoi…"
+  ],
+  "Jaribu tena ombi lilelile": [
+    "Retry the same report",
+    "Réessayer le même signalement"
+  ],
+  "Kipiga simu hakikufunguka. Piga 112 moja kwa moja kwenye simu yako.": [
+    "The dialer could not open. Dial 112 directly on your phone.",
+    "Impossible d’ouvrir le composeur. Composez le 112 directement sur votre téléphone."
+  ],
+  "Kituo cha kupokea: {0}": [
+    "Receiving facility: {0}",
+    "Établissement destinataire : {0}"
+  ],
+  "Msaada wa dharura Tanzania": [
+    "Emergency help in Tanzania",
+    "Aide d’urgence en Tanzanie"
+  ],
+  "Namba ya kupigiwa (hiari)": [
+    "Callback number (optional)",
+    "Numéro de rappel (facultatif)"
+  ],
+  "Nini kimetokea? (hiari)": [
+    "What happened? (optional)",
+    "Que s’est-il passé ? (facultatif)"
+  ],
+  "Ombi halijathibitishwa; hakuna uthibitisho wa msaada kutumwa. Piga 112 au jaribu tena ombi lilelile ukiwa na intaneti.": [
+    "The report is unconfirmed; there is no confirmation that help was sent. Call 112 or retry the same report when connected.",
+    "Le signalement n’est pas confirmé ; aucun envoi de secours n’est confirmé. Appelez le 112 ou réessayez le même signalement une fois connecté."
+  ],
+  "Ombi la AHP linahitaji intaneti na timu ya dispatch inayofanya kazi. Kupokelewa na mfumo hakumaanishi gari limeanza safari.": [
+    "An AHP report needs internet and an operating dispatch team. System receipt does not mean a vehicle has departed.",
+    "Un signalement AHP nécessite Internet et une équipe de régulation opérationnelle. Sa réception ne signifie pas qu’un véhicule est parti."
+  ],
+  "Ombi la awali halijathibitishwa. Jaribu kutuma tena ombi lilelile; usianzishe ombi jipya.": [
+    "The previous report is unconfirmed. Retry that same report; do not create a duplicate.",
+    "Le signalement précédent n’est pas confirmé. Réessayez ce même signalement sans créer de doublon."
+  ],
+  "Ombi la awali linasubiri uthibitisho. Kutuma tena kunatumia namba ileile ili kuepuka matukio yaliyorudiwa.": [
+    "The previous report awaits confirmation. A retry uses the same identifier to prevent duplicate incidents.",
+    "Le signalement précédent attend une confirmation. Réessayer conserve le même identifiant pour éviter les doublons."
+  ],
+  "Ombi lako": [
+    "Your report",
+    "Votre signalement"
+  ],
+  "Ombi limepokelewa lakini namba yake haikuhifadhiwa kwenye simu. Nakili namba ya ombi.": [
+    "Your report was received, but its number was not saved on this phone. Copy the report number.",
+    "Votre signalement a été reçu, mais son numéro n’a pas été enregistré sur ce téléphone. Copiez-le."
+  ],
+  "Piga 112 — Dharura / Polisi": [
+    "Call 112 — Emergency / Police",
+    "Appeler le 112 — Urgence / Police"
+  ],
+  "Simu haitegemei intaneti ya app. Kitufe kinafungua kipiga simu; hakithibitishi kwamba simu imeunganishwa.": [
+    "Calling does not require app internet. This opens your dialer; it does not confirm a connected call.",
+    "L’appel ne nécessite pas Internet dans l’application. Le bouton ouvre le composeur sans confirmer que l’appel est établi."
+  ],
+  "Taarifa ya eneo la gari: {0}": [
+    "Vehicle location reported: {0}",
+    "Position du véhicule signalée : {0}"
+  ],
+  "Thibitisha eneo hili": [
+    "Confirm this location",
+    "Confirmer ce lieu"
+  ],
+  "Tuma ombi kwa timu ya AHP": [
+    "Report to the AHP team",
+    "Signaler à l’équipe AHP"
+  ],
+  "Tumia GPS ya simu": [
+    "Use phone GPS",
+    "Utiliser le GPS du téléphone"
+  ],
+  "Usahihi wa GPS: takriban mita {0}": [
+    "GPS accuracy: approximately {0} m",
+    "Précision GPS : environ {0} m"
+  ],
+  "Weka koordineti mwenyewe": [
+    "Enter coordinates manually",
+    "Saisir les coordonnées manuellement"
+  ],
+  "Weka namba halali ya ombi.": [
+    "Enter a valid report number.",
+    "Saisissez un numéro de signalement valide."
+  ],
+  "Weka namba ya simu inayoweza kupigiwa.": [
+    "Enter a reachable callback number.",
+    "Saisissez un numéro de rappel joignable."
+  ],
+  "Imepokelewa na mfumo": [
+    "Received by the system",
+    "Reçu par le système"
+  ],
+  "Imepokelewa na dispatcher": [
+    "Acknowledged by dispatcher",
+    "Réception confirmée par le régulateur"
+  ],
+  "Gari limepangiwa": [
+    "Vehicle assigned",
+    "Véhicule affecté"
+  ],
+  "Safari imeripotiwa kuanza": [
+    "Departure reported",
+    "Départ signalé"
+  ],
+  "Kufika eneo la tukio kumeripotiwa": [
+    "Arrival at incident reported",
+    "Arrivée sur les lieux signalée"
+  ],
+  "Tukio limefungwa": [
+    "Incident closed",
+    "Incident clôturé"
+  ],
+  "Ombi limefutwa": [
+    "Report cancelled",
+    "Signalement annulé"
+  ],
+  "Nyingine / sijui": [
+    "Other / unsure",
+    "Autre / incertain"
+  ],
+  "Moto": [
+    "Fire",
+    "Incendie"
+  ],
+  "Dharura / SOS — bila kuingia": [
+    "Emergency / SOS — no sign-in needed",
+    "Urgence / SOS — sans connexion"
+  ],
+  "Ongeza maelezo ya tukio (hiari)": [
+    "Add incident details (optional)",
+    "Ajouter des détails (facultatif)"
+  ],
+  "Ombi lililohifadhiwa linasubiri kusomwa. Soma hali yake kabla ya kuanzisha ombi jipya.": [
+    "A saved report awaits a fresh read. Check its status before starting another report.",
+    "Un signalement enregistré attend une vérification. Vérifiez son état avant d’en créer un autre."
+  ],
+  "Sasisha rufaa": [
+    "Refresh referrals",
+    "Actualiser les orientations"
+  ],
+  "Onyesha rufaa zinazoendelea tu": [
+    "Show active referrals only",
+    "Afficher uniquement les orientations en cours"
+  ],
+  "Imekaguliwa: {0}": [
+    "Last checked: {0}",
+    "Dernière vérification : {0}"
+  ],
+  "Hakuna rufaa inayoendelea. Zima kichujio kuona zilizofungwa.": [
+    "No active referrals. Turn off the filter to view closed referrals.",
+    "Aucune orientation en cours. Désactivez le filtre pour voir les orientations clôturées."
+  ],
+  "Namba ya rufaa": [
+    "Referral reference",
+    "Référence de l’orientation"
+  ],
+  "Mwisho wa muda wa kupokea": [
+    "Receipt deadline",
+    "Date limite de réception"
+  ],
+  "Akaunti imebadilika. Sasisha rufaa kwa akaunti ya sasa.": [
+    "Account changed. Refresh referrals for the current account.",
+    "Le compte a changé. Actualisez les orientations pour le compte actuel."
+  ],
+  "Matokeo yanapitiwa kabla ya kutolewa": [
+    "Results are under review before release",
+    "Résultats en cours de vérification avant publication"
+  ],
+  "Inasubiri sampuli": [
+    "Awaiting specimen",
+    "En attente du prélèvement"
+  ],
+  "Kipimo kimepangwa": [
+    "Test scheduled",
+    "Examen programmé"
+  ],
+  "Sampuli imepokelewa": [
+    "Specimen received",
+    "Prélèvement reçu"
+  ],
+  "Matokeo yametolewa — yanasubiri daktari": [
+    "Results released — awaiting clinician review",
+    "Résultats publiés — en attente du médecin"
+  ],
+  "Daktari amethibitisha kupokea": [
+    "Clinician acknowledged receipt",
+    "Réception confirmée par le médecin"
+  ],
+  "Kipimo kimeghairiwa": [
+    "Test cancelled",
+    "Examen annulé"
+  ],
+  "Akaunti imebadilika. Sasisha taarifa za vipimo.": [
+    "Account changed. Refresh diagnostic records.",
+    "Le compte a changé. Actualisez les examens."
+  ],
+  "Kituo hakijaainishwa": [
+    "Facility not recorded",
+    "Établissement non renseigné"
+  ],
+  "Namba ya ombi la kipimo": [
+    "Order reference",
+    "Référence de la demande"
+  ],
+  "Maabara": [
+    "Laboratory",
+    "Laboratoire"
+  ],
+  "Namba ya sampuli": [
+    "Specimen reference",
+    "Référence du prélèvement"
+  ],
+  "Aina ya sampuli": [
+    "Specimen type",
+    "Type de prélèvement"
+  ],
+  "Sampuli ilikusanywa": [
+    "Specimen collected",
+    "Prélèvement effectué"
+  ],
+  "Sampuli ilipokelewa": [
+    "Received in laboratory",
+    "Reçu au laboratoire"
+  ],
+  "Matokeo bado hayajaidhinishwa kutolewa. Rudi baadaye au wasiliana na kituo chako.": [
+    "Results have not been authorized for release. Check later or contact your facility.",
+    "Les résultats ne sont pas encore autorisés pour publication. Revenez plus tard ou contactez votre établissement."
+  ],
+  "Ripoti ina matokeo yaliyowekwa alama ya hatari. Wasiliana na daktari wako bila kuchelewa.": [
+    "This report contains results flagged as critical. Contact your clinician promptly.",
+    "Ce rapport contient des résultats signalés comme critiques. Contactez rapidement votre médecin."
+  ],
+  "Matokeo yalitolewa": [
+    "Report released",
+    "Rapport publié"
+  ],
+  "Aliyeidhinisha ripoti": [
+    "Report authorized by",
+    "Rapport autorisé par"
+  ],
+  "Matokeo yanahitaji kutafsiriwa na daktari pamoja na hali yako ya afya.": [
+    "Your clinician should interpret these results alongside your health condition.",
+    "Votre médecin doit interpréter ces résultats en tenant compte de votre état de santé."
+  ],
+  "Chini sana — wasiliana na daktari": [
+    "Critical low — contact your clinician",
+    "Valeur très basse — contactez votre médecin"
+  ],
+  "Juu sana — wasiliana na daktari": [
+    "Critical high — contact your clinician",
+    "Valeur très élevée — contactez votre médecin"
+  ],
+  "Chini ya kiwango cha rejea": [
+    "Below the reference interval",
+    "Sous l’intervalle de référence"
+  ],
+  "Juu ya kiwango cha rejea": [
+    "Above the reference interval",
+    "Au-dessus de l’intervalle de référence"
+  ],
+  "Ndani ya kiwango kilichotolewa": [
+    "Within the supplied interval",
+    "Dans l’intervalle fourni"
+  ],
+  "Haijatathminiwa kiotomatiki": [
+    "Not automatically assessed",
+    "Non évalué automatiquement"
+  ],
+  "Kiwango cha rejea: {0}–{1}": [
+    "Reference interval: {0}–{1}",
+    "Intervalle de référence : {0}–{1}"
+  ],
+  "Assigned package: {0}": [
+    "Assigned package: {0}",
+    "Forfait attribué : {0}",
+    "Kifurushi kilichopangwa: {0}"
+  ],
+  "Benefits have not been published.": [
+    "Benefits have not been published.",
+    "Les prestations ne sont pas publiées.",
+    "Huduma za kifurushi bado hazijawekwa."
+  ],
+  "Cancel": [
+    "Cancel",
+    "Annuler",
+    "Ghairi"
+  ],
+  "Compare the published services and conditions before requesting a package.": [
+    "Compare the published services and conditions before requesting a package.",
+    "Comparez les services et conditions publiés avant de demander un forfait.",
+    "Linganisha huduma na masharti yaliyowekwa kabla ya kuomba kifurushi."
+  ],
+  "Confirm request": [
+    "Confirm request",
+    "Confirmer la demande",
+    "Thibitisha ombi"
+  ],
+  "Create family": [
+    "Create family",
+    "Créer la famille",
+    "Unda familia"
+  ],
+  "Create family group": [
+    "Create family group",
+    "Créer un groupe familial",
+    "Unda kundi la familia"
+  ],
+  "Create or join your family before requesting a package.": [
+    "Create or join your family before requesting a package.",
+    "Créez ou rejoignez votre famille avant de demander un forfait.",
+    "Unda au jiunge na familia yako kabla ya kuomba kifurushi."
+  ],
+  "Currently assigned": [
+    "Currently assigned",
+    "Actuellement attribué",
+    "Kimepangwa sasa"
+  ],
+  "Exclusions & conditions": [
+    "Exclusions & conditions",
+    "Exclusions et conditions",
+    "Visivyojumuishwa na masharti"
+  ],
+  "Family could not be created. Refresh to check whether it already exists.": [
+    "Family could not be created. Refresh to check whether it already exists.",
+    "Impossible de créer la famille. Actualisez pour vérifier si elle existe déjà.",
+    "Familia haikuweza kuundwa. Pakia upya kuona kama tayari ipo."
+  ],
+  "Family name": [
+    "Family name",
+    "Nom de la famille",
+    "Jina la familia"
+  ],
+  "Family packages could not be verified. Pull down to retry.": [
+    "Family packages could not be verified. Pull down to retry.",
+    "Impossible de vérifier les forfaits familiaux. Faites glisser vers le bas pour réessayer.",
+    "Vifurushi vya familia havikuweza kuthibitishwa. Vuta chini kujaribu tena."
+  ],
+  "Family subscription packages": [
+    "Family subscription packages",
+    "Forfaits familiaux",
+    "Vifurushi vya familia"
+  ],
+  "I have reviewed the published benefits, exclusions and billing period. This sends a request for staff review; it does not charge me or confirm payment.": [
+    "I have reviewed the published benefits, exclusions and billing period. This sends a request for staff review; it does not charge me or confirm payment.",
+    "J’ai consulté les prestations, exclusions et la période de facturation. Cette demande sera examinée par le personnel ; elle ne prélève aucun paiement et ne confirme pas un règlement.",
+    "Nimekagua huduma, visivyojumuishwa na muda wa malipo. Hili ni ombi la kukaguliwa na wahudumu; halinitozi wala kuthibitisha malipo."
+  ],
+  "Included services": [
+    "Included services",
+    "Services inclus",
+    "Huduma zilizojumuishwa"
+  ],
+  "Link dependant to family": [
+    "Link dependant to family",
+    "Rattacher une personne à charge à la famille",
+    "Unganisha mtegemezi kwenye familia"
+  ],
+  "Link to family": [
+    "Link to family",
+    "Rattacher à la famille",
+    "Unganisha kwenye familia"
+  ],
+  "Load more requests": [
+    "Load more requests",
+    "Charger plus de demandes",
+    "Pakia maombi zaidi"
+  ],
+  "Member could not be linked. Refresh the family before retrying.": [
+    "Member could not be linked. Refresh the family before retrying.",
+    "Impossible de rattacher ce membre. Actualisez la famille avant de réessayer.",
+    "Mwanafamilia hakuweza kuunganishwa. Pakia familia upya kabla ya kujaribu tena."
+  ],
+  "No family linked": [
+    "No family linked",
+    "Aucune famille rattachée",
+    "Hakuna familia iliyounganishwa"
+  ],
+  "No package requests yet.": [
+    "No package requests yet.",
+    "Aucune demande de forfait pour le moment.",
+    "Hakuna maombi ya kifurushi bado."
+  ],
+  "No packages are published.": [
+    "No packages are published.",
+    "Aucun forfait n’est publié.",
+    "Hakuna vifurushi vilivyowekwa."
+  ],
+  "Only the family head can request a package change.": [
+    "Only the family head can request a package change.",
+    "Seul le responsable familial peut demander un changement de forfait.",
+    "Mkuu wa familia pekee ndiye anayeweza kuomba kubadili kifurushi."
+  ],
+  "Package allocation does not grant access to another family member’s medical records. Payments and invoices are managed separately.": [
+    "Package allocation does not grant access to another family member’s medical records. Payments and invoices are managed separately.",
+    "L’attribution d’un forfait ne donne pas accès aux dossiers médicaux des autres membres. Les paiements et factures sont gérés séparément.",
+    "Kupangiwa kifurushi hakutoi ruhusa ya kuona rekodi za afya za mwanafamilia mwingine. Malipo na ankara husimamiwa kando."
+  ],
+  "Package request history": [
+    "Package request history",
+    "Historique des demandes de forfait",
+    "Historia ya maombi ya vifurushi"
+  ],
+  "Package request recorded. Staff will review it; no payment was collected.": [
+    "Package request recorded. Staff will review it; no payment was collected.",
+    "Demande enregistrée. Le personnel l’examinera ; aucun paiement n’a été encaissé.",
+    "Ombi la kifurushi limehifadhiwa kwa ukaguzi wa wahudumu; hakuna malipo yaliyokusanywa."
+  ],
+  "Price not published": [
+    "Price not published",
+    "Prix non publié",
+    "Bei bado haijawekwa"
+  ],
+  "Relationship": [
+    "Relationship",
+    "Lien familial",
+    "Uhusiano"
+  ],
+  "Request could not be confirmed. Retry the same package to reuse its reference.": [
+    "Request could not be confirmed. Retry the same package to reuse its reference.",
+    "La demande n’a pas pu être confirmée. Réessayez le même forfait pour réutiliser sa référence.",
+    "Ombi halikuweza kuthibitishwa. Jaribu tena kifurushi hicho ili kutumia kumbukumbu ileile."
+  ],
+  "Request history could not be loaded.": [
+    "Request history could not be loaded.",
+    "Impossible de charger l’historique des demandes.",
+    "Historia ya maombi haikuweza kupakiwa."
+  ],
+  "Request this package": [
+    "Request this package",
+    "Demander ce forfait",
+    "Omba kifurushi hiki"
+  ],
+  "Requests closed": [
+    "Requests closed",
+    "Demandes fermées",
+    "Maombi yamefungwa"
+  ],
+  "Requests open": [
+    "Requests open",
+    "Demandes ouvertes",
+    "Maombi yako wazi"
+  ],
+  "Review package request": [
+    "Review package request",
+    "Vérifier la demande de forfait",
+    "Kagua ombi la kifurushi"
+  ],
+  "The package or request has changed. Refresh and review the latest terms.": [
+    "The package or request has changed. Refresh and review the latest terms.",
+    "Le forfait ou la demande a changé. Actualisez et consultez les dernières conditions.",
+    "Kifurushi au ombi limebadilika. Pakia upya na ukague masharti ya sasa."
+  ],
+  "View subscription packages": [
+    "View subscription packages",
+    "Voir les forfaits",
+    "Angalia vifurushi"
+  ],
+  "month": [
+    "month",
+    "mois",
+    "mwezi"
+  ],
+  "year": [
+    "year",
+    "an",
+    "mwaka"
+  ],
+  "pending": [
+    "pending",
+    "en attente",
+    "linasubiri"
+  ],
+  "approved": [
+    "approved",
+    "approuvée",
+    "limekubaliwa"
+  ],
+  "declined": [
+    "declined",
+    "refusée",
+    "limekataliwa"
+  ],
+  "No package": [
+    "No package",
+    "Aucun forfait",
+    "Hakuna kifurushi"
+  ],
+  "Loading services…": [
+    "Loading services…",
+    "Chargement des services…",
+    "Huduma zinapakiwa…"
+  ],
+  "Find the care or support you need.": [
+    "Find the care or support you need.",
+    "Trouvez les soins ou l’aide dont vous avez besoin.",
+    "Tafuta huduma au msaada unaohitaji."
+  ],
+  "Search services": [
+    "Search services",
+    "Rechercher un service",
+    "Tafuta huduma"
+  ],
+  "Appointments, family, medicines…": [
+    "Appointments, family, medicines…",
+    "Rendez-vous, famille, médicaments…",
+    "Miadi, familia, dawa…"
+  ],
+  "No matching services. Try another word.": [
+    "No matching services. Try another word.",
+    "Aucun service correspondant. Essayez un autre mot.",
+    "Hakuna huduma inayolingana. Jaribu neno jingine."
+  ],
+  "Clear search": [
+    "Clear search",
+    "Effacer la recherche",
+    "Futa utafutaji"
+  ],
+  "Prevention": [
+    "Prevention",
+    "Prévention",
+    "Kinga"
+  ],
+  "Account & support": [
+    "Account & support",
+    "Compte et assistance",
+    "Akaunti na msaada"
+  ],
+  "Family packages": [
+    "Family packages",
+    "Forfaits familiaux",
+    "Vifurushi vya familia"
+  ],
+  "Choose care for your family": [
+    "Choose care for your family",
+    "Choisissez les soins pour votre famille",
+    "Chagua huduma kwa familia yako"
+  ],
+  "Compare services, prices and conditions. Requests are reviewed before a package is assigned.": [
+    "Compare services, prices and conditions. Requests are reviewed before a package is assigned.",
+    "Comparez les services, les prix et les conditions. Chaque demande est examinée avant l’attribution du forfait.",
+    "Linganisha huduma, bei na masharti. Maombi hukaguliwa kabla ya kifurushi kupangwa."
+  ],
+  "Your current package": [
+    "Your current package",
+    "Votre forfait actuel",
+    "Kifurushi chako cha sasa"
+  ],
+  "A package request is awaiting review.": [
+    "A package request is awaiting review.",
+    "Une demande de forfait est en attente d’examen.",
+    "Ombi la kifurushi linasubiri ukaguzi."
+  ],
+  "Requests do not collect payment.": [
+    "Requests do not collect payment.",
+    "Les demandes ne prélèvent aucun paiement.",
+    "Kutuma ombi hakukusanyi malipo."
+  ],
+  "Package details": [
+    "Package details",
+    "Détails du forfait",
+    "Maelezo ya kifurushi"
+  ],
+  "Your family": [
+    "Your family",
+    "Votre famille",
+    "Familia yako"
+  ],
+  "Manage your dependants and see the care team assigned to your family.": [
+    "Manage your dependants and see the care team assigned to your family.",
+    "Gérez vos personnes à charge et consultez l’équipe soignante attribuée à votre famille.",
+    "Simamia wategemezi na uone timu ya huduma iliyopangiwa familia yako."
+  ],
+  "Family links do not share medical records.": [
+    "Family links do not share medical records.",
+    "Le lien familial ne partage pas les dossiers médicaux.",
+    "Kuunganishwa kwenye familia hakushirikishi rekodi za afya."
+  ],
+  "Temporarily unavailable": [
+    "Temporarily unavailable",
+    "Temporairement indisponible",
+    "Hapatikani kwa sasa"
   ]
 }

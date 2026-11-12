@@ -1,5 +1,6 @@
+import { referralActionSchema } from "../types/referral.types.js";
 import type { NextFunction, Request, Response } from "express";
-import { pathParam } from "@a-health/http";
+import { forbidden, pathParam } from "@a-health/http";
 import * as discussions from "../services/discussion.service.js";
 import * as opinions from "../services/secondOpinion.service.js";
 import * as collaborations from "../services/collaboration.service.js";
@@ -12,9 +13,14 @@ import {
   replySchema,
   requestSecondOpinionSchema,
   membershipSchema,
+  reportContentSchema,
+  withdrawContentSchema,
+  moderationQuery,
+  moderationDecisionSchema,
 } from "../types/network.types.js";
 import {
   collaborationMessageSchema,
+  collaborationActionSchema,
   consultationIdQuery,
   listCollaborationsQuery,
   listMessagesQuery,
@@ -52,18 +58,26 @@ const handle =
 export const listCommunities = handle((req) =>
   discussions.listCommunities(caller(req)),
 );
-export const joinCommunity = handle((req) =>
+export const joinCommunity = handle((req, res) =>
   discussions.joinCommunity(
     pathParam(req, "community_id"),
     caller(req),
     membershipSchema.parse(req.body).notification_mode,
+    meta(req, res),
   ),
 );
-export const leaveCommunity = handle((req) =>
-  discussions.leaveCommunity(pathParam(req, "community_id"), caller(req)),
+export const leaveCommunity = handle((req, res) =>
+  discussions.leaveCommunity(
+    pathParam(req, "community_id"),
+    caller(req),
+    meta(req, res),
+  ),
 );
-export const listNetworkNotifications = handle((req) =>
-  discussions.listNotifications(caller(req)),
+export const listNetworkNotifications = handle((req, res) =>
+  discussions.listNotifications(
+    caller(req),
+    listMessagesQuery.parse(req.query),
+  ),
 );
 export const readNetworkNotification = handle((req) =>
   discussions.markNotificationRead(
@@ -108,6 +122,7 @@ export const reply = handle((req, res) => {
     input.body,
     meta(req, res),
     input.parent_reply_id,
+    input.client_reply_id,
   );
 }, 201);
 
@@ -187,6 +202,7 @@ export const acceptCollaboration = handle((req, res) =>
     pathParam(req, "collaboration_id"),
     caller(req),
     meta(req, res),
+    collaborationActionSchema.parse(req.body ?? {}).base_version,
   ),
 );
 
@@ -195,6 +211,7 @@ export const declineCollaboration = handle((req, res) =>
     pathParam(req, "collaboration_id"),
     caller(req),
     meta(req, res),
+    collaborationActionSchema.parse(req.body ?? {}).base_version,
   ),
 );
 
@@ -203,6 +220,7 @@ export const revokeCollaboration = handle((req, res) =>
     pathParam(req, "collaboration_id"),
     caller(req),
     meta(req, res),
+    collaborationActionSchema.parse(req.body ?? {}).base_version,
   ),
 );
 
@@ -230,6 +248,7 @@ export const createCollaborationMessage = handle((req, res) => {
     caller(req),
     input.body,
     meta(req, res),
+    input.client_message_id,
   );
 }, 201);
 
@@ -279,6 +298,7 @@ export const submitReferral = handle((req, res) =>
     pathParam(req, "referral_id"),
     caller(req),
     meta(req, res),
+    referralActionSchema.parse(req.body ?? {}).base_version,
   ),
 );
 export const receiveReferral = handle((req, res) =>
@@ -286,6 +306,7 @@ export const receiveReferral = handle((req, res) =>
     pathParam(req, "referral_id"),
     caller(req),
     meta(req, res),
+    referralActionSchema.parse(req.body ?? {}).base_version,
   ),
 );
 export const acceptReferral = handle((req, res) =>
@@ -293,6 +314,7 @@ export const acceptReferral = handle((req, res) =>
     pathParam(req, "referral_id"),
     caller(req),
     meta(req, res),
+    referralActionSchema.parse(req.body ?? {}).base_version,
   ),
 );
 export const declineReferral = handle((req, res) => {
@@ -302,6 +324,7 @@ export const declineReferral = handle((req, res) => {
     caller(req),
     input.reason,
     meta(req, res),
+    input.base_version,
   );
 });
 export const startReferralCare = handle((req, res) =>
@@ -309,6 +332,7 @@ export const startReferralCare = handle((req, res) =>
     pathParam(req, "referral_id"),
     caller(req),
     meta(req, res),
+    referralActionSchema.parse(req.body ?? {}).base_version,
   ),
 );
 export const completeReferral = handle((req, res) =>
@@ -324,6 +348,7 @@ export const cancelReferral = handle((req, res) =>
     pathParam(req, "referral_id"),
     caller(req),
     meta(req, res),
+    referralActionSchema.parse(req.body ?? {}).base_version,
   ),
 );
 
@@ -344,4 +369,80 @@ export const createReferralMessage = handle(
       meta(req, res),
     ),
   201,
+);
+
+export async function checkCollaborationWriteAccess(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  try {
+    await collaborations.assertCollaborationWriteAccess(
+      pathParam(req, "collaboration_id"),
+      caller(req),
+    );
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function checkCollaborationRequestAccess(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  try {
+    const input = requestCollaborationSchema.parse(req.body);
+    const eligible = await collaborations.listEligibleClinicians(
+      input.consultation_id,
+      caller(req),
+    );
+    if (
+      !eligible.data.some(
+        (row) => row.clinician_id === input.invited_clinician_id,
+      )
+    )
+      throw forbidden(
+        "PATIENT_CONSENT_REQUIRED",
+        "The patient must authorize this named clinician for this care thread",
+      );
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+export const reportNetworkContent = handle(
+  (req, res) =>
+    discussions.reportContent(
+      pathParam(req, "discussion_id"),
+      caller(req),
+      reportContentSchema.parse(req.body),
+      meta(req, res),
+    ),
+  201,
+);
+export const withdrawNetworkContent = handle((req, res) =>
+  discussions.withdrawContent(
+    pathParam(req, "discussion_id"),
+    caller(req),
+    withdrawContentSchema.parse(req.body),
+    meta(req, res),
+  ),
+);
+export const listNetworkContentReports = handle((req, res) =>
+  discussions.listContentReports(
+    caller(req),
+    moderationQuery.parse(req.query),
+    meta(req, res),
+  ),
+);
+export const reviewNetworkContentReport = handle((req, res) =>
+  discussions.reviewContentReport(
+    pathParam(req, "report_id"),
+    caller(req),
+    moderationDecisionSchema.parse(req.body),
+    meta(req, res),
+  ),
 );

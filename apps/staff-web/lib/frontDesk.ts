@@ -1,22 +1,103 @@
-export type DeskStatus = 'preregistered' | 'awaiting_review' | 'waiting' | 'called' | 'in_consultation' | 'completed' | 'cancelled';
+export type DeskStatus =
+  | "preregistered"
+  | "awaiting_review"
+  | "waiting"
+  | "called"
+  | "in_consultation"
+  | "completed"
+  | "cancelled";
 export interface DeskFacility {
-  id: string; name: string; version: number; enabled: boolean;
-  payment_required: boolean; insurance_required: boolean;
+  id: string;
+  name: string;
+  version: number;
+  enabled: boolean;
+  payment_required: boolean;
+  insurance_required: boolean;
 }
-export interface DeskDepartment { id: string; name: string; version: number; navigation_aliases?: string[]; }
+export interface DeskDepartment {
+  id: string;
+  name: string;
+  version: number;
+  navigation_aliases?: string[];
+}
 export interface DeskVisit {
-  id: string; ticket: string; status: DeskStatus; version: number;
-  patient_name: string; purpose?: string;
-  facility: { id: string; name: string }; department: { id: string; name: string };
+  id: string;
+  ticket: string;
+  status: DeskStatus;
+  version: number;
+  patient_name: string;
+  purpose?: string;
+  facility: { id: string; name: string };
+  department: { id: string; name: string };
   requested_clinician: { id: string; name: string | null } | null;
   assigned_clinician: { id: string; name: string | null } | null;
-  consultation_id: string | null; care_thread_id: string | null;
-  requirements: { payment: boolean; insurance: boolean; clinical_review: boolean };
-  clearance: { registration: string; payment: string; insurance: string; clinical_review: string; method: string };
-  checked_in_at: string | null; ready_at: string | null; created_at: string;
+  consultation_id: string | null;
+  care_thread_id: string | null;
+  requirements: {
+    payment: boolean;
+    insurance: boolean;
+    clinical_review: boolean;
+  };
+  clearance: {
+    registration: string;
+    payment: string;
+    insurance: string;
+    clinical_review: string;
+    method: string;
+  };
+  permitted_actions?: string[];
+  called_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  updated_at?: string;
+  checked_in_at: string | null;
+  ready_at: string | null;
+  created_at: string;
 }
 export const deskStatusLabels: Record<DeskStatus, string> = {
-  preregistered: 'Pre-registered — arrival not declared', awaiting_review: 'Awaiting facility review',
-  waiting: 'Waiting for clinician', called: 'Called by clinician', in_consultation: 'Consultation started',
-  completed: 'Consultation completed', cancelled: 'Visit cancelled',
+  preregistered: "Pre-registered — arrival not declared",
+  awaiting_review: "Awaiting facility review",
+  waiting: "Waiting for clinician",
+  called: "Called by clinician",
+  in_consultation: "Consultation started",
+  completed: "Consultation completed",
+  cancelled: "Visit cancelled",
 };
+
+export function deskBlockers(visit: DeskVisit): string[] {
+  if (
+    ["completed", "cancelled", "in_consultation", "called", "waiting"].includes(
+      visit.status,
+    )
+  )
+    return [];
+  return [
+    !visit.checked_in_at ? "Arrival not declared" : null,
+    visit.clearance.registration === "pending" ? "Registration review" : null,
+    visit.requirements.payment && visit.clearance.payment === "pending"
+      ? "Payment review"
+      : null,
+    visit.requirements.insurance && visit.clearance.insurance === "pending"
+      ? "Insurance review"
+      : null,
+    visit.clearance.clinical_review === "pending"
+      ? "Clinical assessment"
+      : visit.clearance.clinical_review === "escalated"
+        ? "Immediate clinician review"
+        : null,
+  ].filter((value): value is string => value !== null);
+}
+export function elapsedArrival(value: string | null, now = Date.now()): string {
+  if (!value || !Number.isFinite(Date.parse(value))) return "Not arrived";
+  const minutes = Math.max(0, Math.floor((now - Date.parse(value)) / 60000));
+  return minutes < 60
+    ? `${minutes} min since arrival`
+    : `${Math.floor(minutes / 60)} h ${minutes % 60} min since arrival`;
+}
+
+export function deskVisitLabel(visit: DeskVisit): string {
+  return visit.clearance.clinical_review === "escalated" &&
+    ["preregistered", "awaiting_review"].includes(visit.status)
+    ? "Immediate clinician review required"
+    : deskStatusLabels[visit.status];
+}

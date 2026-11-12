@@ -1,5 +1,7 @@
 # Patient Family, Prevention and Emergency
 
+Historical acceptance record. Emergency reporting has since been extended; see [Emergency reliability and dispatch](EMERGENCY-RELIABILITY.md) for current behavior and verification.
+
 Scope: patient Flutter app using the existing families, education, prevention and emergency services. No backend schema or service code was changed. All acceptance records are synthetic and stored in the isolated `ahealth_dev` database on port 55432.
 
 ## Acceptance status

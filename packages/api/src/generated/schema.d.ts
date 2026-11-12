@@ -801,6 +801,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/appointments/{appointment_id}/reschedule-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List matching published alternatives for a patient-owned appointment
+         * @description Future booked appointments only. Alternatives retain the same clinician, modality and duration and lie within the next 90 days. Availability is rechecked on confirmation.
+         */
+        get: operations["getAppointmentRescheduleOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointments/{appointment_id}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Atomically move a patient-owned booking to a matching published slot
+         * @description Patient or authorized guardian only. Requires the current appointment version. The original booking is retained if the target cannot be secured. No consultation is created or cancelled.
+         */
+        post: operations["rescheduleAppointment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/consultations": {
         parameters: {
             query?: never;
@@ -1723,21 +1763,36 @@ export interface paths {
         };
         /**
          * List emergencies
-         * @description Dispatcher and facility view. Cursor paginated, most urgent first.
+         * @description Active dispatcher/admin access. Scope is applied before pagination; highest priority, unassessed and other priority, then scale and oldest report.
          */
         get: operations["listEmergencyRequests"];
         put?: never;
         /**
-         * Raise an emergency
-         * @description Reachable from the app's single prominent emergency action, from USSD,
-         *     from SMS, and from a device alert. `scale` distinguishes an individual
-         *     emergency from a mass-casualty incident so the receiving facility can
-         *     mobilise proportionately before the first patient arrives.
-         *
-         *     Deliberately tolerant of missing information. Someone reporting a road
-         *     crash may know nothing but where they are.
+         * Record an emergency report (not a dispatch confirmation)
+         * @description Anonymous reporting is allowed. A received report is not acknowledgement
+         *     by a dispatcher or confirmation that a crew is travelling. Supply a
+         *     stable client_request_id for database-level retry deduplication. Keep
+         *     its payload unchanged. Signed device integrations must attest the full
+         *     JSON body; public callers cannot link arbitrary patient profiles.
          */
         post: operations["createEmergencyRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/emergency-requests/by-client-id/{client_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recover the signed-in reporter's own committed emergency after a timeout */
+        get: operations["recoverEmergencyRequest"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1772,12 +1827,33 @@ export interface paths {
         put?: never;
         /**
          * Assign transport and a receiving facility
-         * @description Dispatcher action. Assigning transport also notifies the receiving
-         *     facility's emergency department with whatever patient context consent
-         *     allows — known conditions, allergies, current medications — so the team
-         *     is prepared rather than meeting an anonymous arrival.
+         * @description Locks the incident and available unit, checks the active destination,
+         *     and atomically persists assignment, history and audit. Highest/other
+         *     priority must be explicitly assessed for an unassessed incident.
+         *     No hospital capacity, crew acceptance, arrival time or context delivery
+         *     is asserted. Break-glass access requires an explicit justification.
          */
         post: operations["dispatchEmergency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/emergency-requests/{emergency_id}/priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reassess an active incident priority
+         * @description Active dispatcher/admin only. Requires the current version and a private reason; records an audited human assessment.
+         */
+        post: operations["reassessEmergencyPriority"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2266,6 +2342,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/investigation-orders/{order_id}/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive an identified specimen at the assigned laboratory */
+        post: operations["receiveDiagnosticSpecimen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/investigation-orders/{order_id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Authorize release of a prepared laboratory report */
+        post: operations["releaseDiagnosticReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/investigation-orders/{order_id}/results": {
         parameters: {
             query?: never;
@@ -2277,10 +2387,10 @@ export interface paths {
         put?: never;
         /**
          * File a result
-         * @description Results outside their critical bounds set `is_critical` and raise an
-         *     urgent review task immediately, rather than waiting for a clinician to
-         *     open the record. A critical potassium that nobody looked at for three
-         *     days is exactly the failure this exists to stop.
+         * @description Assigned laboratory staff may save_as_draft after specimen receipt.
+         *     Preliminary values are hidden from patients until explicit review/release.
+         *     Numeric flags use the report-supplied bounds; no clinical thresholds are prefilled.
+         *     Legacy final submission remains supported when save_as_draft is omitted.
          */
         post: operations["fileInvestigationResult"];
         delete?: never;
@@ -2300,8 +2410,7 @@ export interface paths {
         put?: never;
         /**
          * Acknowledge a critical result
-         * @description Closes the loop on an urgent finding. Until a clinician acknowledges,
-         *     the alert keeps escalating — silence is never treated as receipt.
+         * @description Records explicit receipt by the active verified ordering clinician; viewing the report does not acknowledge it.
          */
         post: operations["acknowledgeResult"];
         delete?: never;
@@ -2384,6 +2493,74 @@ export interface paths {
         put?: never;
         /** Reply to a discussion */
         post: operations["replyToDiscussion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/discussions/{discussion_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report content for manual moderation */
+        post: operations["reportProfessionalContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/discussions/{discussion_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw own content while retaining the audit record */
+        post: operations["withdrawProfessionalContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/moderation/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform administrator content review queue */
+        get: operations["listProfessionalContentReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/network/moderation/reports/{report_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record an audited platform administrator moderation decision */
+        post: operations["reviewProfessionalContentReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3064,7 +3241,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List own families, assigned clinician panel or administrator directory */
+        get: operations["listFamilies"];
         put?: never;
         /** Create a family group */
         post: operations["createFamily"];
@@ -3119,16 +3297,151 @@ export interface paths {
         put?: never;
         /**
          * Assign the family's doctors
-         * @description Two assignments, not one: a general practitioner for overall family
-         *     health, and an obstetrics-and-gynaecology clinician for maternal and
-         *     reproductive care. Pregnancy handled by whoever happens to be free is
-         *     the outcome this pairing exists to prevent.
-         *
-         *     Assignment draws on the employed-clinician panel with a bounded number
-         *     of families each, so the promise has a delivery mechanism behind it
-         *     rather than being a slogan.
+         * @description Active platform administrators only. Requires current family version. Uses active verified clinicians with matching GP or OB-GYN specialty. Capacity and reassignment are serialized and audited atomically. Null clears a slot; omitted slots are retained.
          */
         post: operations["assignFamilyDoctors"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/families/{family_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read family metadata within current caller scope */
+        get: operations["getFamily"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/families/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read published package catalogue including closed packages */
+        get: operations["listFamilyPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/families/plans/{tier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save versioned package terms as an active platform administrator */
+        put: operations["updateFamilyPlan"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/families/{family_id}/subscription-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family_id: components["parameters"]["FamilyId"];
+            };
+            cookie?: never;
+        };
+        /** Read scoped package request history and original terms snapshots */
+        get: operations["listFamilyPackageRequests"];
+        put?: never;
+        /** Family head requests a package without collecting payment */
+        post: operations["requestFamilyPackage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/families/subscription-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active platform administrator enrollment review queue */
+        get: operations["listAllFamilyPackageRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/families/subscription-requests/{request_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve administrative allocation or decline a package request
+         * @description Approval requires unchanged family and package revisions. It does not create a payment, invoice or renewal schedule. The decision and audit are atomic.
+         */
+        post: operations["reviewFamilyPackageRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/families/clinicians": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Administrator roster of active verified GP and OB-GYN clinicians */
+        get: operations["listFamilyClinicians"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/families/{family_id}/members/{member_id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Head or administrator removes a family link without deleting the patient */
+        post: operations["removeFamilyMember"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5296,10 +5609,339 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/care-continuity/cycles/{id}/afpe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the authorized longitudinal follow-up report
+         * @description getAfpeReport
+         */
+        get: operations["getAfpeReport"];
+        put?: never;
+        /**
+         * Activate a diagnosis-linked follow-up plan
+         * @description activateAfpePlan
+         */
+        post: operations["activateAfpePlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/care-continuity/cycles/{id}/afpe/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose an explicitly consented fallback channel
+         * @description setAfpeFallback
+         */
+        post: operations["setAfpeFallback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/care-continuity/check-ins/{id}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the contextual follow-up assistant
+         * @description afpeConverse
+         */
+        post: operations["afpeConverse"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/care-continuity/afpe/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List assigned clinician alerts
+         * @description getAfpeAlerts
+         */
+        get: operations["getAfpeAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/care-continuity/afpe/alerts/{id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge a scoped follow-up alert
+         * @description acknowledgeAfpeAlert
+         */
+        post: operations["acknowledgeAfpeAlert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/care-continuity/afpe/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream assigned clinician dashboard alerts
+         * @description Assigned-clinician SSE stream, reauthorized on each update; reconnects after 55 seconds.
+         */
+        get: operations["streamAfpeAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/check-ins/{check_in_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a protected source check-in
+         * @description getCheckInSource
+         */
+        get: operations["getCheckInSource"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/gothomis/discharge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a signed mapped hospital discharge
+         * @description HMAC SHA-256 over timestamp + dot + exact JSON body. X-AFPE-Timestamp is Unix seconds within 300 seconds. Requires an existing mapped cycle and matching signed ICD-10 codes.
+         */
+        post: operations["receiveGothomisDischarge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/integrations/afpe/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a signed patient messaging callback
+         * @description Signed provider callback; requires explicit patient channel consent and exact registered sender match. Uses X-AFPE-Timestamp and X-AFPE-Signature headers.
+         */
+        post: operations["receiveAfpeMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AfpeBaseline: {
+            symptom_severity: number;
+            vitals: {
+                [key: string]: number;
+            };
+            medication_required: boolean;
+            vital_bounds: {
+                temperature_c?: {
+                    min: number;
+                    max: number;
+                };
+                systolic?: {
+                    min: number;
+                    max: number;
+                };
+                diastolic?: {
+                    min: number;
+                    max: number;
+                };
+                glucose_mmol_l?: {
+                    min: number;
+                    max: number;
+                };
+                spo2?: {
+                    min: number;
+                    max: number;
+                };
+            };
+        };
+        AfpeDischargeConfiguration: {
+            /** @enum {string} */
+            category: "auto" | "acute" | "subacute" | "chronic";
+            baseline: components["schemas"]["AfpeBaseline"];
+            /** @enum {string} */
+            diagnosis_context?: "new" | "stable" | "uncontrolled" | "high_risk" | "postoperative" | "treatment_initiation";
+            /** @constant */
+            consent_confirmed: true;
+        };
+        AfpeActivation: {
+            /** @enum {string} */
+            category: "auto" | "acute" | "subacute" | "chronic";
+            baseline: components["schemas"]["AfpeBaseline"];
+            /** @enum {string} */
+            diagnosis_context?: "new" | "stable" | "uncontrolled" | "high_risk" | "postoperative" | "treatment_initiation";
+            /** @constant */
+            consent_confirmed: true;
+            diagnosis_codes: string[];
+            duration_days?: number;
+        };
+        AfpeAssessmentResult: {
+            /** Format: uuid */
+            id: string;
+            score: number | null;
+            /** @enum {string} */
+            band: "green" | "yellow" | "red" | "incomplete";
+            components: {
+                adherence: number | null;
+                symptoms: number | null;
+                biometrics: number | null;
+            };
+            missing: string[];
+            patient_report: {
+                en: string;
+                sw: string;
+            };
+            urgent_care_required?: boolean;
+            rule_version?: string;
+        };
+        AfpeAssessment: {
+            /** Format: uuid */
+            id: string;
+            score: number | null;
+            /** @enum {string} */
+            band: "green" | "yellow" | "red" | "incomplete";
+            components: {
+                adherence: number | null;
+                symptoms: number | null;
+                biometrics: number | null;
+            };
+            missing: string[];
+            patient_report: {
+                en: string;
+                sw: string;
+            };
+            urgent_care_required?: boolean;
+            rule_version?: string;
+            /** Format: uuid */
+            check_in_id: string;
+            /** Format: date-time */
+            created_at: string;
+            clinical_summary?: {
+                section: string;
+                text: string;
+                source: {
+                    /** Format: uuid */
+                    check_in_id: string;
+                    /** Format: date-time */
+                    received_at: string;
+                };
+            }[];
+            sources?: {
+                [key: string]: unknown;
+            };
+        };
+        AfpeAlert: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            cycle_id?: string;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        AfpeReport: {
+            plan: {
+                /** Format: uuid */
+                id?: string;
+                /** @enum {string} */
+                category?: "acute" | "subacute" | "chronic";
+                baseline?: components["schemas"]["AfpeBaseline"];
+                duration_days?: number;
+                interval_days?: number;
+                /** Format: date-time */
+                next_due_at?: string;
+                rule_version?: string;
+                /** @enum {string} */
+                fallback_channel?: "none" | "sms" | "whatsapp";
+            } | null;
+            assessments: components["schemas"]["AfpeAssessment"][];
+            alerts: components["schemas"]["AfpeAlert"][];
+            adherence_streak?: number;
+            messaging_available?: boolean;
+        };
+        AfpeConversationInput: {
+            text: string;
+            /** @enum {string} */
+            language?: "en" | "sw";
+        };
+        AfpeConversationReply: {
+            question: string;
+            question_key: string;
+            urgent_care_required: boolean;
+            /** @enum {string} */
+            mode: "structured" | "contextual_model";
+        };
         ContinuityPageMeta: {
             has_more: boolean;
             /** Format: uuid */
@@ -5462,6 +6104,7 @@ export interface components {
             /** Format: date-time */
             start_date: string;
             unreviewed_checkins: number;
+            urgent_checkins: number;
             version: number;
         };
         ContinuityReminder: {
@@ -5561,6 +6204,7 @@ export interface components {
                 scheduled_at: string;
                 status: string;
                 is_deviation: boolean;
+                urgent_care_required: boolean;
                 responses: unknown;
                 deviation_reasons: unknown;
                 /** Format: date-time */
@@ -5785,7 +6429,7 @@ export interface components {
          *     breaking and requires a new API version.
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_FAILED" | "UNAUTHENTICATED" | "TOKEN_EXPIRED" | "TOKEN_INVALID" | "TOKEN_REUSE_DETECTED" | "OTP_INVALID" | "OTP_EXPIRED" | "OTP_ATTEMPTS_EXCEEDED" | "FORBIDDEN" | "ROLE_NOT_PERMITTED" | "NOT_RESOURCE_OWNER" | "NOT_FOUND" | "IDEMPOTENCY_KEY_CONFLICT" | "FRONT_DESK_DISABLED" | "FRONT_DESK_URGENT_REVIEW" | "FRONT_DESK_VISIT_EXISTS" | "VERSION_CONFLICT" | "STATE_TRANSITION_INVALID" | "CLINICIAN_NOT_VERIFIED" | "CLINICIAN_ASSIGNMENT_INVALID" | "CLINICIAN_UNAVAILABLE" | "FACILITY_MEMBERSHIP_REQUIRED" | "GROUP_MEMBERSHIP_REQUIRED" | "REFERRAL_COMMUNICATION_UNAVAILABLE" | "REFERRAL_CLOSED" | "COLLABORATOR_NOT_ELIGIBLE" | "PATIENT_CONSENT_REQUIRED" | "COLLABORATION_ALREADY_EXISTS" | "COLLABORATION_EXPIRED" | "COLLABORATION_NOT_ACTIVE" | "REFERRAL_ALREADY_EXISTS" | "REFERRAL_CONSENT_REQUIRED" | "REFERRAL_DESTINATION_INELIGIBLE" | "CONSULTATION_ALREADY_ASSIGNED" | "CARE_THREAD_CLOSED" | "SLOT_UNAVAILABLE" | "SLOT_IN_PAST" | "APPOINTMENT_NOT_YET_STARTABLE" | "APPOINTMENT_ALREADY_STARTED" | "CHECK_IN_ALREADY_ANSWERED" | "FOLLOW_UP_CYCLE_CLOSED" | "PRESCRIPTION_NOT_ACTIVE" | "CONSENT_REQUIRED" | "DEVICE_REVOKED" | "DISPENSE_CODE_INVALID" | "DISPENSE_CODE_EXPIRED" | "PRESCRIPTION_EXPIRED" | "PRESCRIPTION_NOT_FINALIZED" | "PRESCRIBER_NOT_AUTHORIZED" | "PHARMACY_MEMBERSHIP_REQUIRED" | "HANDOFF_REFERENCE_INVALID" | "HANDOFF_REFERENCE_REVOKED" | "HANDOFF_REFERENCE_EXPIRED" | "PRESCRIPTION_ALREADY_FULFILLED" | "IDEMPOTENCY_KEY_REUSED" | "DISPENSING_ALREADY_RECORDED" | "QUANTITY_EXCEEDS_REMAINING" | "INVENTORY_AMBIGUOUS" | "INVENTORY_UNAVAILABLE" | "INSUFFICIENT_INVENTORY" | "RESULT_ALREADY_ACKNOWLEDGED" | "ETHICS_APPROVAL_REQUIRED" | "AGGREGATE_TOO_SMALL" | "FACILITY_NOT_INTEGRATED" | "ALREADY_RATED" | "PAYMENT_METHOD_UNAVAILABLE" | "PAYMENT_ALREADY_SETTLED" | "REFUND_EXCEEDS_PAYMENT" | "PAYER_PHONE_REQUIRED" | "DUPLICATE_RESOURCE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
+        ErrorCode: "VALIDATION_FAILED" | "UNAUTHENTICATED" | "TOKEN_EXPIRED" | "TOKEN_INVALID" | "TOKEN_REUSE_DETECTED" | "OTP_INVALID" | "OTP_EXPIRED" | "OTP_ATTEMPTS_EXCEEDED" | "FORBIDDEN" | "ROLE_NOT_PERMITTED" | "NOT_RESOURCE_OWNER" | "NOT_FOUND" | "IDEMPOTENCY_KEY_CONFLICT" | "REQUEST_KEY_CONFLICT" | "TRANSPORT_UNIT_BUSY" | "FACILITY_UNAVAILABLE" | "UNIT_HAS_ACTIVE_EMERGENCY" | "FRONT_DESK_DISABLED" | "FRONT_DESK_URGENT_REVIEW" | "FRONT_DESK_VISIT_EXISTS" | "VERSION_CONFLICT" | "STATE_TRANSITION_INVALID" | "CLINICIAN_NOT_VERIFIED" | "CLINICIAN_ASSIGNMENT_INVALID" | "CLINICIAN_UNAVAILABLE" | "FACILITY_MEMBERSHIP_REQUIRED" | "GROUP_MEMBERSHIP_REQUIRED" | "REFERRAL_COMMUNICATION_UNAVAILABLE" | "REFERRAL_CLOSED" | "COLLABORATOR_NOT_ELIGIBLE" | "PATIENT_CONSENT_REQUIRED" | "COLLABORATION_ALREADY_EXISTS" | "COLLABORATION_EXPIRED" | "COLLABORATION_NOT_ACTIVE" | "REFERRAL_ALREADY_EXISTS" | "REFERRAL_CONSENT_REQUIRED" | "REFERRAL_DESTINATION_INELIGIBLE" | "CONSULTATION_ALREADY_ASSIGNED" | "CARE_THREAD_CLOSED" | "SLOT_UNAVAILABLE" | "SLOT_IN_PAST" | "APPOINTMENT_NOT_YET_STARTABLE" | "APPOINTMENT_ALREADY_STARTED" | "CHECK_IN_ALREADY_ANSWERED" | "FOLLOW_UP_CYCLE_CLOSED" | "PRESCRIPTION_NOT_ACTIVE" | "CONSENT_REQUIRED" | "DEVICE_REVOKED" | "DISPENSE_CODE_INVALID" | "DISPENSE_CODE_EXPIRED" | "PRESCRIPTION_EXPIRED" | "PRESCRIPTION_NOT_FINALIZED" | "PRESCRIBER_NOT_AUTHORIZED" | "PHARMACY_MEMBERSHIP_REQUIRED" | "HANDOFF_REFERENCE_INVALID" | "HANDOFF_REFERENCE_REVOKED" | "HANDOFF_REFERENCE_EXPIRED" | "PRESCRIPTION_ALREADY_FULFILLED" | "IDEMPOTENCY_KEY_REUSED" | "DISPENSING_ALREADY_RECORDED" | "QUANTITY_EXCEEDS_REMAINING" | "INVENTORY_AMBIGUOUS" | "INVENTORY_UNAVAILABLE" | "INSUFFICIENT_INVENTORY" | "RESULT_ALREADY_ACKNOWLEDGED" | "ETHICS_APPROVAL_REQUIRED" | "AGGREGATE_TOO_SMALL" | "FACILITY_NOT_INTEGRATED" | "ALREADY_RATED" | "PAYMENT_METHOD_UNAVAILABLE" | "PAYMENT_ALREADY_SETTLED" | "REFUND_EXCEEDS_PAYMENT" | "PAYER_PHONE_REQUIRED" | "DUPLICATE_RESOURCE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE";
         PageMeta: {
             page: number;
             page_size: number;
@@ -6224,6 +6868,24 @@ export interface components {
             modality?: components["schemas"]["ConsultationModality"];
             is_booked: boolean;
         };
+        AppointmentRescheduleOptions: {
+            appointment: components["schemas"]["Appointment"];
+            clinician_name: string | null;
+            /** Format: date-time */
+            as_of: string;
+            data: {
+                /** Format: uuid */
+                id: string;
+                /** Format: date-time */
+                starts_at: string;
+                duration_minutes: number;
+                modality: string;
+            }[];
+            meta: {
+                next_cursor: string | null;
+                has_more: boolean;
+            };
+        };
         Appointment: {
             /** Format: uuid */
             id: string;
@@ -6322,6 +6984,7 @@ export interface components {
             updated_at: string;
         };
         CheckIn: {
+            afpe?: components["schemas"]["AfpeAssessmentResult"];
             /** Format: uuid */
             id: string;
             /** Format: uuid */
@@ -6341,6 +7004,8 @@ export interface components {
             } | null;
             /** @description Computed server-side against `recovery_criteria`. Never client-supplied. */
             is_deviation?: boolean;
+            /** @description True when a deterministic red-flag rule matched. Requires urgent-care guidance and clinician review; not a diagnosis. */
+            urgent_care_required: boolean;
             deviation_reasons?: string[];
             /** Format: uuid */
             reviewed_by_id?: string | null;
@@ -6439,6 +7104,7 @@ export interface components {
             }[];
         };
         FollowUpCycleInput: {
+            afpe?: components["schemas"]["AfpeDischargeConfiguration"];
             /** @enum {string} */
             frequency: "daily" | "twice_daily" | "weekly" | "custom";
             /** @description Required when `frequency` is `custom`. */
@@ -6685,6 +7351,53 @@ export interface components {
         EmergencyRequest: {
             /** Format: uuid */
             id: string;
+            /** @enum {string} */
+            priority?: "highest" | "unassessed" | "other";
+            /** Format: date-time */
+            acknowledged_at?: string | null;
+            /** @enum {string} */
+            location_source?: "gps" | "manual" | "device";
+            location_accuracy_m?: number | null;
+            /** Format: date-time */
+            location_captured_at?: string | null;
+            landmark?: string | null;
+            /** @description Dispatcher/admin detail only */
+            reporter_phone?: string | null;
+            /** Format: date-time */
+            as_of?: string;
+            /** @description False; context availability is not hospital transmission */
+            context_shared?: boolean;
+            context_available?: boolean;
+            break_glass?: boolean;
+            timeline?: {
+                status?: components["schemas"]["EmergencyStatus"];
+                /** Format: date-time */
+                occurred_at?: string;
+                /** @description Staff only */
+                notes?: string | null;
+                /**
+                 * @description Staff only
+                 * @enum {string}
+                 */
+                kind?: "status" | "priority_assessment";
+            }[];
+            response_unit?: {
+                /** Format: uuid */
+                id?: string;
+                call_sign?: string;
+                assignment_active?: boolean;
+                status?: components["schemas"]["TransportStatus"];
+                version?: number;
+                location?: components["schemas"]["GeoPoint"];
+                location_is_stale?: boolean;
+                /** Format: date-time */
+                location_updated_at?: string | null;
+            } | null;
+            destination_facility?: {
+                /** Format: uuid */
+                id?: string;
+                name?: string;
+            } | null;
             scale: components["schemas"]["EmergencyScale"];
             category?: components["schemas"]["EmergencyCategory"];
             source?: components["schemas"]["EmergencySource"];
@@ -6712,6 +7425,8 @@ export interface components {
         /** @enum {string} */
         TransportStatus: "available" | "dispatched" | "en_route" | "at_scene" | "transporting" | "out_of_service";
         TransportUnit: {
+            version?: number;
+            location_is_stale?: boolean;
             /** Format: uuid */
             id: string;
             call_sign: string;
@@ -7007,8 +7722,10 @@ export interface components {
             unit?: string | null;
             reference_low?: number | null;
             reference_high?: number | null;
+            critical_low?: number | null;
+            critical_high?: number | null;
             /** @enum {string} */
-            flag?: "normal" | "low" | "high" | "critical_low" | "critical_high";
+            flag?: "normal" | "low" | "high" | "critical_low" | "critical_high" | "not_assessed";
         };
         InvestigationOrder: {
             /** Format: uuid */
@@ -7028,13 +7745,32 @@ export interface components {
             urgency?: components["schemas"]["UrgencyLevel"];
             status: components["schemas"]["InvestigationStatus"];
             clinical_notes?: string | null;
+            patient_name?: string;
+            facility_name?: string | null;
+            ordering_clinician?: string | null;
+            /** @enum {string} */
+            report_state?: "pending" | "preliminary" | "final" | "acknowledged";
+            specimen_reference?: string | null;
+            specimen_type?: string | null;
+            /** Format: date-time */
+            collected_at?: string | null;
+            /** Format: date-time */
+            received_at?: string | null;
+            /** Format: uuid */
+            received_by_id?: string | null;
+            /** Format: date-time */
+            report_prepared_at?: string | null;
+            /** Format: uuid */
+            entered_by_id?: string | null;
+            /** Format: uuid */
+            released_by_id?: string | null;
+            released_by_name?: string | null;
             values?: components["schemas"]["ResultValue"][];
             narrative?: string | null;
             attachment_key?: string | null;
             /**
-             * @description Set by the server from the reference bounds. A critical result
-             *     escalates until a clinician acknowledges it; silence is never
-             *     treated as receipt.
+             * @description Computed from report-supplied numeric bounds. Hidden from patient views before release.
+             *     A displayed alert does not establish clinician acknowledgement or prove external notification.
              */
             is_critical?: boolean;
             /** Format: uuid */
@@ -7102,6 +7838,8 @@ export interface components {
              */
             care_thread_id?: string | null;
             reply_count?: number;
+            /** @enum {string} */
+            moderation_status?: "visible" | "hidden";
             /** Format: date-time */
             created_at: string;
             version?: number;
@@ -7111,12 +7849,15 @@ export interface components {
             id: string;
             /** Format: uuid */
             discussion_id: string;
+            version?: number;
             /** Format: uuid */
             parent_reply_id?: string | null;
             author_name?: string;
             body: string;
             /** Format: uuid */
             author_clinician_id: string;
+            /** @enum {string} */
+            moderation_status?: "visible" | "hidden";
             /** Format: date-time */
             created_at: string;
         };
@@ -7183,7 +7924,8 @@ export interface components {
             scope: "consultation_summary";
             /** @enum {string} */
             status: "requested" | "accepted" | "declined" | "revoked" | "expired";
-            question: string;
+            /** @description Redacted after access closes or the exact patient authorization is unavailable */
+            question: string | null;
             /** Format: date-time */
             requested_at: string;
             /** Format: date-time */
@@ -7248,6 +7990,7 @@ export interface components {
             priority?: components["schemas"]["DigitalReferralPriority"];
         };
         DigitalReferralOutcomeInput: {
+            base_version?: number;
             outcome_status: components["schemas"]["DigitalReferralOutcomeStatus"];
             follow_up_recommendation?: string;
             patient_instructions?: string;
@@ -7381,6 +8124,23 @@ export interface components {
         SubscriptionTier: "none" | "family_basic" | "family_plus";
         /** @enum {string} */
         FamilyRelationship: "head" | "spouse" | "child" | "parent" | "sibling" | "dependant" | "other";
+        FamilyPlan: {
+            readonly tier?: components["schemas"]["SubscriptionTier"];
+            name?: string;
+            description?: string;
+            benefits?: string[];
+            exclusions?: string[];
+            /** @description Amount in hundredths of TZS; null means unpublished. */
+            price_minor?: number | null;
+            /** @constant */
+            currency?: "TZS";
+            /** @enum {string} */
+            billing_period?: "monthly" | "annual";
+            accepting_requests?: boolean;
+            readonly version?: number;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
         Family: {
             /** Format: uuid */
             id: string;
@@ -7401,12 +8161,13 @@ export interface components {
             relationship: components["schemas"]["FamilyRelationship"];
         };
         FamilyDetail: components["schemas"]["Family"] & {
+            is_head?: boolean;
             members?: components["schemas"]["FamilyMember"][];
             gp_clinician?: {
                 /** Format: uuid */
                 id?: string;
                 full_name?: string;
-                current_family_load?: number;
+                available?: boolean;
             } | null;
             /**
              * @description A second, separate assignment. Maternal and reproductive care
@@ -7416,7 +8177,7 @@ export interface components {
                 /** Format: uuid */
                 id?: string;
                 full_name?: string;
-                current_family_load?: number;
+                available?: boolean;
             } | null;
         };
         ResearchDataset: {
@@ -7754,6 +8515,11 @@ export interface components {
             name: string;
         };
         FrontDeskPagination: {
+            /**
+             * Format: date-time
+             * @description Staff worklist snapshot time
+             */
+            as_of?: string;
             has_more: boolean;
             /** Format: uuid */
             next_cursor: string | null;
@@ -7864,6 +8630,8 @@ export interface components {
             id: string;
             ticket: string;
             status: components["schemas"]["FrontDeskStatus"];
+            /** @description Staff worklist hints based on current actor, assignment and availability; writes recheck authorization and version. */
+            permitted_actions?: ("clinical-review" | "administrative-review" | "call" | "start" | "cancel")[];
             version: number;
             /** Format: uuid */
             patient_profile_id: string;
@@ -10219,6 +10987,7 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
+                    base_version?: number;
                     reason?: string;
                 };
             };
@@ -10233,6 +11002,74 @@ export interface operations {
                     "application/json": components["schemas"]["Appointment"];
                 };
             };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getAppointmentRescheduleOptions: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                appointment_id: components["parameters"]["AppointmentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized current appointment and published matching slots */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentRescheduleOptions"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    rescheduleAppointment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUID, created at the moment the user acted. Reused
+                 *     unchanged across every retry of the same intent. The server replays the
+                 *     original response for 24 hours.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                appointment_id: components["parameters"]["AppointmentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    slot_id: string;
+                    base_version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Persisted replacement time for the same appointment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
         };
     };
@@ -10977,7 +11814,7 @@ export interface operations {
     listMyCheckIns: {
         parameters: {
             query?: {
-                status?: "scheduled" | "responded" | "missed";
+                status?: "scheduled" | "responded" | "missed" | "due";
                 /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
@@ -11661,6 +12498,7 @@ export interface operations {
     listEmergencyRequests: {
         parameters: {
             query?: {
+                scope?: "active" | "closed" | "all";
                 status?: components["schemas"]["EmergencyStatus"];
                 facility_id?: string;
                 /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
@@ -11705,6 +12543,22 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    client_request_id?: string;
+                    /**
+                     * Format: uuid
+                     * @description Requires a signed internal device-report attestation
+                     */
+                    device_alert_id?: string;
+                    /**
+                     * @default manual
+                     * @enum {string}
+                     */
+                    location_source?: "gps" | "manual" | "device";
+                    location_accuracy_m?: number;
+                    /** Format: date-time */
+                    location_captured_at?: string;
+                    landmark?: string;
                     scale: components["schemas"]["EmergencyScale"];
                     category?: components["schemas"]["EmergencyCategory"];
                     location: components["schemas"]["GeoPoint"];
@@ -11719,7 +12573,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Emergency raised and routed */
+            /** @description Report persisted; dispatch is a separate action */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -11729,6 +12583,29 @@ export interface operations {
                 };
             };
             422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    recoverEmergencyRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized current incident read-back, with no-store caching */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyRequest"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
     getEmergencyRequest: {
@@ -11773,6 +12650,10 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    base_version?: number;
+                    /** @enum {string} */
+                    priority?: "highest" | "other";
+                    break_glass_reason?: string;
                     /** Format: uuid */
                     transport_unit_id: string;
                     /** Format: uuid */
@@ -11783,6 +12664,45 @@ export interface operations {
         };
         responses: {
             /** @description Dispatched */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmergencyRequest"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    reassessEmergencyPriority: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUID, created at the moment the user acted. Reused
+                 *     unchanged across every retry of the same intent. The server replays the
+                 *     original response for 24 hours.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                emergency_id: components["parameters"]["EmergencyId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    priority: "highest" | "other";
+                    base_version: number;
+                    notes: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated assessment */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11813,7 +12733,14 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    status: components["schemas"]["EmergencyStatus"];
+                    base_version?: number;
+                    /**
+                     * @description Required for triaged acknowledgement
+                     * @enum {string}
+                     */
+                    priority?: "highest" | "other";
+                    /** @enum {string} */
+                    status: "triaged" | "en_route" | "arrived" | "resolved" | "cancelled";
                     outcome?: components["schemas"]["EmergencyOutcome"];
                     notes?: string;
                 };
@@ -11900,7 +12827,12 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    status: components["schemas"]["TransportStatus"];
+                    base_version?: number;
+                    /**
+                     * @description Requires no active incident assignment
+                     * @enum {string}
+                     */
+                    status: "available" | "out_of_service";
                 };
             };
         };
@@ -12321,6 +13253,8 @@ export interface operations {
     searchMedication: {
         parameters: {
             query: {
+                /** @description Match the full prescribed medication name (case-insensitive); never select a medication substitute. */
+                exact_match?: boolean;
                 medication_name: string;
                 lat?: number;
                 lng?: number;
@@ -12527,6 +13461,8 @@ export interface operations {
         parameters: {
             query?: {
                 care_thread_id?: string;
+                q?: string;
+                worklist?: "all" | "awaiting_sample" | "in_lab" | "review" | "critical" | "acknowledged";
                 status?: components["schemas"]["InvestigationStatus"];
                 /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
                 cursor?: components["parameters"]["Cursor"];
@@ -12574,7 +13510,7 @@ export interface operations {
                     /** Format: uuid */
                     consultation_id?: string;
                     investigation_code: string;
-                    investigation_type?: components["schemas"]["InvestigationType"];
+                    investigation_type: components["schemas"]["InvestigationType"];
                     clinical_notes?: string;
                     urgency?: components["schemas"]["UrgencyLevel"];
                     /** Format: uuid */
@@ -12618,6 +13554,84 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    receiveDiagnosticSpecimen: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUID, created at the moment the user acted. Reused
+                 *     unchanged across every retry of the same intent. The server replays the
+                 *     original response for 24 hours.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                order_id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    base_version: number;
+                    specimen_reference?: string;
+                    specimen_type?: string;
+                    /** Format: date-time */
+                    collected_at?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Receipt time and actor recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestigationOrder"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    releaseDiagnosticReport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUID, created at the moment the user acted. Reused
+                 *     unchanged across every retry of the same intent. The server replays the
+                 *     original response for 24 hours.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                order_id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    base_version: number;
+                    /** @constant */
+                    confirm_review: true;
+                };
+            };
+        };
+        responses: {
+            /** @description Immutable final report with recorded authorizer and release time */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvestigationOrder"];
+                };
+            };
+            409: components["responses"]["Conflict"];
+        };
+    };
     fileInvestigationResult: {
         parameters: {
             query?: never;
@@ -12637,11 +13651,12 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    base_version?: number;
+                    /** @default false */
+                    save_as_draft?: boolean;
                     values: components["schemas"]["ResultValue"][];
                     narrative?: string;
                     attachment_key?: string;
-                    /** Format: uuid */
-                    reported_by_id?: string;
                 };
             };
         };
@@ -12666,7 +13681,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Acknowledged */
             200: {
@@ -12707,6 +13728,8 @@ export interface operations {
         parameters: {
             query?: {
                 community_id?: string;
+                q?: string;
+                view?: "all" | "mine" | "unanswered";
                 /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
@@ -12735,20 +13758,20 @@ export interface operations {
     createDiscussion: {
         parameters: {
             query?: never;
-            header: {
-                /**
-                 * @description Client-generated UUID, created at the moment the user acted. Reused
-                 *     unchanged across every retry of the same intent. The server replays the
-                 *     original response for 24 hours.
-                 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
                 "application/json": {
+                    /** @constant */
+                    privacy_confirmed: true;
+                    /**
+                     * Format: uuid
+                     * @description Durable per-author publication key; retain across uncertain retries.
+                     */
+                    client_request_id: string;
                     /** Format: uuid */
                     community_id: string;
                     title: string;
@@ -12791,6 +13814,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Discussion"] & {
+                        /** Format: uuid */
+                        viewer_clinician_id?: string;
                         community_name?: string;
                         replies_meta?: components["schemas"]["CursorMeta"];
                         replies?: components["schemas"]["DiscussionReply"][];
@@ -12834,14 +13859,7 @@ export interface operations {
     replyToDiscussion: {
         parameters: {
             query?: never;
-            header: {
-                /**
-                 * @description Client-generated UUID, created at the moment the user acted. Reused
-                 *     unchanged across every retry of the same intent. The server replays the
-                 *     original response for 24 hours.
-                 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
                 discussion_id: components["parameters"]["DiscussionId"];
             };
@@ -12851,6 +13869,10 @@ export interface operations {
             content: {
                 "application/json": {
                     body: string;
+                    /** @constant */
+                    privacy_confirmed: true;
+                    /** Format: uuid */
+                    client_reply_id: string;
                     /**
                      * Format: uuid
                      * @description Optional parent in this same discussion. Omit for a group-wide reply to the discussion. Maximum eight nesting levels.
@@ -12868,6 +13890,139 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DiscussionReply"];
                 };
+            };
+        };
+    };
+    reportProfessionalContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                discussion_id: components["parameters"]["DiscussionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    category: "privacy" | "misinformation" | "conduct" | "spam";
+                    /** Format: uuid */
+                    reply_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Report recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            /** @description Stale version or unavailable content */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    withdrawProfessionalContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                discussion_id: components["parameters"]["DiscussionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    base_version: number;
+                    /** Format: uuid */
+                    reply_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Action recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            /** @description Stale version or unavailable content */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listProfessionalContentReports: {
+        parameters: {
+            query?: {
+                status?: "open" | "reviewed" | "all";
+                /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated reports including restricted original content; access is audited */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    reviewProfessionalContentReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    base_version: number;
+                    /** @enum {string} */
+                    action: "hide" | "dismiss";
+                };
+            };
+        };
+        responses: {
+            /** @description Decision and audit saved atomically */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            /** @description Report already reviewed or stale version */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -12925,14 +14080,18 @@ export interface operations {
     };
     listNetworkNotifications: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Latest 50 notifications and total unread count in active joined groups */
+            /** @description Cursor-paginated notifications (default 50) and total unread count in active joined groups */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -13221,6 +14380,9 @@ export interface operations {
     listProviderCollaborations: {
         parameters: {
             query?: {
+                view?: "all" | "incoming" | "sent" | "active" | "closed";
+                /** @description Clinician name, exact consultation UUID or exact collaboration UUID within the current participant scope. */
+                q?: string;
                 /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
@@ -13331,7 +14493,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Stale displayed versions return 409 */
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Accepted and access activated after consent is rechecked */
             200: {
@@ -13362,7 +14531,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Stale displayed versions return 409 */
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Request declined */
             200: {
@@ -13393,7 +14569,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Stale displayed versions return 409 */
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Access revoked */
             200: {
@@ -13441,6 +14624,7 @@ export interface operations {
     listProviderCollaborationMessages: {
         parameters: {
             query?: {
+                order?: "oldest" | "latest";
                 /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
@@ -13488,6 +14672,11 @@ export interface operations {
             content: {
                 "application/json": {
                     body: string;
+                    /**
+                     * Format: uuid
+                     * @description Durable retry key scoped to this collaboration and author. Current consent is checked before returning a replay.
+                     */
+                    client_message_id?: string;
                 };
             };
         };
@@ -13721,7 +14910,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Current displayed referral version; stale versions return 409 */
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Persisted referral status */
             200: {
@@ -13752,7 +14948,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Current displayed referral version; stale versions return 409 */
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Receipt recorded; this does not mean acceptance */
             200: {
@@ -13783,7 +14986,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Current displayed referral version; stale versions return 409 */
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Accepted by the assigned receiving clinician; care has not started */
             200: {
@@ -13817,6 +15027,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    base_version?: number;
                     reason: string;
                 };
             };
@@ -13851,7 +15062,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Current displayed referral version; stale versions return 409 */
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Care-start timestamp recorded by the accepting clinician */
             200: {
@@ -13917,7 +15135,14 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Current displayed referral version; stale versions return 409 */
+                    base_version?: number;
+                };
+            };
+        };
         responses: {
             /** @description Cancelled referral */
             200: {
@@ -14124,17 +15349,34 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listFamilies: {
+        parameters: {
+            query?: {
+                q?: string;
+                /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated family details within current caller scope */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
     createFamily: {
         parameters: {
             query?: never;
-            header: {
-                /**
-                 * @description Client-generated UUID, created at the moment the user acted. Reused
-                 *     unchanged across every retry of the same intent. The server replays the
-                 *     original response for 24 hours.
-                 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -14142,7 +15384,11 @@ export interface operations {
             content: {
                 "application/json": {
                     name: string;
-                    subscription_tier?: components["schemas"]["SubscriptionTier"];
+                    /**
+                     * @description Paid package selection requires a separate reviewed request.
+                     * @constant
+                     */
+                    subscription_tier?: "none";
                 };
             };
         };
@@ -14182,14 +15428,7 @@ export interface operations {
     addFamilyMember: {
         parameters: {
             query?: never;
-            header: {
-                /**
-                 * @description Client-generated UUID, created at the moment the user acted. Reused
-                 *     unchanged across every retry of the same intent. The server replays the
-                 *     original response for 24 hours.
-                 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
                 family_id: components["parameters"]["FamilyId"];
             };
@@ -14220,14 +15459,7 @@ export interface operations {
     assignFamilyDoctors: {
         parameters: {
             query?: never;
-            header: {
-                /**
-                 * @description Client-generated UUID, created at the moment the user acted. Reused
-                 *     unchanged across every retry of the same intent. The server replays the
-                 *     original response for 24 hours.
-                 */
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
+            header?: never;
             path: {
                 family_id: components["parameters"]["FamilyId"];
             };
@@ -14236,10 +15468,11 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    base_version: number;
                     /** Format: uuid */
-                    gp_clinician_id?: string;
+                    gp_clinician_id?: string | null;
                     /** Format: uuid */
-                    obgyn_clinician_id?: string;
+                    obgyn_clinician_id?: string | null;
                 };
             };
         };
@@ -14253,6 +15486,250 @@ export interface operations {
                     "application/json": components["schemas"]["FamilyDetail"];
                 };
             };
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getFamily: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family_id: components["parameters"]["FamilyId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Family detail without clinical records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FamilyDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listFamilyPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Package catalogue; no payment is collected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: components["schemas"]["FamilyPlan"][];
+                    };
+                };
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateFamilyPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tier: components["schemas"]["SubscriptionTier"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FamilyPlan"] & {
+                    base_version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Terms saved; opening requests requires price and benefits */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listFamilyPackageRequests: {
+        parameters: {
+            query?: {
+                status?: "pending" | "reviewed" | "all";
+                /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                family_id: components["parameters"]["FamilyId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated request history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    requestFamilyPackage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family_id: components["parameters"]["FamilyId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tier: components["schemas"]["SubscriptionTier"];
+                    plan_version: number;
+                    /**
+                     * Format: uuid
+                     * @description Keep this UUID across uncertain retries.
+                     */
+                    client_request_id: string;
+                    /** @constant */
+                    terms_confirmed: true;
+                };
+            };
+        };
+        responses: {
+            /** @description Request recorded or existing matching request returned */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listAllFamilyPackageRequests: {
+        parameters: {
+            query?: {
+                status?: "pending" | "reviewed" | "all";
+                /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated review queue with original terms snapshots */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    reviewFamilyPackageRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    base_version: number;
+                    /** @enum {string} */
+                    action: "approve" | "decline";
+                    note: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Review recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listFamilyClinicians: {
+        parameters: {
+            query?: {
+                q?: string;
+                /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated roster including family capacity */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    removeFamilyMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family_id: components["parameters"]["FamilyId"];
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    base_version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Membership removed and audit recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
         };
     };
@@ -15931,6 +17408,10 @@ export interface operations {
                 facility_id: string;
                 department_id?: string;
                 status?: components["schemas"]["FrontDeskStatus"];
+                /** @description Patient name, AHP ticket or exact visit UUID within the authorized scope. */
+                q?: string;
+                /** @description Applied before cursor pagination. Mutually exclusive with status. */
+                worklist?: "active" | "review" | "waiting" | "called" | "in_consultation" | "escalated" | "completed" | "cancelled";
                 cursor?: string;
                 limit?: number;
             };
@@ -16537,6 +18018,7 @@ export interface operations {
     getClinicianContinuityWorklist: {
         parameters: {
             query?: {
+                exceptions_only?: boolean;
                 cursor?: string;
                 limit?: number;
                 status?: "active" | "completed" | "cancelled";
@@ -21321,6 +22803,532 @@ export interface operations {
                 content?: never;
             };
             /** @description Disabled portal */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAfpeReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AfpeReport"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    activateAfpePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AfpeActivation"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setAfpeFallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    fallback_channel: "none" | "sms" | "whatsapp";
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        fallback_channel?: "none" | "sms" | "whatsapp";
+                    };
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    afpeConverse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AfpeConversationInput"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AfpeConversationReply"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAfpeAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AfpeAlert"][];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    acknowledgeAfpeAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id?: string;
+                        acknowledged?: boolean;
+                    };
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    streamAfpeAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AFPE alert events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Clinician access required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCheckInSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_in_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckIn"];
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    receiveGothomisDischarge: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-AFPE-Timestamp": string;
+                "X-AFPE-Signature": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cycle_id: string;
+                    configuration: components["schemas"]["AfpeActivation"];
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    receiveAfpeMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-AFPE-Timestamp": string;
+                "X-AFPE-Signature": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    message_id: string;
+                    /** Format: uuid */
+                    check_in_id: string;
+                    /** @enum {string} */
+                    channel: "sms" | "whatsapp";
+                    sender: string;
+                    text?: string;
+                    /** @enum {string} */
+                    language?: "en" | "sw";
+                    answers?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not permitted */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description State or version conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider unavailable */
             503: {
                 headers: {
                     [name: string]: unknown;

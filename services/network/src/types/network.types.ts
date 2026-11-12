@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const listDiscussionsQuery = z.object({
+  q:z.string().trim().max(100).optional(),
+  view:z.enum(['all','mine','unanswered']).optional(),
   community_id: z.string().uuid().optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
@@ -8,6 +10,8 @@ export const listDiscussionsQuery = z.object({
 
 export const createDiscussionSchema = z
   .object({
+    privacy_confirmed:z.literal(true),
+    client_request_id:z.string().uuid(),
     community_id: z.string().uuid(),
     title: z.string().trim().min(1).max(200),
     body: z.string().trim().min(1).max(8000),
@@ -20,6 +24,8 @@ export const createDiscussionSchema = z
   });
 
 export const replySchema = z.object({
+  privacy_confirmed:z.literal(true),
+  client_reply_id:z.string().uuid(),
   body: z.string().trim().min(1).max(8000),
   parent_reply_id: z.string().uuid().optional(),
 });
@@ -47,3 +53,8 @@ export const listSecondOpinionsQuery = z.object({
 export const answerSchema = z.object({
   answer: z.string().min(1).max(8000),
 });
+
+export const reportContentSchema=z.object({category:z.enum(['privacy','misinformation','conduct','spam']),reply_id:z.string().uuid().optional()}).strict();
+export const withdrawContentSchema=z.object({base_version:z.number().int().positive(),reply_id:z.string().uuid().optional()}).strict();
+export const moderationQuery=z.object({status:z.enum(['open','reviewed','all']).default('open'),cursor:z.string().optional(),limit:z.coerce.number().int().min(1).max(100).default(25)});
+export const moderationDecisionSchema=z.object({base_version:z.number().int().positive(),action:z.enum(['hide','dismiss'])}).strict();

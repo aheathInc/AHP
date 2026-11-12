@@ -14,6 +14,7 @@ export const searchMedicationQuery = z.object({
   lng: z.coerce.number().min(-180).max(180).optional(),
   radius_km: z.coerce.number().min(0.1).max(100).optional(),
   required_quantity: z.coerce.number().int().min(1).max(100000).optional(),
+  exact_match: z.enum(['true', 'false']).optional().transform(value => value === 'true'),
 }).refine((value) => (value.lat === undefined) === (value.lng === undefined), 'lat and lng must be supplied together');
 
 export const verifyDispenseCodeSchema = z.object({

@@ -1,3 +1,4 @@
+import 'afpe_report_screen.dart';
 import '../core/l10n.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -300,6 +301,12 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
                 'Daktari akipanga ufuatiliaji baada ya consultation, utaonekana hapa.'))
           ]),
         ...data.cycles.map((cycle) => _panel([
+              OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) =>
+                          AfpeReportScreen(cycleId: cycle['id'] as String))),
+                  icon: const Icon(Icons.insights),
+                  label: Text(L.tr('Mwenendo wa afya yangu'))),
               Text(L.tr('Mpango wa ufuatiliaji'),
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),

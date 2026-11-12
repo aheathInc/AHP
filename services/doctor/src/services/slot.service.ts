@@ -29,6 +29,7 @@ export async function listSlots(clinicianId: string, from: string, to: string) {
     where: {
       clinicianId,
       isBooked: false,
+      isPublished: true,
       startsAt: {
         gte: new Date(`${from}T00:00:00.000Z`),
         lte: new Date(`${to}T23:59:59.999Z`),
@@ -107,6 +108,10 @@ export async function publishSlots(
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`slot-calendar:${clinicianProfileId}`}, 0))::text AS locked`;
+    await tx.$queryRaw`SELECT id FROM slots WHERE clinician_id = ${clinicianProfileId}::uuid
+      AND starts_at >= (${windowStart.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+      AND starts_at <= (${windowEnd.toISOString()}::timestamptz AT TIME ZONE 'UTC') ORDER BY id FOR UPDATE`;
     const booked = await tx.slot.findMany({
       where: {
         clinicianId: clinicianProfileId,
@@ -115,15 +120,19 @@ export async function publishSlots(
       },
     });
 
-    await tx.slot.deleteMany({
+    // Withdraw calendar availability without deleting history or cancelling reservations.
+    await tx.slot.updateMany({
       where: {
         clinicianId: clinicianProfileId,
-        isBooked: false,
         startsAt: { gte: windowStart, lte: windowEnd },
       },
+      data: { isPublished: false, version: { increment: 1 } },
     });
 
     const bookedTimes = new Set(booked.map((b) => b.startsAt.getTime()));
+    const requestedTimes = new Set(parsed.map(s => s.startsAt.getTime()));
+    const keptBookedIds = booked.filter(s => requestedTimes.has(s.startsAt.getTime())).map(s => s.id);
+    if (keptBookedIds.length) await tx.slot.updateMany({ where: { id: { in: keptBookedIds } }, data: { isPublished: true, version: { increment: 1 } } });
     const toCreate = parsed.filter((s) => !bookedTimes.has(s.startsAt.getTime()));
 
     // A new slot must not overlap a booked one either.
@@ -142,19 +151,18 @@ export async function publishSlots(
       }
     }
 
-    await tx.slot.createMany({
-      data: toCreate.map((s) => ({
-        clinicianId: clinicianProfileId,
-        startsAt: s.startsAt,
-        durationMin: s.durationMin,
-        modality: s.modality as never,
-      })),
-    });
+    for (const s of toCreate) {
+      await tx.slot.upsert({ where: { clinicianId_startsAt: { clinicianId: clinicianProfileId, startsAt: s.startsAt } },
+        create: { clinicianId: clinicianProfileId, startsAt: s.startsAt, durationMin: s.durationMin, modality: s.modality as never, isPublished: true },
+        update: { durationMin: s.durationMin, modality: s.modality as never, isPublished: true, version: { increment: 1 } },
+      });
+    }
 
     const published = await tx.slot.findMany({
       where: {
         clinicianId: clinicianProfileId,
         isBooked: false,
+        isPublished: true,
         startsAt: { gte: windowStart, lte: windowEnd },
       },
       orderBy: { startsAt: 'asc' },

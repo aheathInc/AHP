@@ -16,6 +16,7 @@ followupRouter.get('/follow-up-cycles/:follow_up_cycle_id', requireAuth, c.getCy
 followupRouter.get('/follow-up-cycles/:follow_up_cycle_id/check-ins', requireAuth, c.listCheckIns);
 followupRouter.post('/follow-up-cycles/:follow_up_cycle_id/close', requireAuth, idempotency, c.closeCycle);
 
+followupRouter.get('/check-ins/:check_in_id', requireAuth, c.getCheckIn);
 followupRouter.get('/check-ins', requireAuth, c.listMyCheckIns);
 followupRouter.post('/check-ins/:check_in_id/respond', requireAuth, idempotency, c.respondToCheckIn);
 

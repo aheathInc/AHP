@@ -1,3 +1,4 @@
+import { EmergencyAccessBoundary } from '@/components/EmergencyAccessBoundary';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -9,12 +10,12 @@ export default async function EmergencyPage() {
   if (!session) redirect('/login');
 
   return (
-    <PageShell>
+    <EmergencyAccessBoundary ownerId={session.user?.id ?? ''}><PageShell>
       <PageHeader
         title="Emergency operations"
         lede="Mass-casualty and unhandled reports are prioritised. Resolved requests move out of the active work queue."
       />
       <EmergencyBoard />
-    </PageShell>
+    </PageShell></EmergencyAccessBoundary>
   );
 }

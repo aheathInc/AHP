@@ -1,11 +1,13 @@
-import { prisma } from '@a-health/database';
+import { prisma, type Prisma } from '@a-health/database';
 import {
   appendAudit, conflict, cursorArgs, forbidden, notFound, toCursorPage,
 } from '@a-health/http';
 import { evaluateDeviation, type DeviationCriteria } from '../engine/deviation.js';
+import { evaluateRedFlags, requiresUrgentReview } from '../engine/red-flags.js';
+import { recordAssessment } from '../afpe/service.js';
 
 export interface Caller { sub: string; role: string; ppid?: string; cpid?: string }
-export interface Meta { ip?: string | null; requestId?: string | null }
+export interface Meta { ip?: string | null; requestId?: string | null; integration?: 'gothomis'; externalChannel?: 'sms' | 'whatsapp' }
 
 function serialiseCycle(c: {
   id: string; careThreadId: string; patientProfileId: string; clinicianId: string;
@@ -52,6 +54,7 @@ function serialiseCheckIn(c: {
     responses: c.responses ?? null,
     is_deviation: c.isDeviation,
     deviation_reasons: c.deviationReasons ?? [],
+    urgent_care_required: requiresUrgentReview(c.deviationReasons),
     reviewed_by_id: c.reviewedById,
     reviewed_at: c.reviewedAt?.toISOString() ?? null,
     responded_at: c.respondedAt?.toISOString() ?? null,
@@ -59,6 +62,11 @@ function serialiseCheckIn(c: {
     version: c.version,
     updated_at: c.updatedAt.toISOString(),
   };
+}
+
+function checkInFilter(status?: string): Prisma.CheckInWhereInput {
+  if (status === 'due') return { status: { in: ['scheduled', 'missed'] }, scheduledAt: { lte: new Date() }, followUpCycle: { status: 'active' } };
+  return status ? { status: status as never } : {};
 }
 
 async function assertCycleAccess(cycleId: string, caller: Caller) {
@@ -88,7 +96,7 @@ export async function listCheckIns(
 ) {
   await assertCycleAccess(cycleId, caller);
   const rows = await prisma.checkIn.findMany({
-    where: { followUpCycleId: cycleId, ...(query.status ? { status: query.status as never } : {}) },
+    where: { followUpCycleId: cycleId, ...checkInFilter(query.status) },
     orderBy: { scheduledAt: 'asc' },
     ...cursorArgs(query.cursor, query.limit),
   });
@@ -136,6 +144,13 @@ export async function respondToCheckIn(
 
     const criteria = (cycle.recoveryCriteria ?? {}) as DeviationCriteria;
     const evaluation = evaluateDeviation(input.responses, criteria);
+    const redFlags = evaluateRedFlags(input.responses);
+    const deviationReasons = [...evaluation.reasons, ...redFlags];
+    const afpeQuestion = Array.isArray(checkIn.questions) && checkIn.questions.some(q => q && typeof q === 'object' && 'afpe' in q && q.afpe === true);
+    const assessment = afpeQuestion || input.responses.afpe !== undefined
+      ? await recordAssessment(tx, cycle.id, checkInId, input.responses, caller, meta) : null;
+    const isDeviation = evaluation.isDeviation || redFlags.length > 0 || assessment?.band === 'yellow' || assessment?.band === 'red';
+    if (assessment?.band === 'red' || assessment?.band === 'yellow') deviationReasons.push(`afpe:${assessment.band}`);
 
     // Compare-and-set, not a read followed by an unconditional update. A
     // concurrent response must not overwrite the first or count its deviation
@@ -147,10 +162,10 @@ export async function respondToCheckIn(
         status: 'responded',
         // A late response needs a fresh review, even if the unanswered check-in was reviewed earlier.
         reviewedAt: null, reviewedById: null, reviewNote: null,
-        isDeviation: evaluation.isDeviation,
-        deviationReasons: evaluation.reasons as never,
+        isDeviation,
+        deviationReasons: deviationReasons as never,
         respondedAt: input.client_created_at ? new Date(input.client_created_at) : new Date(),
-        channel: (input.channel ?? 'app') as never,
+        channel: (meta.externalChannel === 'whatsapp' ? null : input.channel ?? 'app') as never,
         version: { increment: 1 },
       },
     });
@@ -158,7 +173,7 @@ export async function respondToCheckIn(
       throw conflict('CHECK_IN_ALREADY_ANSWERED', 'This check-in has already been answered');
     }
 
-    if (evaluation.isDeviation) {
+    if (isDeviation) {
       await tx.followUpCycle.update({
         where: { id: cycle.id },
         data: { openDeviationCount: { increment: 1 } },
@@ -171,16 +186,16 @@ export async function respondToCheckIn(
         action: 'checkin.deviation_flagged',
         entityType: 'check_ins',
         entityId: checkInId,
-        metadata: { cycleId: cycle.id, reasonCount: evaluation.reasons.length },
+        metadata: { cycleId: cycle.id, reasonCount: deviationReasons.length, urgent: redFlags.length > 0 },
         ipAddress: meta.ip,
         requestId: meta.requestId,
       }, tx);
     }
 
-    return tx.checkIn.findUniqueOrThrow({ where: { id: checkInId } });
+    return { checkIn: await tx.checkIn.findUniqueOrThrow({ where: { id: checkInId } }), assessment };
   }, { maxWait: 10_000, timeout: 10_000 });
 
-  return serialiseCheckIn(updated);
+  return { ...serialiseCheckIn(updated.checkIn), ...(updated.assessment ? { afpe: updated.assessment, urgent_care_required: updated.assessment.urgent_care_required || requiresUrgentReview(updated.checkIn.deviationReasons) } : {}) };
 }
 
 /**
@@ -255,9 +270,16 @@ export async function listMyCheckIns(
         : { followUpCycle: { patient: { OR: [{ userId: caller.sub }, { guardianUserId: caller.sub }] } } };
 
   const rows = await prisma.checkIn.findMany({
-    where: { ...scope, ...(query.status ? { status: query.status as never } : {}) },
+    where: { AND: [scope, checkInFilter(query.status)] },
     orderBy: { scheduledAt: 'asc' },
     ...cursorArgs(query.cursor, query.limit),
   });
   return toCursorPage(rows, query.limit, serialiseCheckIn);
+}
+
+export async function getCheckIn(id: string, caller: Caller) {
+  const row = await prisma.checkIn.findUnique({ where: { id } });
+  if (!row) throw notFound('Check-in not found');
+  await assertCycleAccess(row.followUpCycleId, caller);
+  return serialiseCheckIn(row);
 }

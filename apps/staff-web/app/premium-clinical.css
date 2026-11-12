@@ -66,3 +66,28 @@ html,body{margin:0;min-height:100%;background:var(--ahp-paper);color:var(--ahp-i
 }
 
 .ahp-sidebar :focus-visible,.ahp-mobile-drawer :focus-visible{outline-color:#ddf2ea;outline-offset:2px}
+
+/* Operational workspace foundation: content first, shared across staff roles. */
+.ahp-workspace-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:2px 0 22px;margin:0 0 24px;border-bottom:1px solid var(--ahp-line);color:var(--ahp-ink)}
+.ahp-workspace-header .ahp-hero-copy{padding:0;min-width:0;max-width:76ch;width:auto;flex:1;animation:none}
+.ahp-workspace-header h1{font-size:1.75rem;line-height:1.25;font-weight:650;letter-spacing:-.025em;margin:0;text-wrap:balance}
+.ahp-workspace-header .ahp-hero-copy>p{font-size:.9375rem;line-height:1.6;color:var(--ahp-muted);max-width:70ch;margin:10px 0 0}
+.ahp-workspace-actions{display:flex;flex-shrink:0;align-items:center;flex-wrap:wrap;gap:10px;padding-top:2px;max-width:48%}
+.ahp-nav-group>summary{font-size:.6875rem;letter-spacing:.05em;min-height:40px}
+.ahp-nav-link{font-size:.875rem;min-height:44px;line-height:1.4}
+.ahp-role-label{font-size:.6875rem;letter-spacing:.06em}
+.ahp-sidebar-footer>span{font-size:.6875rem}
+.ahp-sidebar-footer button{font-size:.875rem;min-height:44px}
+.ahp-shell .ahp-collapse{min-width:36px;min-height:44px}
+.ahp-main .ahp-button{font-size:.875rem;line-height:1.4}
+.ahp-main input:not([type=checkbox]):not([type=radio]),.ahp-main select,.ahp-main textarea{font-size:.9375rem}
+.ahp-main table th{font-size:.8125rem}.ahp-main table td{font-size:.875rem}
+.ahp-main .ahp-row-secondary,.ahp-main .ahp-text-link{font-size:.8125rem}
+@media(max-width:1050px){.ahp-workspace-header{flex-direction:column;gap:16px}.ahp-workspace-actions{max-width:100%;padding:0}}
+@media(max-width:600px){.ahp-workspace-header{margin-bottom:20px;padding-bottom:18px}.ahp-workspace-header h1{font-size:1.5rem}.ahp-workspace-actions{width:100%}.ahp-workspace-actions>.ahp-button{flex:1}}
+/* A readable rem baseline and quiet surfaces for long clinical sessions. */
+html,body{font-size:16px}
+.ahp-shell{background:var(--ahp-paper)}
+.ahp-sidebar,.ahp-mobile-drawer{background:#0b3f37;color:#effaf5}
+.ahp-sidebar:after{display:none}
+.ahp-main .ahp-card{box-shadow:none}

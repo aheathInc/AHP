@@ -320,3 +320,25 @@ it('secures referral handoff messages, retries and patient references against co
  const redacted=await referrals.getReferral(referral.id,source,meta);
  assert.equal(redacted.clinical_summary,null);assert.equal(redacted.patient_reference,null);assert.notEqual(redacted.purpose,referral.purpose);
 });
+
+
+it('rejects stale versions without committing an outcome and preserves an accepted referral beyond its submission window', async () => {
+  const origin = await makeFacility('version source'), destination = await makeFacility('version destination');
+  const source = await makeClinician(origin.facility.id, origin.department.id, true);
+  const receiver = await makeClinician(destination.facility.id, destination.department.id, true);
+  const patient = await makePatient('versions'), record = await makeCase(source, patient);
+  const consent = await grantFacilityConsent(patient.profileId, record.threadId, destination.facility.id);
+  const draft = await create(source, record, destination.facility.id, consent.id);
+  const submitted = await referrals.submitReferral(draft.id, source, meta, draft.version);
+  await assert.rejects(() => referrals.receiveReferral(draft.id, receiver, meta, draft.version), {code:'VERSION_CONFLICT'});
+  const received = await referrals.receiveReferral(draft.id, receiver, meta, submitted.version);
+  const accepted = await referrals.acceptReferral(draft.id, receiver, meta, received.version);
+  await prisma.digitalReferral.update({where:{id:draft.id},data:{expiresAt:new Date(Date.now()-1000)}});
+  await assert.rejects(() => referrals.createReferral(source, createInput(record,destination.facility.id,consent.id),meta), {code:'REFERRAL_ALREADY_EXISTS'});
+  const inCare = await referrals.startReferralCare(draft.id, receiver, meta, accepted.version);
+  await assert.rejects(() => referrals.completeReferral(draft.id,receiver,{outcome_status:'care_provided',base_version:accepted.version},meta), {code:'VERSION_CONFLICT'});
+  assert.equal(await prisma.digitalReferralOutcome.count({where:{referralId:draft.id}}),0);
+  const completed = await referrals.completeReferral(draft.id,receiver,{outcome_status:'redirected',base_version:inCare.version,patient_instructions:'Synthetic onward referral instructions'},meta);
+  assert.equal(completed.outcome?.status,'redirected');
+  assert.equal(completed.outcome?.patient_instructions,'Synthetic onward referral instructions');
+});

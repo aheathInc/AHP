@@ -7,7 +7,7 @@ export default async function LabPage() {
 
   return (
     <PageShell className="min-w-0 overflow-x-clip">
-      <PageHeader title="Laboratory workspace" lede="Receive samples and submit results for orders sent to your laboratory." />
+      <PageHeader title="Laboratory workspace" lede="Receive identified specimens, prepare findings, review and release final reports for your assigned laboratory." />
       <LabWorkspace />
     </PageShell>
   );

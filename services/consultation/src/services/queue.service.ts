@@ -60,24 +60,20 @@ export async function getQueue(
         ...(query.urgency_level ? { urgencyLevel: query.urgency_level as never } : {}),
       },
       include: { patient: true },
-      orderBy: [{ urgencyLevel: 'desc' }, { slaDeadlineAt: 'asc' }],
+      orderBy: [{ urgencyLevel: 'desc' }, { slaDeadlineAt: 'asc' }, { id: 'asc' }],
       ...cursorArgs(query.cursor, query.limit),
     });
     return toCursorPage(rows, query.limit, (c) => entry(c, c.createdAt));
   }
 
   const offers = await prisma.consultationOffer.findMany({
-    where: { clinicianId: cpid, status: 'offered', expiresAt: { gt: new Date() } },
+    where: { clinicianId: cpid, status: 'offered', expiresAt: { gt: new Date() }, ...(query.urgency_level ? { consultation: { urgencyLevel: query.urgency_level as never } } : {}) },
     include: { consultation: { include: { patient: true } } },
-    orderBy: [{ rankScore: 'desc' }, { offeredAt: 'asc' }],
+    orderBy: [{ rankScore: 'desc' }, { offeredAt: 'asc' }, { id: 'asc' }],
     ...cursorArgs(query.cursor, query.limit),
   });
 
-  const filtered = query.urgency_level
-    ? offers.filter((o) => o.consultation.urgencyLevel === query.urgency_level)
-    : offers;
-
-  return toCursorPage(filtered, query.limit, (o) =>
+  return toCursorPage(offers, query.limit, (o) =>
     entry(o.consultation, o.offeredAt, Number(o.rankScore), {
       status: o.status,
       expiresAt: o.expiresAt,

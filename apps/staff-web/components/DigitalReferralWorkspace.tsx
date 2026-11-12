@@ -1,5 +1,6 @@
 'use client';
 
+import { useSession } from 'next-auth/react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, errorMessage, idem, type DigitalReferral, type Page,
   type ReferralAuthorization, type ReferralCase } from '@/lib/api';
@@ -7,6 +8,9 @@ import { Badge, Button, Card, Empty, Field, Notice, PageHeader, PageShell, areaC
 import { dateTime } from '@/lib/format';
 import { Icon } from './premium/Icon';
 import { ReferralConversation } from './ReferralConversation';
+
+type OutcomeDraft = { status: '' | 'care_provided' | 'redirected' | 'unable_to_complete'; followUp: string; instructions: string };
+const blankOutcome: OutcomeDraft = { status: '', followUp: '', instructions: '' };
 
 const statusLabels: Record<DigitalReferral['status'], string> = {
   draft: 'Draft', submitted: 'Submitted — awaiting facility receipt', received: 'Received — awaiting clinician decision',
@@ -22,6 +26,13 @@ function statusTone(status: DigitalReferral['status']) {
 }
 
 export function DigitalReferralWorkspace() {
+  const {data:session,status}=useSession();
+  if(status==='loading')return <p role="status">Checking referral access…</p>;
+  if(status!=='authenticated'||session?.user?.role!=='clinician')return <Notice>Sign in with an authorized clinician account to access referrals.</Notice>;
+  return <ReferralWorkspace key={session.user.id} />;
+}
+
+function ReferralWorkspace() {
   const [cases, setCases] = useState<ReferralCase[]>([]);
   const [source, setSource] = useState<DigitalReferral[]>([]);
   const [inbox, setInbox] = useState<DigitalReferral[]>([]);
@@ -59,9 +70,12 @@ export function DigitalReferralWorkspace() {
   const [purpose, setPurpose] = useState('');
   const [summary, setSummary] = useState('');
   const [priority, setPriority] = useState<'routine' | 'urgent' | 'emergency'>('routine');
-  const [outcomeStatus, setOutcomeStatus] = useState<'care_provided' | 'redirected' | 'unable_to_complete'>('care_provided');
-  const [followUp, setFollowUp] = useState('');
-  const [instructions, setInstructions] = useState('');
+  const [outcomes, setOutcomes] = useState<Record<string, OutcomeDraft>>({});
+  const [search, setSearch] = useState('');
+  const [activeOnly, setActiveOnly] = useState(true);
+  const [lastChecked, setLastChecked] = useState<string|null>(null);
+  const actionLock = useRef(false);
+  const loadRevision = useRef(0);
   const [declineReasons, setDeclineReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -69,6 +83,7 @@ export function DigitalReferralWorkspace() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const revision=++loadRevision.current;
     setLoading(true);
     setError(null);
     try {
@@ -77,17 +92,19 @@ export function DigitalReferralWorkspace() {
         api.get<Page<DigitalReferral>>('/referrals/source?limit=100'),
         api.get<Page<DigitalReferral>>('/referrals/inbox?limit=100'),
       ]);
+      if(revision!==loadRevision.current)return;
       setCases(caseResponse.data.data);
       setSource(sourceResponse.data.data);
       setInbox(inboxResponse.data.data);
+      setLastChecked(new Date().toISOString());
     } catch (cause) {
-      setError(errorMessage(cause, 'Referral workspace could not be loaded.'));
+      if(revision===loadRevision.current)setError(errorMessage(cause, 'Referral workspace could not be loaded.'));
     } finally {
-      setLoading(false);
+      if(revision===loadRevision.current)setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); return ()=>{loadRevision.current++;}; }, [load]);
 
   async function refreshAuthorizations(consultationId: string) {
     const request = ++consentRequest.current;
@@ -125,7 +142,8 @@ export function DigitalReferralWorkspace() {
 
   async function submitNewReferral(event: FormEvent) {
     event.preventDefault();
-    if (!selectedCase || !selectedFacility || !selectedAuthorization || consentLoading || facilitiesLoading || facilitiesError) return;
+    if (actionLock.current || !selectedCase || !selectedFacility || !selectedAuthorization || consentLoading || facilitiesLoading || facilitiesError) return;
+    actionLock.current = true;
     setBusyId('create');
     setError(null);
     setNotice(null);
@@ -140,7 +158,7 @@ export function DigitalReferralWorkspace() {
         priority,
       }, idem());
       try {
-        await api.post(`/referrals/${created.data.id}/submit`, {}, idem());
+        await api.post(`/referrals/${created.data.id}/submit`, {base_version:created.data.version}, idem());
         setNotice(`Referral ${created.data.id} was submitted. Submission is not acceptance or a start of care.`);
       } catch (cause) {
         setNotice(`Referral ${created.data.id} was saved as a draft. Submit it from your referral list after reviewing the error.`);
@@ -151,27 +169,35 @@ export function DigitalReferralWorkspace() {
     } catch (cause) {
       setError(errorMessage(cause, 'Referral could not be created.'));
     } finally {
+      actionLock.current = false;
       setBusyId(null);
     }
   }
 
   async function act(referral: DigitalReferral, action: string, body: Record<string, unknown> = {}) {
+    if (actionLock.current) return;
+    if (['decline', 'cancel', 'complete'].includes(action) && !window.confirm(`${action === 'complete' ? 'Complete this referral with the recorded outcome' : action === 'decline' ? 'Decline this referral with the recorded reason' : 'Cancel this referral'}?`)) return;
+    actionLock.current = true;
     setBusyId(referral.id);
     setError(null);
     setNotice(null);
     try {
-      await api.post(`/referrals/${referral.id}/${action}`, body, idem());
+      await api.post(`/referrals/${referral.id}/${action}`, {...body,base_version:referral.version}, idem());
       setNotice(`Referral ${referral.id}: ${action.replace('-', ' ')} recorded.`);
+      if(action==='complete')setOutcomes(current=>{const next={...current};delete next[referral.id];return next;});
       await load();
     } catch (cause) {
       setError(errorMessage(cause, `Could not ${action.replace('-', ' ')} this referral.`));
     } finally {
+      actionLock.current = false;
       setBusyId(null);
     }
   }
 
   function referralCard(referral: DigitalReferral, mode: 'source' | 'inbox') {
-    const busy = busyId === referral.id;
+    const busy = busyId !== null || loading;
+    const outcome = outcomes[referral.id] ?? blankOutcome;
+    const updateOutcome = (patch: Partial<OutcomeDraft>) => setOutcomes(current=>({...current,[referral.id]:{...(current[referral.id]??blankOutcome),...patch}}));
     return (
       <Card key={referral.id} className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -192,7 +218,7 @@ export function DigitalReferralWorkspace() {
           <div>Created: {dateTime(referral.created_at)}</div>
           <div>Submitted: {dateTime(referral.submitted_at)}</div>
           <div>Updated: {dateTime(referral.updated_at)}</div>
-          <div>Expires: {dateTime(referral.expires_at)}</div>
+          <div>Submission / receipt deadline: {dateTime(referral.expires_at)}</div>
           <div>Received: {dateTime(referral.received_at)}</div>
           <div>Accepted: {dateTime(referral.accepted_at)}</div>
           <div>Care started: {dateTime(referral.care_started_at)}</div>
@@ -211,32 +237,34 @@ export function DigitalReferralWorkspace() {
         )}
         <ReferralConversation referral={referral} />
         <div className="flex flex-wrap gap-2">
+          {mode === 'source' && ['draft','submitted','received'].includes(referral.status) && <Button variant="danger" disabled={busy} onClick={() => void act(referral,'cancel')}>Cancel referral</Button>}
           {mode === 'source' && referral.status === 'draft' && <Button disabled={busy} onClick={() => void act(referral, 'submit')}>Submit referral</Button>}
           {mode === 'inbox' && referral.status === 'submitted' && <Button disabled={busy} onClick={() => void act(referral, 'receive')}>Acknowledge receipt</Button>}
           {mode === 'inbox' && referral.status === 'received' && <>
             <Button disabled={busy} onClick={() => void act(referral, 'accept')}>Accept referral</Button>
-            <Field label="Decline reason">
-              <input className={inputClass} value={declineReasons[referral.id] ?? ''} onChange={(event) => setDeclineReasons((current) => ({ ...current, [referral.id]: event.target.value }))} />
+            <Field label="Decline reason" htmlFor={`referral-decline-${referral.id}`}>
+              <input id={`referral-decline-${referral.id}`} maxLength={500} className={inputClass} value={declineReasons[referral.id] ?? ''} onChange={(event) => setDeclineReasons((current) => ({ ...current, [referral.id]: event.target.value }))} />
             </Field>
-            <Button variant="danger" disabled={busy || !(declineReasons[referral.id] ?? '').trim()} onClick={() => void act(referral, 'decline', { reason: declineReasons[referral.id]?.trim() })}>Decline</Button>
+            <Button variant="danger" disabled={busy || (declineReasons[referral.id] ?? '').trim().length < 3} onClick={() => void act(referral, 'decline', { reason: declineReasons[referral.id]?.trim() })}>Decline</Button>
           </>}
           {mode === 'inbox' && referral.status === 'accepted' && <Button disabled={busy} onClick={() => void act(referral, 'start-care')}>Mark care started</Button>}
         </div>
         {mode === 'inbox' && referral.status === 'in_care' && (
           <div className="grid gap-3 border-t border-line pt-3 sm:grid-cols-2">
-            <Field label="Recorded outcome">
-              <select className={inputClass} value={outcomeStatus} onChange={(event) => setOutcomeStatus(event.target.value as typeof outcomeStatus)}>
+            <Field label="Recorded outcome" htmlFor={`referral-outcome-${referral.id}`}>
+              <select id={`referral-outcome-${referral.id}`} className={inputClass} value={outcome.status} onChange={(event) => updateOutcome({status:event.target.value as OutcomeDraft['status']})}>
+                <option value="">Select the actual outcome</option>
                 <option value="care_provided">Care provided</option>
                 <option value="redirected">Redirected</option>
                 <option value="unable_to_complete">Unable to complete</option>
               </select>
             </Field>
-            <Field label="Follow-up recommendation (optional)" htmlFor={`referral-follow-up-${referral.id}`}><input id={`referral-follow-up-${referral.id}`} className={inputClass} value={followUp} maxLength={1000} onChange={(event) => setFollowUp(event.target.value)} /></Field>
-            <Field label="Patient instructions (optional)" htmlFor={`referral-patient-instructions-${referral.id}`}><textarea id={`referral-patient-instructions-${referral.id}`} className={areaClass} value={instructions} maxLength={1000} onChange={(event) => setInstructions(event.target.value)} /></Field>
-            <div className="flex items-end"><Button disabled={busy} onClick={() => void act(referral, 'complete', {
-              outcome_status: outcomeStatus,
-              ...(followUp.trim() ? { follow_up_recommendation: followUp.trim() } : {}),
-              ...(instructions.trim() ? { patient_instructions: instructions.trim() } : {}),
+            <Field label="Follow-up recommendation (optional)" htmlFor={`referral-follow-up-${referral.id}`}><input id={`referral-follow-up-${referral.id}`} className={inputClass} value={outcome.followUp} maxLength={1000} onChange={(event) => updateOutcome({followUp:event.target.value})} /></Field>
+            <Field label="Patient instructions (optional)" htmlFor={`referral-patient-instructions-${referral.id}`}><textarea id={`referral-patient-instructions-${referral.id}`} className={areaClass} value={outcome.instructions} maxLength={1000} onChange={(event) => updateOutcome({instructions:event.target.value})} /></Field>
+            <div className="flex items-end"><Button disabled={busy || !outcome.status} onClick={() => void act(referral, 'complete', {
+              outcome_status: outcome.status,
+              ...(outcome.followUp.trim() ? { follow_up_recommendation: outcome.followUp.trim() } : {}),
+              ...(outcome.instructions.trim() ? { patient_instructions: outcome.instructions.trim() } : {}),
             })}>Complete and send feedback</Button></div>
           </div>
         )}
@@ -244,9 +272,15 @@ export function DigitalReferralWorkspace() {
     );
   }
 
+  function visible(rows: DigitalReferral[]) {
+    const text=search.trim().toLocaleLowerCase();
+    return rows.filter(row=>(!activeOnly || !['completed','declined','cancelled','expired'].includes(row.status)) && (!text || [row.id,row.purpose,row.patient_reference,row.source.facility.name,row.destination.facility.name].some(value=>value?.toLocaleLowerCase().includes(text))))
+      .sort((a,b)=>({emergency:2,urgent:1,routine:0}[b.priority]-{emergency:2,urgent:1,routine:0}[a.priority]) || Date.parse(a.created_at)-Date.parse(b.created_at));
+  }
+  const visibleInbox=visible(inbox), visibleSource=visible(source);
   return (
     <PageShell>
-      <PageHeader title="Create a referral" lede="Send a secure, patient-authorized handoff with the clinical context the receiving team needs." action={<Button variant="quiet" disabled={loading || facilitiesLoading || busyId==='create'} onClick={() => { void load(); void loadFacilities(); void refreshAuthorizations(selectedCase); }}>Refresh</Button>} />
+      <PageHeader title="Create a referral" lede="Send a secure, patient-authorized handoff with the clinical context the receiving team needs." action={<Button variant="quiet" disabled={loading || facilitiesLoading || busyId !== null} onClick={() => { void load(); void loadFacilities(); void refreshAuthorizations(selectedCase); }}>Refresh</Button>} />
       <div className="mt-5 space-y-4">
         {error && <Notice>{error}</Notice>}
         {notice && <p role="status" className="rounded border border-teal/30 bg-teal/5 p-3 text-sm">{notice}</p>}
@@ -293,19 +327,26 @@ export function DigitalReferralWorkspace() {
               <option value="routine">Routine</option><option value="urgent">Urgent</option><option value="emergency">Emergency</option>
             </select>
           </Field>
-          <div className="ahp-form-actions"><Button disabled={loading || facilitiesLoading || !!facilitiesError || consentLoading || busyId === 'create' || !selectedFacility || !selectedAuthorization}>{busyId === 'create' ? 'Saving…' : 'Confirm and submit referral'}</Button></div>
+          {priority === 'emergency' && <p className="ahp-full text-sm text-clay">An emergency referral does not call emergency services or dispatch transport. Use the emergency workflow and your facility’s urgent communication channel when needed.</p>}
+          <div className="ahp-form-actions"><Button disabled={loading || facilitiesLoading || !!facilitiesError || consentLoading || busyId !== null || !selectedFacility || !selectedAuthorization}>{busyId === 'create' ? 'Saving…' : 'Confirm and submit referral'}</Button></div>
         </form>
       </Card>
       <aside className="ahp-context"><Icon name="shield" size={27}/><h2>Patient consent sets the boundary.</h2><p>Choose a registered destination hospital or clinic. Sending requires patient consent for that facility and this case.</p><hr/><strong>Share the minimum necessary</strong><p>Review the summary before sending. A referral never grants unrestricted access to a patient’s record.</p><hr/><strong>Keep each stage clear</strong><p>Submitted, accepted and care started are separate states.</p></aside>
       </div>
+      <section className="my-6 space-y-3" aria-label="Referral tracking filters">
+        <h2 className="text-lg font-semibold">Track referrals</h2>
+        <Field label="Search loaded referrals" htmlFor="referral-tracking-search"><input id="referral-tracking-search" type="search" className={inputClass} value={search} onChange={event=>setSearch(event.target.value)} placeholder="Facility, purpose, patient reference or referral ID" /></Field>
+        <label className="flex items-center gap-2"><input type="checkbox" checked={activeOnly} onChange={event=>setActiveOnly(event.target.checked)} />Show active referrals only</label>
+        <p className="text-sm text-ink-soft">{lastChecked?`Last checked ${dateTime(lastChecked)}. `:''}Search covers up to 100 loaded referrals per list. Refresh to check for changes.</p>
+      </section>
       <div className="ahp-referral-lists">
       <section className="ahp-card space-y-3">
         <h2 className="text-lg font-semibold">Receiving facility inbox</h2>
-        {loading ? <p>Loading referrals…</p> : inbox.length ? <div className="space-y-3">{inbox.map((item) => referralCard(item, 'inbox'))}</div> : <Empty>No authorized incoming referrals are waiting.</Empty>}
+        {loading ? <p>Loading referrals…</p> : visibleInbox.length ? <div className="space-y-3">{visibleInbox.map((item) => referralCard(item, 'inbox'))}</div> : error ? <Notice>Incoming referrals could not be confirmed. Refresh to try again.</Notice> : <Empty>{inbox.length?'No incoming referrals match these filters.':'No authorized incoming referrals are waiting.'}</Empty>}
       </section>
       <section className="ahp-card space-y-3">
         <h2 className="text-lg font-semibold">Referrals I sent</h2>
-        {loading ? <p>Loading referrals…</p> : source.length ? <div className="space-y-3">{source.map((item) => referralCard(item, 'source'))}</div> : <Empty>You have not sent any referrals.</Empty>}
+        {loading ? <p>Loading referrals…</p> : visibleSource.length ? <div className="space-y-3">{visibleSource.map((item) => referralCard(item, 'source'))}</div> : error ? <Notice>Sent referrals could not be confirmed. Refresh to try again.</Notice> : <Empty>{source.length?'No sent referrals match these filters.':'You have not sent any referrals.'}</Empty>}
       </section>
       </div>
     </PageShell>

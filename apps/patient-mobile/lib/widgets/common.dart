@@ -76,26 +76,24 @@ class Panel extends StatelessWidget {
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final palette = AppPalette.of(context);
-    final content = Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: accent != null
-            ? Border(left: BorderSide(color: accent!, width: 4))
-            : Border.all(color: palette.line),
-      ),
-      child: child,
-    );
-    if (onTap == null) return content;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(onTap: onTap, child: content),
-      ),
-    );
+    final padding = Padding(padding: const EdgeInsets.all(16), child: child);
+    return SizedBox(
+        width: double.infinity,
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: Ink(
+            decoration: BoxDecoration(
+                color: palette.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: accent != null
+                    ? Border(left: BorderSide(color: accent!, width: 4))
+                    : Border.all(color: palette.line)),
+            child:
+                onTap == null ? padding : InkWell(onTap: onTap, child: padding),
+          ),
+        ));
   }
 }
 
@@ -117,4 +115,82 @@ class Empty extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Task-oriented page introduction; adapts actions without shrinking text.
+class WorkspaceIntro extends StatelessWidget {
+  const WorkspaceIntro(
+      {super.key, required this.title, this.description, this.action});
+  final String title;
+  final String? description;
+  final Widget? action;
+  @override
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: LayoutBuilder(builder: (context, size) {
+        final copy =
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Semantics(
+              header: true,
+              child: Text(L.tr(title),
+                  style: Theme.of(context).textTheme.headlineSmall)),
+          if (description != null) ...[
+            const SizedBox(height: 8),
+            Text(L.tr(description!),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: AppPalette.of(context).inkSoft))
+          ]
+        ]);
+        if (size.maxWidth >= 700) {
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: copy),
+            if (action != null) ...[const SizedBox(width: 24), action!]
+          ]);
+        }
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          copy,
+          if (action != null) ...[const SizedBox(height: 16), action!]
+        ]);
+      }));
+}
+
+/// A stable loading layout, rather than a blank screen or animated decoration.
+class LoadingContent extends StatelessWidget {
+  const LoadingContent({super.key, this.rows = 3});
+  final int rows;
+  @override
+  Widget build(BuildContext context) => Semantics(
+      liveRegion: true,
+      label: L.tr('Loading services…'),
+      child: ExcludeSemantics(
+          child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(
+                      rows,
+                      (_) => Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                              color: AppPalette.of(context).surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                  color: AppPalette.of(context).line)),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                FractionallySizedBox(
+                                    widthFactor: .55,
+                                    child: Container(
+                                        height: 18,
+                                        color:
+                                            AppPalette.of(context).paperSunk)),
+                                const SizedBox(height: 12),
+                                Container(
+                                    height: 12,
+                                    color: AppPalette.of(context).paperSunk)
+                              ])))))));
 }

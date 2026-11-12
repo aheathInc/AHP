@@ -67,14 +67,16 @@ export async function listPharmacies(query: {
  * status visible before the patient travels, rather than after.
  */
 export async function searchMedication(input: {
-  medication_name: string; lat?: number; lng?: number; radius_km?: number; required_quantity?: number;
+  medication_name: string; lat?: number; lng?: number; radius_km?: number; required_quantity?: number; exact_match?: boolean;
 }) {
   const radius = input.radius_km ?? 15;
   const hasLocation = input.lat !== undefined && input.lng !== undefined;
 
   const stock = await prisma.pharmacyStock.findMany({
     where: {
-      medicationName: { contains: input.medication_name, mode: 'insensitive' },
+      medicationName: input.exact_match
+        ? { equals: input.medication_name.trim(), mode: 'insensitive' }
+        : { contains: input.medication_name, mode: 'insensitive' },
       pharmacy: { isVerified: true, isActive: true },
     },
     include: { pharmacy: true },

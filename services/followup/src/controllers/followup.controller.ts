@@ -18,7 +18,7 @@ const meta = (req: Request, res: Response) => ({
 const handle =
   (fn: (req: Request, res: Response) => Promise<unknown>, status = 200) =>
   async (req: Request, res: Response, next: NextFunction) => {
-    try { res.status(status).json(await fn(req, res)); } catch (err) { next(err); }
+    try { res.setHeader('Cache-Control', 'no-store'); res.status(status).json(await fn(req, res)); } catch (err) { next(err); }
   };
 
 export const getCycle = handle((req) =>
@@ -48,3 +48,5 @@ export const confirmAdherence = handle((req, res) =>
 export const listMyCheckIns = handle((req) =>
   checkins.listMyCheckIns(caller(req), listCheckInsQuery.parse(req.query)));
 
+
+export const getCheckIn = handle(req => checkins.getCheckIn(pathParam(req, 'check_in_id'), caller(req)));

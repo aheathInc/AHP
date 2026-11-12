@@ -10,7 +10,7 @@ import { Button, Notice } from './ui';
  * received. Silence is never counted as receipt — which is the whole point of
  * having this step rather than marking a result read when a page loads.
  */
-export function AcknowledgeResult({ orderId }: { orderId: string }) {
+export function AcknowledgeResult({ orderId,version }: { orderId: string; version?:number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +18,7 @@ export function AcknowledgeResult({ orderId }: { orderId: string }) {
   async function ack() {
     setBusy(true); setError(null);
     try {
-      await api.post(`/investigation-orders/${orderId}/acknowledge`, {});
+      await api.post(`/investigation-orders/${orderId}/acknowledge`, {base_version:version});
       router.refresh();
     } catch (e) {
       setError(errorMessage(e, 'Haikuweza kuthibitishwa.'));

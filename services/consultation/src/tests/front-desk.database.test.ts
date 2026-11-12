@@ -1,5 +1,6 @@
 /**
- * Digital Front Desk real PostgreSQL regression — NOT EXECUTED in Candidate 005.
+ * Digital Front Desk real PostgreSQL regression.
+ * Executed against an owned disposable PostgreSQL schema on 2026-11-12: 13 tests passed.
  * Requires a NEW, owned, disposable local test database/schema with migrations applied.
  * Fixtures are synthetic service-level actors, NOT evidence of HTTP/JWT login.
  * No automatic migration/reset/cleanup; immutable audits and fixtures are retained.
@@ -181,9 +182,34 @@ describe('Digital Front Desk — actual PostgreSQL integration gate', { concurre
   });
   it('verifies audit linkage and both partial unique index backstops', async () => {
     const indexes = await db().$queryRaw<Array<{ indexname: string }>>`
-      SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'front_desk_visits'
+      SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'front_desk_visits'
       AND indexname IN ('front_desk_one_active_patient_facility','front_desk_one_called_patient_per_clinician')`;
     assert.equal(indexes.length, 2);
     const integrity = await audit.verifyAuditChain(); assert.equal(integrity.ok, true);
   });
+});
+
+
+it('filters scoped intake worklists before pagination and exposes only eligible actor actions',async()=>{
+ const f=await fixture(),other=await fixture();
+ const waiting=await ready(f);
+ const waitingUser=await actor('patient'),secondPatient=await db().patientProfile.create({data:{userId:waitingUser.id,fullName:'SYNTHETIC SEARCHABLE ARRIVAL'}});
+ const secondCaller={sub:waitingUser.id,role:'patient',ppid:secondPatient.id} as Caller;
+ let review=await desk.createVisit(secondCaller,input(f),meta);review=await desk.checkInVisit(secondCaller,review.id,review.version,meta);
+ await desk.clinicalReview(f.doctors[0].caller,review.id,{base_version:review.version,decision:'escalated'},meta);
+ const ownFacilities=await desk.listDeskFacilities(f.doctors[0].caller,{limit:100});assert.deepEqual(ownFacilities.data.map(row=>row.id),[f.facility.id]);
+ const ownDepartments=await desk.listDeskDepartments(f.doctors[0].caller,f.facility.id);assert.deepEqual(ownDepartments.data.map(row=>row.id),[f.department.id]);
+ await assert.rejects(()=>desk.listStaffVisits(other.doctors[0].caller,{facility_id:f.facility.id,limit:50},meta),hasCode('FACILITY_MEMBERSHIP_REQUIRED'));
+ const active=await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:1},meta);assert.equal(active.data.length,1);assert.equal(active.meta.has_more,true);assert.ok(active.meta.next_cursor);
+ const next=await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:1,cursor:active.meta.next_cursor!},meta);assert.equal(next.data.length,1);assert.notEqual(next.data[0].id,active.data[0].id);
+ const readyList=await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:1,worklist:'waiting'},meta);assert.equal(readyList.data[0].id,waiting.id);assert.equal(readyList.meta.has_more,false);assert.ok(readyList.data[0].permitted_actions.includes('call'));
+ const search=await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:50,q:review.ticket},meta);assert.deepEqual(search.data.map(row=>row.id),[review.id]);
+ assert.equal((await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:50,q:'SEARCHABLE'},meta)).data[0].id,review.id);
+ const escalated=await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:50,worklist:'escalated'},meta);assert.deepEqual(escalated.data.map(row=>row.id),[review.id]);assert.equal(escalated.data[0].permitted_actions.includes('call'),false);
+ const called=await desk.callVisit(f.doctors[0].caller,waiting.id,waiting.version,meta);
+ const colleague=await desk.listStaffVisits(f.doctors[1].caller,{facility_id:f.facility.id,limit:50,worklist:'called'},meta);assert.equal(colleague.data[0].permitted_actions.includes('start'),false);
+ const assigned=await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:50,worklist:'called'},meta);assert.equal(assigned.data[0].permitted_actions.includes('start'),true);
+ await desk.cancelVisit(f.doctors[0].caller,called.id,called.version,meta);
+ assert.equal((await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:50,worklist:'called'},meta)).data.length,0);
+ assert.equal((await desk.listStaffVisits(f.doctors[0].caller,{facility_id:f.facility.id,limit:50,worklist:'cancelled'},meta)).data[0].id,called.id);
 });

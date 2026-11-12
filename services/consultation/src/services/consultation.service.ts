@@ -1,3 +1,4 @@
+import { AFPE_CADENCE, parseAfpeDiagnosisRules, resolveAfpeCategory } from '@a-health/config/afpe';
 import { prisma, type Prisma } from '@a-health/database';
 import { appendAudit, conflict, cursorArgs, forbidden, notFound, recordChange, toCursorPage } from '@a-health/http';
 import { env } from '../config/env.js';
@@ -464,7 +465,7 @@ export async function completeConsultation(
   input: {
     note: { diagnosis_text: string; diagnosis_codes?: string[]; advice_text: string; red_flags_discussed?: string[] };
     prescription?: { items: { medication_name: string; dosage: string; frequency_per_day: number; duration_days: number; instructions?: string; quantity_prescribed?: number; medication_image_url?: string; medication_education?: string }[]; valid_until?: string };
-    follow_up_cycle?: { frequency: string; custom_cron?: string; duration_days: number; questionnaire_key?: string; recovery_criteria?: Record<string, unknown> };
+    follow_up_cycle?: { frequency: string; custom_cron?: string; duration_days: number; questionnaire_key?: string; recovery_criteria?: Record<string, unknown>; afpe?: { category: 'auto' | 'acute' | 'subacute' | 'chronic'; diagnosis_context?: string; consent_confirmed: true; baseline: { symptom_severity: number; medication_required: boolean; vitals: Partial<Record<'temperature_c' | 'systolic' | 'diastolic' | 'glucose_mmol_l' | 'spo2', number>>; vital_bounds: Partial<Record<'temperature_c' | 'systolic' | 'diastolic' | 'glucose_mmol_l' | 'spo2', { min: number; max: number }>> } } };
     close_care_thread?: boolean;
   },
   meta: Meta,
@@ -564,6 +565,11 @@ export async function completeConsultation(
 
     let followUpCycleId: string | null = null;
     if (input.follow_up_cycle) {
+      const afpe = input.follow_up_cycle.afpe;
+      if (afpe && env.NODE_ENV === 'production' && !env.AFPE_CLINICAL_POLICY_APPROVED) throw conflict('STATE_TRANSITION_INVALID', 'AFPE clinical policy approval is required before activation.');
+      let resolved;
+      try { resolved = afpe ? resolveAfpeCategory(input.note.diagnosis_codes ?? [], afpe.diagnosis_context, afpe.category, parseAfpeDiagnosisRules(env.AFPE_DIAGNOSIS_RULES_JSON)) : null; } catch (error) { throw conflict('STATE_TRANSITION_INVALID', error instanceof Error ? error.message : 'Invalid diagnosis policy.'); }
+      const policy = resolved ? AFPE_CADENCE[resolved.category] : null;
       const cycle = await tx.followUpCycle.create({
         data: {
           careThreadId: consultation.careThreadId,
@@ -575,9 +581,14 @@ export async function completeConsultation(
           questionnaireKey: input.follow_up_cycle.questionnaire_key ?? null,
           recoveryCriteria: (input.follow_up_cycle.recovery_criteria ?? {}) as never,
           startDate: new Date(),
-          endDate: new Date(Date.now() + input.follow_up_cycle.duration_days * 86400000),
+          endDate: new Date(Date.now() + (policy?.duration ?? input.follow_up_cycle.duration_days) * 86400000),
         },
       });
+      if (afpe && policy && resolved) {
+        await tx.afpePlan.create({ data: { cycleId: cycle.id, category: resolved.category, diagnosisRuleIds: resolved.rule_ids,
+          baseline: afpe.baseline as never, diagnosisCodes: input.note.diagnosis_codes ?? [], durationDays: policy.duration, intervalDays: policy.days,
+          nextDueAt: new Date(), consentConfirmedAt: new Date(), ruleVersion: 'afpe-srs-v1' } });
+      }
       followUpCycleId = cycle.id;
       await tx.careThread.update({
         where: { id: consultation.careThreadId },

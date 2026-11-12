@@ -28,6 +28,10 @@ Patients can confirm taken/skipped/delayed, read an in-app reminder, review a pl
 
 Owner/generation guards clear the screen and invalidate previous asynchronous responses on session changes. Protected responses use `Cache-Control: no-store`. Detailed Flutter execution is still a required acceptance gate: the Dart tests below were authored but not run here.
 
+### AFPE longitudinal follow-up
+
+AFPE now extends the existing reminder and follow-up workflow with diagnosis-linked scheduling, immutable discharge baselines, deterministic weighted research scores, bilingual patient reports, clinician trends and source-linked digests, live dashboard alerts, a constrained contextual assistant, and signed hospital/messaging adapter contracts. See [AFPE implementation and operating boundaries](AFPE.md) for configuration, scoring assumptions, API contracts and acceptance limits.
+
 ## Reminder scheduling and delivery
 
 The existing Follow-up process runs `reminderTick` at an explicit bounded interval (default 30 seconds). It considers active explicit plans and due unanswered scheduled check-ins in a bounded catch-up window (default 120 minutes, batch 100). It creates a durable in-app `CareReminder`; it creates a privacy-minimized `NotificationLog` only when the patient preference enables SMS and an active authorized recipient exists.

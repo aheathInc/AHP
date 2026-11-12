@@ -1,4 +1,5 @@
 import '../core/l10n.dart';
+import 'family_packages_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
@@ -20,6 +21,12 @@ class _FamilyScreenState extends State<FamilyScreen> {
   String? _familyError;
   bool _loading = true;
   bool _saving = false;
+  int _revision = 0;
+  @override
+  void dispose() {
+    _revision++;
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -28,6 +35,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
   }
 
   Future<void> _load() async {
+    final revision = ++_revision;
     try {
       final response =
           await Api.get('/users/me/dependents', query: {'limit': 100});
@@ -57,7 +65,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
           if (relationship != null) dependant['relationship'] = relationship;
         }
       }
-      if (!mounted) return;
+      if (!mounted || revision != _revision) return;
       setState(() {
         _family = family;
         _dependants = dependants;
@@ -66,8 +74,10 @@ class _FamilyScreenState extends State<FamilyScreen> {
         _loading = false;
       });
     } on ApiException catch (error) {
-      if (mounted) {
+      if (mounted && revision == _revision) {
         setState(() {
+          _family = null;
+          _dependants = [];
           _error = error.status == 403
               ? L.tr('Huna ruhusa ya kuona wategemezi hawa.')
               : L.tr('Wategemezi hawakuweza kupakiwa.');
@@ -75,8 +85,10 @@ class _FamilyScreenState extends State<FamilyScreen> {
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && revision == _revision) {
         setState(() {
+          _family = null;
+          _dependants = [];
           _error = L.tr('Wategemezi hawakuweza kupakiwa.');
           _loading = false;
         });
@@ -106,8 +118,79 @@ class _FamilyScreenState extends State<FamilyScreen> {
         });
       }
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = L.tr('Mtegemezi hakuweza kuongezwa.'));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _createFamily() async {
+    final name = await showDialog<String>(
+        context: context, builder: (_) => const _FamilyNameDialog());
+    if (name == null || !mounted || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await Api.post('/families', {'name': name});
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = L.tr(
+            'Family could not be created. Refresh to check whether it already exists.'));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _linkDependant(Map<String, dynamic> dependant) async {
+    if (_saving || _family?['is_head'] != true) return;
+    String relationship = 'dependant';
+    final approved = await showDialog<bool>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+            builder: (context, update) => AlertDialog(
+                    title: Text(L.tr('Link dependant to family')),
+                    content: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text(dependant['full_name'] as String),
+                      DropdownButtonFormField<String>(
+                          initialValue: relationship,
+                          decoration:
+                              InputDecoration(labelText: L.tr('Relationship')),
+                          items: [
+                            'child',
+                            'parent',
+                            'sibling',
+                            'dependant',
+                            'other'
+                          ]
+                              .map((x) => DropdownMenuItem(
+                                  value: x, child: Text(_relationshipLabel(x))))
+                              .toList(),
+                          onChanged: (x) => update(() => relationship = x!))
+                    ]),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: Text(L.tr('Cancel'))),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: Text(L.tr('Link to family')))
+                    ])));
+    if (approved != true || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      await Api.post('/families/${_family!['id']}/members', {
+        'patient_profile_id': dependant['patient_profile_id'],
+        'relationship': relationship
+      });
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = L.tr(
+            'Member could not be linked. Refresh the family before retrying.'));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -119,16 +202,18 @@ class _FamilyScreenState extends State<FamilyScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(L.tr('Familia na wategemezi'))),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SingleChildScrollView(child: LoadingContent())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  Text(
-                    L.tr(
-                        'Taarifa za uhusiano tu. Rekodi za afya za mtegemezi hazionyeshwi hapa.'),
-                  ),
+                  WorkspaceIntro(
+                      title: _family?['name'] as String? ?? L.tr('Your family'),
+                      description: L.tr(
+                          'Manage your dependants and see the care team assigned to your family.')),
+                  Text(L.tr('Family links do not share medical records.'),
+                      style: Theme.of(context).textTheme.bodySmall),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Notice(_error!),
@@ -138,14 +223,45 @@ class _FamilyScreenState extends State<FamilyScreen> {
                     Notice(_familyError!),
                   ],
                   const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                      onPressed: _saving
+                          ? null
+                          : () async {
+                              await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) => FamilyPackagesScreen(
+                                          family: _family)));
+                              if (mounted) await _load();
+                            },
+                      icon: const Icon(Icons.workspace_premium_outlined),
+                      label: Text(L.tr('View subscription packages'))),
+                  if (_family == null && _familyError == null)
+                    OutlinedButton.icon(
+                        onPressed: _saving ? null : _createFamily,
+                        icon: const Icon(Icons.family_restroom),
+                        label: Text(L.tr('Create family group'))),
+                  const SizedBox(height: 20),
                   SectionTitle(L.tr('Wategemezi')),
                   if (_dependants.isEmpty)
                     Empty(L.tr('Hakuna wategemezi walioongezwa.')),
-                  ..._dependants.map((dependant) => _memberTile(
-                        dependant,
-                        gp: _assignmentFor(dependant, 'gp_clinician'),
-                        obgyn: _assignmentFor(dependant, 'obgyn_clinician'),
-                      )),
+                  ..._dependants.map((dependant) => Column(children: [
+                        _memberTile(
+                          dependant,
+                          gp: _assignmentFor(dependant, 'gp_clinician'),
+                          obgyn: _assignmentFor(dependant, 'obgyn_clinician'),
+                        ),
+                        if (_family?['is_head'] == true &&
+                            !((_family?['members'] as List?) ?? [])
+                                .whereType<Map>()
+                                .any((m) =>
+                                    m['patient_profile_id'] ==
+                                    dependant['patient_profile_id']))
+                          TextButton(
+                              onPressed: _saving
+                                  ? null
+                                  : () => _linkDependant(dependant),
+                              child: Text(L.tr('Link to family')))
+                      ])),
                   OutlinedButton.icon(
                     onPressed: _saving ? null : _createDependant,
                     icon: _saving
@@ -159,24 +275,14 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   ),
                   if (_family != null) ...[
                     const SizedBox(height: 24),
-                    Text(
-                      _family!['name'] as String? ?? L.tr('Familia'),
-                      style: const TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(L.tr(
-                        'Kundi la familia na madaktari waliopangiwa (taarifa za kusoma tu).')),
-                    const SizedBox(height: 16),
-                    SectionTitle(L.tr('Wanafamilia')),
-                    ..._familyMembersNotShownAsDependants()
-                        .map((member) => _memberTile(
-                              member,
+                    if (_familyMembersNotShownAsDependants().isNotEmpty) ...[
+                      SectionTitle(L.tr('Wanafamilia')),
+                      ..._familyMembersNotShownAsDependants().map((member) =>
+                          _memberTile(member,
                               gp: _family!['gp_clinician'] as Map?,
-                              obgyn: _family!['obgyn_clinician'] as Map?,
-                            )),
-                    const SizedBox(height: 12),
+                              obgyn: _family!['obgyn_clinician'] as Map?)),
+                      const SizedBox(height: 16),
+                    ],
                     SectionTitle(L.tr('Madaktari waliopangiwa familia')),
                     _assignmentCard(L.tr('Daktari wa familia (GP)'),
                         _family!['gp_clinician'] as Map?),
@@ -260,7 +366,9 @@ class _FamilyScreenState extends State<FamilyScreen> {
               Text(clinician?['full_name'] as String? ?? L.tr('Hajapangiwa')),
               Text(clinician == null
                   ? L.tr('Hali: haijapangiwa')
-                  : L.tr('Hali: amepangiwa')),
+                  : clinician['available'] == false
+                      ? L.tr('Temporarily unavailable')
+                      : L.tr('Hali: amepangiwa')),
             ],
           ),
         ),
@@ -416,4 +524,39 @@ class DependantSummaryScreen extends StatelessWidget {
         trailing:
             Text(clinician == null ? L.tr('Haijapangiwa') : L.tr('Amepangiwa')),
       );
+}
+
+class _FamilyNameDialog extends StatefulWidget {
+  const _FamilyNameDialog();
+  @override
+  State<_FamilyNameDialog> createState() => _FamilyNameDialogState();
+}
+
+class _FamilyNameDialogState extends State<_FamilyNameDialog> {
+  final controller = TextEditingController();
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+          title: Text(L.tr('Create family group')),
+          content: TextField(
+              controller: controller,
+              maxLength: 150,
+              autofocus: true,
+              decoration: InputDecoration(labelText: L.tr('Family name')),
+              onChanged: (_) => setState(() {})),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(L.tr('Cancel'))),
+            FilledButton(
+                onPressed: controller.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(context, controller.text.trim()),
+                child: Text(L.tr('Create family')))
+          ]);
 }

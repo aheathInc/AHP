@@ -48,6 +48,11 @@ async function forward(req: NextRequest, path: string[]) {
 
   try {
     const upstream = await fetch(url, { method: req.method, headers, body, cache: 'no-store' });
+    if (apiPath === '/care-continuity/afpe/events' && upstream.ok && upstream.headers.get('Content-Type')?.startsWith('text/event-stream')) {
+      const response = new NextResponse(upstream.body, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' } });
+      if (auth.cookie) response.cookies.set(auth.cookie.name, auth.cookie.value, auth.cookie.options);
+      return response;
+    }
     const text = await upstream.text();
     const response = new NextResponse(text || null, {
       status: upstream.status,

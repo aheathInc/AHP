@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { pathParam } from '@a-health/http';
 import * as appointments from '../services/appointment.service.js';
 import {
-  cancelAppointmentSchema, createAppointmentSchema, listAppointmentsQuery,
+  cancelAppointmentSchema, createAppointmentSchema, listAppointmentsQuery, rescheduleAppointmentSchema, rescheduleOptionsQuery, appointmentIdSchema,
 } from '../types/appointment.types.js';
 
 const caller = (req: Request) => ({
@@ -15,7 +15,7 @@ const meta = (req: Request, res: Response) => ({
 const handle =
   (fn: (req: Request, res: Response) => Promise<unknown>, status = 200) =>
   async (req: Request, res: Response, next: NextFunction) => {
-    try { res.status(status).json(await fn(req, res)); } catch (err) { next(err); }
+    try { res.setHeader('Cache-Control', 'no-store'); res.status(status).json(await fn(req, res)); } catch (err) { next(err); }
   };
 
 export const create = handle(
@@ -32,5 +32,13 @@ export const start = handle(
 
 export const cancel = handle((req, res) => {
   const input = cancelAppointmentSchema.parse(req.body ?? {});
-  return appointments.cancelAppointment(pathParam(req, 'appointment_id'), caller(req), input.reason, meta(req, res));
+  return appointments.cancelAppointment(pathParam(req, 'appointment_id'), caller(req), input.reason, meta(req, res), input.base_version);
 });
+
+export const reschedule = handle((req, res) => appointments.rescheduleAppointment(appointmentIdSchema.parse(pathParam(req, 'appointment_id')), caller(req), rescheduleAppointmentSchema.parse(req.body), meta(req, res)));
+export const rescheduleOptions = handle(req => appointments.rescheduleOptions(appointmentIdSchema.parse(pathParam(req, 'appointment_id')), caller(req), rescheduleOptionsQuery.parse(req.query)));
+
+export async function requireRescheduleOwner(req: Request, _res: Response, next: NextFunction) {
+  try { await appointments.assertRescheduleOwnership(appointmentIdSchema.parse(pathParam(req, 'appointment_id')), caller(req)); next(); }
+  catch (error) { next(error); }
+}

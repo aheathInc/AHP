@@ -450,7 +450,12 @@ export async function getPrescriptionFulfillment(prescriptionId: string, caller:
           ? null
           : remaining.get(item.id) ?? item.quantityPrescribed;
         const stock = facilityPharmacy.stock.find((row) => row.medicationName.toLowerCase() === item.medicationName.toLowerCase());
-        const quantityOnHand = stock?.stockStatus === 'out_of_stock' ? 0 : stock?.quantityOnHand ?? null;
+        const fresh = stock && stock.lastReportedAt.getTime() <= Date.now() &&
+          Date.now() - stock.lastReportedAt.getTime() <= 24 * 60 * 60 * 1000;
+        const reliable = fresh && stock.quantityOnHand !== null &&
+          ((['in_stock', 'low_stock'].includes(stock.stockStatus) && stock.quantityOnHand > 0) ||
+            (stock.stockStatus === 'out_of_stock' && stock.quantityOnHand === 0));
+        const quantityOnHand = reliable ? stock.quantityOnHand : null;
         const availability = item.quantityPrescribed == null || quantityOnHand === null ? 'unknown'
           : quantityOnHand <= 0 || stock?.stockStatus === 'out_of_stock' ? 'unavailable'
           : quantityOnHand < (quantityRemaining ?? 0) ? 'partially_available' : 'available';

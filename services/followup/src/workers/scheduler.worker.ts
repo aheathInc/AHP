@@ -1,6 +1,8 @@
 import { prisma } from '@a-health/database';
 import { createLogger } from '@a-health/logger';
 import { env } from '../config/env.js';
+import { afpeTick } from '../afpe/scheduler.js';
+import { deliveryTick } from '../afpe/delivery.js';
 
 const logger = createLogger('followup.scheduler');
 
@@ -30,7 +32,7 @@ export async function tick(now = new Date()): Promise<SchedulerResult> {
   const cycles = await prisma.followUpCycle.findMany({
     // Filter before take: ended cycles awaiting review must not fill the batch
     // and prevent in-window cycles from receiving scheduled check-ins.
-    where: { status: 'active', endDate: { gte: now } },
+    where: { status: 'active', endDate: { gte: now }, afpePlan: { is: null } },
     take: 500,
   });
 
@@ -80,6 +82,9 @@ export async function tick(now = new Date()): Promise<SchedulerResult> {
   });
 
   if (missed.count > 0) logger.warn('check-ins marked missed', { count: missed.count });
+
+  await afpeTick(now);
+  await deliveryTick(now);
 
   // Retain the result shape for existing callers, without reporting a clinical
   // outcome inferred from a timer.

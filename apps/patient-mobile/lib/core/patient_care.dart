@@ -262,17 +262,70 @@ class PatientCareRepository {
     return patientCareRecord(response, 'Appointment response is invalid.');
   }
 
+  Future<Map<String, dynamic>> rescheduleOptions(String id,
+      {String? cursor}) async {
+    final response = await _get('/appointments/$id/reschedule-options',
+        query: {'limit': 50, if (cursor != null) 'cursor': cursor});
+    final result = patientCareRecord(response, 'Invalid rescheduling options.');
+    if (result['appointment'] is! Map ||
+        result['data'] is! List ||
+        result['meta'] is! Map) {
+      throw const FormatException('Invalid rescheduling options.');
+    }
+    final appointment = Map<String, dynamic>.from(result['appointment'] as Map);
+    if (appointment['id'] != id ||
+        appointment['version'] is! int ||
+        (appointment['version'] as int) < 1 ||
+        appointment['status'] != 'booked' ||
+        DateTime.tryParse(appointment['starts_at']?.toString() ?? '') == null) {
+      throw const FormatException('Invalid current appointment.');
+    }
+    for (final slot in result['data'] as List) {
+      if (slot is! Map ||
+          slot['id'] is! String ||
+          DateTime.tryParse(slot['starts_at']?.toString() ?? '') == null ||
+          slot['duration_minutes'] != appointment['duration_minutes'] ||
+          slot['modality'] != appointment['modality']) {
+        throw const FormatException('Invalid available slot.');
+      }
+    }
+    return result;
+  }
+
+  Future<Map<String, dynamic>> rescheduleAppointment(String id,
+      {required String slotId,
+      required int baseVersion,
+      required String opId}) async {
+    final response = await _post('/appointments/$id/reschedule',
+        {'slot_id': slotId, 'base_version': baseVersion},
+        idempotencyKey: opId);
+    final result =
+        patientCareRecord(response, 'Appointment response is invalid.');
+    if (result['id'] != id ||
+        result['slot_id'] != slotId ||
+        result['status'] != 'booked' ||
+        result['version'] is! int ||
+        (result['version'] as int) <= baseVersion) {
+      throw const FormatException('Rescheduling was not confirmed.');
+    }
+    return result;
+  }
+
   Future<Map<String, dynamic>> cancelAppointment(
     String id, {
     required String opId,
     String? reason,
+    int? baseVersion,
   }) async {
     final response = await _durablePost(
       opId: opId,
       path: '/appointments/$id/cancel',
       syncPath: '/appointments/{appointment_id}/cancel',
       pathParams: {'appointment_id': id},
-      body: {if (reason != null) 'reason': reason},
+      body: {
+        if (reason != null) 'reason': reason,
+        if (baseVersion != null) 'base_version': baseVersion
+      },
     );
     return patientCareRecord(response, 'Appointment response is invalid.');
   }
@@ -293,6 +346,7 @@ class PatientCareRepository {
     required double longitude,
     double radiusKm = 15,
     int? requiredQuantity,
+    bool exactMatch = false,
   }) async {
     final response = await _get(
       '/pharmacies/medication-search',
@@ -302,6 +356,7 @@ class PatientCareRepository {
         'lng': longitude,
         'radius_km': radiusKm,
         if (requiredQuantity != null) 'required_quantity': requiredQuantity,
+        if (exactMatch) 'exact_match': 'true',
       },
     );
     return patientCareRows(response);

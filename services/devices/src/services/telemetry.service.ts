@@ -1,3 +1,4 @@
+import { signEmergencyDeviceReport } from '@a-health/http';
 import { prisma } from '@a-health/database';
 import { createLogger } from '@a-health/logger';
 import { env } from '../config/env.js';
@@ -95,22 +96,27 @@ export async function raiseDeviceAlert(
 
   try {
     const source = device.deviceType === 'vehicle_sensor' ? 'vehicle_sensor' : 'wearable';
+    if (!input.location || (input.location.lat===0 && input.location.lng===0)) {
+      logger.error('device alert needs an actual incident location before emergency creation', {alertId:alert.id});
+      return alert;
+    }
+    const body = {
+      client_request_id: alert.id, device_alert_id: alert.id, location_source:'device',
+      scale: 'individual', category: input.alert_type === 'collision_detected' ? 'road_traffic' : 'medical',
+      location: input.location, patient_profile_id: device.patientProfileId ?? undefined,
+      source, description: `Device alert: ${input.alert_type}`,
+    };
     const response = await fetch(`${env.EMERGENCY_SERVICE_URL}/emergency-requests`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `alert-${alert.id}` },
-      body: JSON.stringify({
-        scale: 'individual',
-        category: input.alert_type === 'collision_detected' ? 'road_traffic' : 'medical',
-        location: input.location ?? { lat: 0, lng: 0 },
-        patient_profile_id: device.patientProfileId ?? undefined,
-        source,
-        description: `Device alert: ${input.alert_type}`,
-      }),
+      method:'POST',
+      headers:{'Content-Type':'application/json','Idempotency-Key':`alert-${alert.id}`, 'X-AHP-Device-Report':signEmergencyDeviceReport(env.JWT_SECRET,body)},
+      body:JSON.stringify(body),
       signal: AbortSignal.timeout(10_000),
     });
     if (response.ok) {
       const body = (await response.json()) as { id: string };
       await prisma.deviceAlert.update({ where: { id: alert.id }, data: { emergencyRequestId: body.id } });
+    } else {
+      logger.error('emergency service rejected device alert report', {alertId:alert.id,status:response.status});
     }
   } catch (err) {
     logger.error('failed to open emergency from device alert', { alertId: alert.id, err: String(err) });

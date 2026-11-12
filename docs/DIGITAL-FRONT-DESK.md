@@ -1,5 +1,7 @@
 # Digital Front Desk — implementation candidate 005
 
+Historical baseline below; see [Hospital intake worklist improvements — 2026-11-12](#hospital-intake-worklist-improvements--2026-11-12) for current implementation and executed acceptance.
+
 Date: 21 October 2026. Status: **IMPLEMENTED SOURCE / SCOPED TESTS PASSED / LIVE ACCEPTANCE PENDING**.
 This is new functionality on top of cumulative Candidate 004, not another audit-only pack.
 It is not a production release, and does not implement every item in the AHP product vision.
@@ -258,3 +260,17 @@ model; no patient calling/video; no automated queue expiry/no-show workflow; no 
 subscription engine; no new research portal. Existing unrelated functionality is retained.
 Pre-consultation chat before a clinician starts this visit is not newly provided. Hospital
 agreements, clinical protocols, privacy/governance and operational approval remain required.
+
+## Hospital intake worklist improvements — 2026-11-12
+
+The staff page now presents a compact worklist with one selected visit detail panel, rather than expanding every patient's intake and actions at once. Desktop tables and mobile rows show patient/ticket, department/clinician, current stage, arrival elapsed time and outstanding review requirements. Elapsed time is measured from declared arrival, never an ETA or automatic clinical priority. Human escalation remains outside the routine ready queue.
+
+Server-side worklists include active visits, awaiting review, ready/waiting, called, in consultation, escalated review, completed and cancelled. Patient-name/ticket/exact-UUID search and worklist filters apply before cursor pagination. The ready queue orders by readiness time, then ID. The UI can load additional visits and facilities instead of truncating permanently at 100 visits. Counts describe loaded records only. Visible, idle first-page views refresh sequentially every 20 seconds; automatic refresh pauses after loading additional pages, and an explicit refresh returns to the first page. Failed authorization/queue reads clear previously displayed visits and are not presented as an authorized empty queue.
+
+Clinicians' facility and department selectors are limited to their verified current assignment. Staff visit responses include `permitted_actions` hints based on the current actor, assignment and availability. The UI hides consultation start for a colleague's called patient and explains the assignment. Calling is unavailable for an ineligible requested clinician, unavailable clinician, or clinician already holding another called/in-care intake visit. Mutations retain the existing database authorization, row locks and version checks: UI hints never grant permission.
+
+Account changes remount the workspace. Request generations discard stale scope responses; session-object refreshes no longer reset the whole queue. An action lock blocks duplicate immediate clicks. Selected panels remain stable during read refreshes, and manual administrative forms retain their existing genuine-review and confidential-reference rules. A login-page session-initialization guard also waits for the initial session check before enabling submission.
+
+For this increment, the existing PostgreSQL front-desk suite was executed in a newly created disposable local `ahealth_test` database and owned dedicated schema with all migrations. Its partial-index inspection now checks `current_schema()` instead of incorrectly inspecting `public`. Thirteen database tests pass, including lifecycle/completion, concurrency, ownership, audit integrity, partial unique indexes, server filtering/pagination, assignment-sensitive actions and facility/department isolation. This supersedes the historical NOT EXECUTED statements above for that suite; it does not establish production acceptance or extend staff roles. No new database migration or production change is required for this increment.
+
+Real Firefox acceptance for this increment also passed using fresh local synthetic clinician/admin accounts and actual BFF/Consultation requests: assigned facility loading, scoped filtering/search, calling a ready patient, refusing a colleague's consultation-start control, starting the assigned consultation, escalation visibility and genuine synthetic administrative review. Administrative DTO read-back omitted clinical purpose. Desktop/mobile captures and a viewport-overflow assertion were included. Test-created visits and accounts are synthetic; no real patient treatment, financial verification or production deployment is claimed. Deploy the updated Consultation service and web together so actor-specific worklist action hints are available.

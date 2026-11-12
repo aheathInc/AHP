@@ -4,6 +4,7 @@ import '../core/api.dart';
 import '../core/session.dart';
 import '../core/biometrics.dart';
 import '../widgets/common.dart';
+import '../widgets/emergency_call_button.dart';
 import '../widgets/biometric_settings.dart';
 import '../widgets/receipt_download.dart';
 import 'home_screen.dart';
@@ -247,6 +248,9 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              const EmergencyCallButton(
+                                  key: Key('locked-emergency-call')),
+                              const SizedBox(height: 24),
                               const Icon(Icons.lock_outline, size: 48),
                               const SizedBox(height: 20),
                               Text(L.tr('Fungua A-Health'),

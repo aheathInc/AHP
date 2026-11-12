@@ -21,7 +21,7 @@ export const confirmAdherenceSchema = z.object({
 });
 
 export const listCheckInsQuery = z.object({
-  status: z.enum(['scheduled', 'responded', 'missed']).optional(),
+  status: z.enum(['scheduled', 'responded', 'missed', 'due']).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });

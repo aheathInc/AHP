@@ -261,11 +261,11 @@ void main() {
             );
             await tester.tap(find.text('Angalia hali'));
             await _livePause(tester);
-            expect(find.textContaining('Hali: reported'), findsOneWidget);
+            expect(find.text('Imepokelewa na mfumo'), findsOneWidget);
             await tester.tap(find.text('Soma hali tena'));
             await _livePause(tester);
             expect(find.text('Namba ya ombi: $requestId'), findsOneWidget);
-            expect(find.text('Hali: reported'), findsOneWidget);
+            expect(find.text('Imepokelewa na mfumo'), findsOneWidget);
 
             if (evidencePath.isNotEmpty) {
               final riskResponse =

@@ -1,13 +1,21 @@
-import { prisma, type Prisma } from '@a-health/database';
+import { prisma, type Prisma } from "@a-health/database";
 import {
-  appendAudit, conflict, cursorArgs, forbidden, notFound, toCursorPage, unprocessable,
-} from '@a-health/http';
-import type { Caller, Meta } from './discussion.service.js';
-import type { RequestCollaborationInput } from '../types/collaboration.types.js';
+  appendAudit,
+  conflict,
+  cursorArgs,
+  forbidden,
+  notFound,
+  toCursorPage,
+  unprocessable,
+} from "@a-health/http";
+import type { Caller, Meta } from "./discussion.service.js";
+import type { RequestCollaborationInput } from "../types/collaboration.types.js";
 
 const DEFAULT_EXPIRY_HOURS = 24 * 7;
 const MAX_EXPIRY_DAYS = 30;
 const collaborationInclude = {
+  patientConsent: true,
+  consultation: { select: { patientProfileId: true, careThreadId: true } },
   requesterClinician: {
     include: {
       user: { select: { fullName: true } },
@@ -23,7 +31,9 @@ const collaborationInclude = {
     },
   },
 } satisfies Prisma.ProviderClinicalCollaborationInclude;
-type CollaborationRow = Prisma.ProviderClinicalCollaborationGetPayload<{ include: typeof collaborationInclude }>;
+type CollaborationRow = Prisma.ProviderClinicalCollaborationGetPayload<{
+  include: typeof collaborationInclude;
+}>;
 type ActiveCollaborationRow = Prisma.ProviderClinicalCollaborationGetPayload<{
   include: {
     patientConsent: true;
@@ -31,7 +41,11 @@ type ActiveCollaborationRow = Prisma.ProviderClinicalCollaborationGetPayload<{
   };
 }>;
 
-async function lockForActiveAccess(tx: Prisma.TransactionClient, id: string, patientConsentId: string | null) {
+async function lockForActiveAccess(
+  tx: Prisma.TransactionClient,
+  id: string,
+  patientConsentId: string | null,
+) {
   // Consent is locked first to match the patient-revoke transaction's lock
   // order. A read/write linearizes either before revocation or after it.
   if (patientConsentId) {
@@ -49,12 +63,17 @@ type ClinicianIdentity = {
   verificationStatus: string;
   user: { fullName: string | null; status: string };
   facility: { id: string; name: string; isActive: boolean } | null;
-  department: { id: string; name: string; facilityId: string; isActive: boolean } | null;
+  department: {
+    id: string;
+    name: string;
+    facilityId: string;
+    isActive: boolean;
+  } | null;
 };
 
 function assertClinicianClaim(caller: Caller): string {
-  if (caller.role !== 'clinician' || !caller.cpid) {
-    throw forbidden('ROLE_NOT_PERMITTED', 'A clinician account is required');
+  if (caller.role !== "clinician" || !caller.cpid) {
+    throw forbidden("ROLE_NOT_PERMITTED", "A clinician account is required");
   }
   return caller.cpid;
 }
@@ -62,28 +81,49 @@ function assertClinicianClaim(caller: Caller): string {
 async function currentClinician(caller: Caller): Promise<ClinicianIdentity> {
   const cpid = assertClinicianClaim(caller);
   const clinician = await prisma.clinicianProfile.findFirst({
-    where: { id: cpid, userId: caller.sub },
+    where: { id: cpid, userId: caller.sub, user: { role: "clinician" } },
     include: {
       user: { select: { fullName: true, status: true } },
       facility: { select: { id: true, name: true, isActive: true } },
-      department: { select: { id: true, name: true, facilityId: true, isActive: true } },
+      department: {
+        select: { id: true, name: true, facilityId: true, isActive: true },
+      },
     },
   });
-  if (!clinician || clinician.verificationStatus !== 'verified' || clinician.user.status !== 'active') {
-    throw forbidden('CLINICIAN_NOT_VERIFIED', 'An active, verified clinician account is required');
+  if (
+    !clinician ||
+    clinician.verificationStatus !== "verified" ||
+    clinician.user.status !== "active"
+  ) {
+    throw forbidden(
+      "CLINICIAN_NOT_VERIFIED",
+      "An active, verified clinician account is required",
+    );
   }
   if (!clinician.facilityId || !clinician.facility?.isActive) {
-    throw forbidden('FACILITY_MEMBERSHIP_REQUIRED', 'An active facility assignment is required');
+    throw forbidden(
+      "FACILITY_MEMBERSHIP_REQUIRED",
+      "An active facility assignment is required",
+    );
   }
-  if (clinician.departmentId && (
-    !clinician.department?.isActive || clinician.department.facilityId !== clinician.facilityId
-  )) {
-    throw forbidden('CLINICIAN_ASSIGNMENT_INVALID', 'The clinician department assignment is not active');
+  if (
+    clinician.departmentId &&
+    (!clinician.department?.isActive ||
+      clinician.department.facilityId !== clinician.facilityId)
+  ) {
+    throw forbidden(
+      "CLINICIAN_ASSIGNMENT_INVALID",
+      "The clinician department assignment is not active",
+    );
   }
   return clinician;
 }
 
-function clinicianSummary(c: CollaborationRow['requesterClinician'] | CollaborationRow['invitedClinician']) {
+function clinicianSummary(
+  c:
+    | CollaborationRow["requesterClinician"]
+    | CollaborationRow["invitedClinician"],
+) {
   return {
     clinician_id: c.id,
     full_name: c.user.fullName,
@@ -110,10 +150,18 @@ function serialise(row: CollaborationRow, callerCpid: string) {
       facility_id: row.invitedFacilityId,
       department_id: row.invitedDepartmentId,
     },
-    viewer_role: row.requesterClinicianId === callerCpid ? 'requester' as const : 'invitee' as const,
+    viewer_role:
+      row.requesterClinicianId === callerCpid
+        ? ("requester" as const)
+        : ("invitee" as const),
     scope: row.scope,
     status: row.status,
-    question: row.question,
+    question:
+      ["requested", "accepted"].includes(row.status) &&
+      row.expiresAt > new Date() &&
+      consentIsActive(row.patientConsent, row, new Date())
+        ? row.question
+        : null,
     requested_at: row.requestedAt.toISOString(),
     responded_at: row.respondedAt?.toISOString() ?? null,
     expires_at: row.expiresAt.toISOString(),
@@ -129,80 +177,123 @@ async function ownedConsultation(consultationId: string, cpid: string) {
       careThread: { select: { id: true, primaryClinicianId: true } },
     },
   });
-  if (!consultation) throw notFound('Consultation not found');
-  if (consultation.assignedClinicianId !== cpid && consultation.careThread.primaryClinicianId !== cpid) {
-    throw forbidden('NOT_RESOURCE_OWNER', 'You are not involved in this consultation');
+  if (!consultation) throw notFound("Consultation not found");
+  if (
+    consultation.assignedClinicianId !== cpid &&
+    consultation.careThread.primaryClinicianId !== cpid
+  ) {
+    throw forbidden(
+      "NOT_RESOURCE_OWNER",
+      "You are not involved in this consultation",
+    );
   }
   return consultation;
 }
 
-async function activeConsent(consultation: { patientProfileId: string; careThreadId: string }, invitedClinicianId: string, now: Date) {
+async function activeConsent(
+  consultation: { patientProfileId: string; careThreadId: string },
+  invitedClinicianId: string,
+  now: Date,
+) {
   return prisma.patientConsent.findFirst({
     where: {
       patientProfileId: consultation.patientProfileId,
       careThreadId: consultation.careThreadId,
-      granteeType: 'clinician',
+      granteeType: "clinician",
       granteeClinicianId: invitedClinicianId,
-      scope: 'current_thread',
+      scope: "current_thread",
       allowed: true,
       breakGlass: false,
       revokedAt: null,
       OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
     },
-    orderBy: { grantedAt: 'desc' },
+    orderBy: { grantedAt: "desc" },
   });
 }
 
 function consentIsActive(
-  consent: { id: string; patientProfileId: string; careThreadId: string | null; granteeType: string;
-    granteeClinicianId: string | null; scope: string; allowed: boolean; breakGlass: boolean;
-    revokedAt: Date | null; expiresAt: Date | null } | null,
-  row: { patientConsentId: string | null; careThreadId: string; invitedClinicianId: string;
-    consultation: { patientProfileId: string; careThreadId: string } },
+  consent: {
+    id: string;
+    patientProfileId: string;
+    careThreadId: string | null;
+    granteeType: string;
+    granteeClinicianId: string | null;
+    scope: string;
+    allowed: boolean;
+    breakGlass: boolean;
+    revokedAt: Date | null;
+    expiresAt: Date | null;
+  } | null,
+  row: {
+    patientConsentId: string | null;
+    careThreadId: string;
+    invitedClinicianId: string;
+    consultation: { patientProfileId: string; careThreadId: string };
+  },
   now: Date,
 ) {
-  return Boolean(consent && row.patientConsentId === consent.id &&
+  return Boolean(
+    consent &&
+    row.patientConsentId === consent.id &&
     consent.patientProfileId === row.consultation.patientProfileId &&
     row.consultation.careThreadId === row.careThreadId &&
     consent.careThreadId === row.careThreadId &&
-    consent.granteeType === 'clinician' && consent.granteeClinicianId === row.invitedClinicianId &&
-    consent.scope === 'current_thread' && consent.allowed && !consent.breakGlass && !consent.revokedAt &&
-    (!consent.expiresAt || consent.expiresAt > now));
+    consent.granteeType === "clinician" &&
+    consent.granteeClinicianId === row.invitedClinicianId &&
+    consent.scope === "current_thread" &&
+    consent.allowed &&
+    !consent.breakGlass &&
+    !consent.revokedAt &&
+    (!consent.expiresAt || consent.expiresAt > now),
+  );
 }
 
 async function expireOrRevokeIfNeeded(id: string, now = new Date()) {
   const row = await prisma.providerClinicalCollaboration.findUnique({
     where: { id },
-    include: { patientConsent: true, consultation: { select: { patientProfileId: true, careThreadId: true } } },
+    include: {
+      patientConsent: true,
+      consultation: { select: { patientProfileId: true, careThreadId: true } },
+    },
   });
-  if (!row || !['requested', 'accepted'].includes(row.status)) return;
+  if (!row || !["requested", "accepted"].includes(row.status)) return;
 
-  const consentExpired = Boolean(row.patientConsent?.expiresAt && row.patientConsent.expiresAt <= now);
+  const consentExpired = Boolean(
+    row.patientConsent?.expiresAt && row.patientConsent.expiresAt <= now,
+  );
   const collaborationExpired = row.expiresAt <= now;
-  const consentRevoked = !consentIsActive(row.patientConsent, row, now) && !consentExpired;
+  const consentRevoked =
+    !consentIsActive(row.patientConsent, row, now) && !consentExpired;
   if (!collaborationExpired && !consentExpired && !consentRevoked) return;
 
-  const nextStatus = consentRevoked ? 'revoked' : 'expired';
-  const action = consentRevoked ? 'provider_collaboration.revoked' : 'provider_collaboration.expired';
+  const nextStatus = consentRevoked ? "revoked" : "expired";
+  const action = consentRevoked
+    ? "provider_collaboration.revoked"
+    : "provider_collaboration.expired";
   const changed = await prisma.$transaction(async (tx) => {
     const result = await tx.providerClinicalCollaboration.updateMany({
       where: { id, status: row.status, version: row.version },
       data: {
         status: nextStatus,
-        ...(nextStatus === 'revoked' ? { revokedAt: now } : {}),
+        ...(nextStatus === "revoked" ? { revokedAt: now } : {}),
         version: { increment: 1 },
       },
     });
     if (result.count !== 1) return false;
-    await appendAudit({
-      action,
-      entityType: 'provider_clinical_collaborations',
-      entityId: id,
-      metadata: {
-        scope: 'consultation_summary',
-        reason: consentRevoked ? 'patient_consent_unavailable' : 'access_expired',
+    await appendAudit(
+      {
+        action,
+        entityType: "provider_clinical_collaborations",
+        entityId: id,
+        metadata: {
+          scope: "consultation_summary",
+          reason: consentRevoked
+            ? "patient_consent_unavailable"
+            : "access_expired",
+        },
       },
-    }, tx);
+      tx,
+    );
     return true;
   });
   return changed;
@@ -215,13 +306,18 @@ async function loadCollaboration(id: string, caller: Caller) {
     include: {
       ...collaborationInclude,
       patientConsent: true,
-      consultation: { select: { id: true, patientProfileId: true, careThreadId: true } },
+      consultation: {
+        select: { id: true, patientProfileId: true, careThreadId: true },
+      },
     },
   });
-  if (!row) throw notFound('Clinical collaboration not found');
+  if (!row) throw notFound("Clinical collaboration not found");
   const cpid = assertClinicianClaim(caller);
   if (row.requesterClinicianId !== cpid && row.invitedClinicianId !== cpid) {
-    throw forbidden('NOT_RESOURCE_OWNER', 'You are not a participant in this collaboration');
+    throw forbidden(
+      "NOT_RESOURCE_OWNER",
+      "You are not a participant in this collaboration",
+    );
   }
   await currentClinician(caller);
   return { row, cpid };
@@ -230,12 +326,15 @@ async function loadCollaboration(id: string, caller: Caller) {
 async function requireActiveCollaboration(id: string, caller: Caller) {
   const { row, cpid } = await loadCollaboration(id, caller);
   const now = new Date();
-  if (row.status !== 'accepted' || row.expiresAt <= now) {
-    throw forbidden('COLLABORATION_NOT_ACTIVE', 'Case access is not active');
+  if (row.status !== "accepted" || row.expiresAt <= now) {
+    throw forbidden("COLLABORATION_NOT_ACTIVE", "Case access is not active");
   }
   if (!consentIsActive(row.patientConsent, row, now)) {
     await expireOrRevokeIfNeeded(id, now);
-    throw forbidden('PATIENT_CONSENT_REQUIRED', 'The patient authorization for this clinician is no longer active');
+    throw forbidden(
+      "PATIENT_CONSENT_REQUIRED",
+      "The patient authorization for this clinician is no longer active",
+    );
   }
   return { row, cpid };
 }
@@ -245,14 +344,24 @@ function assertActiveRow(
   cpid: string,
   now: Date,
 ) {
-  if (!row || row.status !== 'accepted' || row.expiresAt <= now ||
-      (row.requesterClinicianId !== cpid && row.invitedClinicianId !== cpid) ||
-      !consentIsActive(row.patientConsent, row, now)) {
-    throw forbidden('COLLABORATION_NOT_ACTIVE', 'Case discussion access is no longer active');
+  if (
+    !row ||
+    row.status !== "accepted" ||
+    row.expiresAt <= now ||
+    (row.requesterClinicianId !== cpid && row.invitedClinicianId !== cpid) ||
+    !consentIsActive(row.patientConsent, row, now)
+  ) {
+    throw forbidden(
+      "COLLABORATION_NOT_ACTIVE",
+      "Case discussion access is no longer active",
+    );
   }
 }
 
-export async function listCollaborativeCases(caller: Caller, query: { cursor?: string; limit: number }) {
+export async function listCollaborativeCases(
+  caller: Caller,
+  query: { cursor?: string; limit: number },
+) {
   const clinician = await currentClinician(caller);
   const rows = await prisma.consultationRequest.findMany({
     where: {
@@ -262,10 +371,15 @@ export async function listCollaborativeCases(caller: Caller, query: { cursor?: s
       ],
     },
     select: {
-      id: true, careThreadId: true, urgencyLevel: true, status: true,
-      symptomText: true, createdAt: true, updatedAt: true,
+      id: true,
+      careThreadId: true,
+      urgencyLevel: true,
+      status: true,
+      symptomText: true,
+      createdAt: true,
+      updatedAt: true,
     },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: { updatedAt: "desc" },
     ...cursorArgs(query.cursor, query.limit),
   });
   return toCursorPage(rows, query.limit, (row) => ({
@@ -279,7 +393,10 @@ export async function listCollaborativeCases(caller: Caller, query: { cursor?: s
   }));
 }
 
-export async function listEligibleClinicians(consultationId: string, caller: Caller) {
+export async function listEligibleClinicians(
+  consultationId: string,
+  caller: Caller,
+) {
   const requester = await currentClinician(caller);
   const consultation = await ownedConsultation(consultationId, requester.id);
   const now = new Date();
@@ -287,9 +404,9 @@ export async function listEligibleClinicians(consultationId: string, caller: Cal
     where: {
       patientProfileId: consultation.patientProfileId,
       careThreadId: consultation.careThreadId,
-      granteeType: 'clinician',
+      granteeType: "clinician",
       granteeClinicianId: { not: null },
-      scope: 'current_thread',
+      scope: "current_thread",
       allowed: true,
       breakGlass: false,
       revokedAt: null,
@@ -297,28 +414,38 @@ export async function listEligibleClinicians(consultationId: string, caller: Cal
     },
     select: { granteeClinicianId: true },
   });
-  const ids = [...new Set(consents
-    .map((consent) => consent.granteeClinicianId)
-    .filter((id): id is string => Boolean(id) && id !== requester.id))];
+  const ids = [
+    ...new Set(
+      consents
+        .map((consent) => consent.granteeClinicianId)
+        .filter((id): id is string => Boolean(id) && id !== requester.id),
+    ),
+  ];
   if (ids.length === 0) return { data: [] };
 
   const clinicians = await prisma.clinicianProfile.findMany({
     where: {
       id: { in: ids },
-      verificationStatus: 'verified',
-      user: { status: 'active' },
+      verificationStatus: "verified",
+      user: { status: "active" },
       facility: { isActive: true },
     },
     include: {
       user: { select: { fullName: true } },
       facility: { select: { id: true, name: true, isActive: true } },
-      department: { select: { id: true, name: true, facilityId: true, isActive: true } },
+      department: {
+        select: { id: true, name: true, facilityId: true, isActive: true },
+      },
     },
-    orderBy: [{ specialty: 'asc' }, { createdAt: 'asc' }],
+    orderBy: [{ specialty: "asc" }, { createdAt: "asc" }],
   });
   return {
     data: clinicians
-      .filter((c) => !c.departmentId || (c.department?.isActive && c.department.facilityId === c.facilityId))
+      .filter(
+        (c) =>
+          !c.departmentId ||
+          (c.department?.isActive && c.department.facilityId === c.facilityId),
+      )
       .map((c) => ({
         clinician_id: c.id,
         full_name: c.user.fullName,
@@ -331,41 +458,68 @@ export async function listEligibleClinicians(consultationId: string, caller: Cal
   };
 }
 
-export async function requestCollaboration(caller: Caller, input: RequestCollaborationInput, meta: Meta) {
+export async function requestCollaboration(
+  caller: Caller,
+  input: RequestCollaborationInput,
+  meta: Meta,
+) {
   const requester = await currentClinician(caller);
-  const consultation = await ownedConsultation(input.consultation_id, requester.id);
+  const consultation = await ownedConsultation(
+    input.consultation_id,
+    requester.id,
+  );
   if (input.invited_clinician_id === requester.id) {
-    throw unprocessable('Choose another verified clinician', 'invited_clinician_id');
+    throw unprocessable(
+      "Choose another verified clinician",
+      "invited_clinician_id",
+    );
   }
 
   const invited = await prisma.clinicianProfile.findFirst({
     where: {
       id: input.invited_clinician_id,
-      verificationStatus: 'verified',
-      user: { status: 'active' },
+      verificationStatus: "verified",
+      user: { status: "active" },
       facility: { isActive: true },
     },
     include: { facility: true, department: true },
   });
   if (!invited || !invited.facilityId || !invited.facility) {
-    throw forbidden('COLLABORATOR_NOT_ELIGIBLE', 'The selected clinician is not currently eligible');
+    throw forbidden(
+      "COLLABORATOR_NOT_ELIGIBLE",
+      "The selected clinician is not currently eligible",
+    );
   }
-  if (invited.departmentId && (
-    !invited.department?.isActive || invited.department.facilityId !== invited.facilityId
-  )) {
-    throw forbidden('COLLABORATOR_NOT_ELIGIBLE', 'The selected clinician assignment is not currently eligible');
+  if (
+    invited.departmentId &&
+    (!invited.department?.isActive ||
+      invited.department.facilityId !== invited.facilityId)
+  ) {
+    throw forbidden(
+      "COLLABORATOR_NOT_ELIGIBLE",
+      "The selected clinician assignment is not currently eligible",
+    );
   }
 
   const now = new Date();
   const requestedExpiry = input.expires_at
     ? new Date(input.expires_at)
     : new Date(now.getTime() + DEFAULT_EXPIRY_HOURS * 3_600_000);
-  if (requestedExpiry <= now || requestedExpiry.getTime() > now.getTime() + MAX_EXPIRY_DAYS * 86_400_000) {
-    throw unprocessable('Expiry must be in the future and no more than 30 days away', 'expires_at');
+  if (
+    requestedExpiry <= now ||
+    requestedExpiry.getTime() > now.getTime() + MAX_EXPIRY_DAYS * 86_400_000
+  ) {
+    throw unprocessable(
+      "Expiry must be in the future and no more than 30 days away",
+      "expires_at",
+    );
   }
   const consent = await activeConsent(consultation, invited.id, now);
   if (!consent) {
-    throw forbidden('PATIENT_CONSENT_REQUIRED', 'The patient must authorize this clinician for this care thread first');
+    throw forbidden(
+      "PATIENT_CONSENT_REQUIRED",
+      "The patient must authorize this clinician for this care thread first",
+    );
   }
 
   const row = await prisma.$transaction(async (tx) => {
@@ -373,21 +527,31 @@ export async function requestCollaboration(caller: Caller, input: RequestCollabo
     // consent only after acquiring its share lock; the earlier lookup is for
     // eligibility and may have raced with a revoke.
     await tx.$queryRaw`SELECT "id" FROM "patient_consents" WHERE "id" = ${consent.id}::uuid FOR SHARE`;
-    const currentConsent = await tx.patientConsent.findUnique({ where: { id: consent.id } });
+    const currentConsent = await tx.patientConsent.findUnique({
+      where: { id: consent.id },
+    });
     const checkedAt = new Date();
-    if (!currentConsent ||
-        currentConsent.patientProfileId !== consultation.patientProfileId ||
-        currentConsent.careThreadId !== consultation.careThreadId ||
-        currentConsent.granteeType !== 'clinician' ||
-        currentConsent.granteeClinicianId !== invited.id ||
-        currentConsent.scope !== 'current_thread' ||
-        !currentConsent.allowed || currentConsent.breakGlass || currentConsent.revokedAt ||
-        (currentConsent.expiresAt && currentConsent.expiresAt <= checkedAt)) {
-      throw forbidden('PATIENT_CONSENT_REQUIRED', 'The patient authorization is no longer active');
+    if (
+      !currentConsent ||
+      currentConsent.patientProfileId !== consultation.patientProfileId ||
+      currentConsent.careThreadId !== consultation.careThreadId ||
+      currentConsent.granteeType !== "clinician" ||
+      currentConsent.granteeClinicianId !== invited.id ||
+      currentConsent.scope !== "current_thread" ||
+      !currentConsent.allowed ||
+      currentConsent.breakGlass ||
+      currentConsent.revokedAt ||
+      (currentConsent.expiresAt && currentConsent.expiresAt <= checkedAt)
+    ) {
+      throw forbidden(
+        "PATIENT_CONSENT_REQUIRED",
+        "The patient authorization is no longer active",
+      );
     }
-    const expiresAt = currentConsent.expiresAt && currentConsent.expiresAt < requestedExpiry
-      ? currentConsent.expiresAt
-      : requestedExpiry;
+    const expiresAt =
+      currentConsent.expiresAt && currentConsent.expiresAt < requestedExpiry
+        ? currentConsent.expiresAt
+        : requestedExpiry;
     const lockKey = `${consultation.id}:${requester.id}:${invited.id}`;
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))::text AS locked`;
     const duplicate = await tx.providerClinicalCollaboration.findFirst({
@@ -395,11 +559,15 @@ export async function requestCollaboration(caller: Caller, input: RequestCollabo
         consultationId: consultation.id,
         requesterClinicianId: requester.id,
         invitedClinicianId: invited.id,
-        status: { in: ['requested', 'accepted'] },
+        status: { in: ["requested", "accepted"] },
         expiresAt: { gt: now },
       },
     });
-    if (duplicate) throw conflict('COLLABORATION_ALREADY_EXISTS', 'A collaboration request is already active');
+    if (duplicate)
+      throw conflict(
+        "COLLABORATION_ALREADY_EXISTS",
+        "A collaboration request is already active",
+      );
 
     const collaboration = await tx.providerClinicalCollaboration.create({
       data: {
@@ -412,45 +580,123 @@ export async function requestCollaboration(caller: Caller, input: RequestCollabo
         invitedFacilityId: invited.facilityId,
         invitedDepartmentId: invited.departmentId,
         patientConsentId: currentConsent.id,
-        scope: 'consultation_summary',
+        scope: "consultation_summary",
         question: input.question,
         expiresAt,
       },
     });
-    await appendAudit({
-      actorUserId: caller.sub,
-      action: 'provider_collaboration.requested',
-      entityType: 'provider_clinical_collaborations',
-      entityId: collaboration.id,
-      metadata: { scope: 'consultation_summary' },
-      ipAddress: meta.ip,
-      requestId: meta.requestId,
-    }, tx);
+    await appendAudit(
+      {
+        actorUserId: caller.sub,
+        action: "provider_collaboration.requested",
+        entityType: "provider_clinical_collaborations",
+        entityId: collaboration.id,
+        metadata: { scope: "consultation_summary" },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
     return collaboration;
   });
-  return serialise(await prisma.providerClinicalCollaboration.findUniqueOrThrow({
-    where: { id: row.id }, include: collaborationInclude,
-  }), requester.id);
+  return serialise(
+    await prisma.providerClinicalCollaboration.findUniqueOrThrow({
+      where: { id: row.id },
+      include: collaborationInclude,
+    }),
+    requester.id,
+  );
 }
 
 async function expireForClinician(cpid: string) {
   const rows = await prisma.providerClinicalCollaboration.findMany({
-    where: { OR: [{ requesterClinicianId: cpid }, { invitedClinicianId: cpid }], status: { in: ['requested', 'accepted'] } },
+    where: {
+      OR: [{ requesterClinicianId: cpid }, { invitedClinicianId: cpid }],
+      status: { in: ["requested", "accepted"] },
+    },
     select: { id: true },
   });
   for (const row of rows) await expireOrRevokeIfNeeded(row.id);
 }
 
-export async function listCollaborations(caller: Caller, query: { cursor?: string; limit: number }) {
+export async function listCollaborations(
+  caller: Caller,
+  query: { cursor?: string; limit: number; view?: string; q?: string },
+) {
   const clinician = await currentClinician(caller);
   await expireForClinician(clinician.id);
   const rows = await prisma.providerClinicalCollaboration.findMany({
-    where: { OR: [{ requesterClinicianId: clinician.id }, { invitedClinicianId: clinician.id }] },
+    where: {
+      AND: [
+        {
+          OR: [
+            { requesterClinicianId: clinician.id },
+            { invitedClinicianId: clinician.id },
+          ],
+        },
+        ...(query.view === "incoming"
+          ? [{ invitedClinicianId: clinician.id, status: "requested" as const }]
+          : query.view === "sent"
+            ? [
+                {
+                  requesterClinicianId: clinician.id,
+                  status: { in: ["requested", "accepted"] as const as never },
+                },
+              ]
+            : query.view === "active"
+              ? [{ status: "accepted" as const }]
+              : query.view === "closed"
+                ? [
+                    {
+                      status: {
+                        in: ["declined", "revoked", "expired"] as never,
+                      },
+                    },
+                  ]
+                : []),
+        ...(query.q
+          ? [
+              {
+                OR: [
+                  {
+                    requesterClinician: {
+                      user: {
+                        fullName: {
+                          contains: query.q,
+                          mode: "insensitive" as const,
+                        },
+                      },
+                    },
+                  },
+                  {
+                    invitedClinician: {
+                      user: {
+                        fullName: {
+                          contains: query.q,
+                          mode: "insensitive" as const,
+                        },
+                      },
+                    },
+                  },
+                  ...(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                    query.q,
+                  )
+                    ? [{ consultationId: query.q }, { id: query.q }]
+                    : []),
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
     include: collaborationInclude,
-    orderBy: { requestedAt: 'desc' },
+    orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
     ...cursorArgs(query.cursor, query.limit),
   });
-  return toCursorPage(rows, query.limit, (row) => serialise(row, clinician.id));
+  const page = toCursorPage(rows, query.limit, (row) =>
+    serialise(row, clinician.id),
+  );
+  return { ...page, data: page.data as ReturnType<typeof serialise>[] };
 }
 
 export async function getCollaboration(id: string, caller: Caller) {
@@ -458,107 +704,255 @@ export async function getCollaboration(id: string, caller: Caller) {
   return serialise(row, cpid);
 }
 
-export async function acceptCollaboration(id: string, caller: Caller, meta: Meta) {
+export async function acceptCollaboration(
+  id: string,
+  caller: Caller,
+  meta: Meta,
+  baseVersion?: number,
+) {
   const cpid = assertClinicianClaim(caller);
   await expireOrRevokeIfNeeded(id);
   const row = await prisma.providerClinicalCollaboration.findUnique({
     where: { id },
-    include: { patientConsent: true, consultation: { select: { patientProfileId: true, careThreadId: true } } },
+    include: {
+      patientConsent: true,
+      consultation: { select: { patientProfileId: true, careThreadId: true } },
+    },
   });
-  if (!row) throw notFound('Clinical collaboration not found');
-  if (row.invitedClinicianId !== cpid) throw forbidden('NOT_RESOURCE_OWNER', 'Only the invited clinician may accept');
+  if (!row) throw notFound("Clinical collaboration not found");
+  if (row.invitedClinicianId !== cpid)
+    throw forbidden(
+      "NOT_RESOURCE_OWNER",
+      "Only the invited clinician may accept",
+    );
   await currentClinician(caller);
-  if (row.status !== 'requested') throw conflict('STATE_TRANSITION_INVALID', 'This request is no longer awaiting a response');
+  if (row.status !== "requested")
+    throw conflict(
+      "STATE_TRANSITION_INVALID",
+      "This request is no longer awaiting a response",
+    );
   const now = new Date();
   if (row.expiresAt <= now) {
     await expireOrRevokeIfNeeded(id, now);
-    throw conflict('COLLABORATION_EXPIRED', 'This collaboration request has expired');
+    throw conflict(
+      "COLLABORATION_EXPIRED",
+      "This collaboration request has expired",
+    );
   }
   if (!consentIsActive(row.patientConsent, row, now)) {
     await expireOrRevokeIfNeeded(id, now);
-    throw forbidden('PATIENT_CONSENT_REQUIRED', 'The patient authorization is no longer active');
+    throw forbidden(
+      "PATIENT_CONSENT_REQUIRED",
+      "The patient authorization is no longer active",
+    );
   }
 
   const accepted = await prisma.$transaction(async (tx) => {
     await lockForActiveAccess(tx, id, row.patientConsentId);
     const current = await tx.providerClinicalCollaboration.findUnique({
       where: { id },
-      include: { patientConsent: true, consultation: { select: { patientProfileId: true, careThreadId: true } } },
+      include: {
+        patientConsent: true,
+        consultation: {
+          select: { patientProfileId: true, careThreadId: true },
+        },
+      },
     });
     const checkedAt = new Date();
-    if (!current || current.status !== 'requested' || current.expiresAt <= checkedAt) {
-      throw conflict('STATE_TRANSITION_INVALID', 'This request is no longer awaiting a response');
+    if (baseVersion !== undefined && current?.version !== baseVersion)
+      throw conflict(
+        "VERSION_CONFLICT",
+        "This request changed. Refresh and review before acting",
+      );
+    if (
+      !current ||
+      current.status !== "requested" ||
+      current.expiresAt <= checkedAt
+    ) {
+      throw conflict(
+        "STATE_TRANSITION_INVALID",
+        "This request is no longer awaiting a response",
+      );
     }
     if (!consentIsActive(current.patientConsent, current, checkedAt)) {
-      throw forbidden('PATIENT_CONSENT_REQUIRED', 'The patient authorization is no longer active');
+      throw forbidden(
+        "PATIENT_CONSENT_REQUIRED",
+        "The patient authorization is no longer active",
+      );
     }
     const update = await tx.providerClinicalCollaboration.updateMany({
-      where: { id, status: 'requested', version: current.version, expiresAt: { gt: checkedAt }, patientConsentId: current.patientConsentId },
-      data: { status: 'accepted', respondedAt: checkedAt, version: { increment: 1 } },
+      where: {
+        id,
+        status: "requested",
+        version: current.version,
+        expiresAt: { gt: checkedAt },
+        patientConsentId: current.patientConsentId,
+      },
+      data: {
+        status: "accepted",
+        respondedAt: checkedAt,
+        version: { increment: 1 },
+      },
     });
-    if (update.count !== 1) throw conflict('STATE_TRANSITION_INVALID', 'This request changed while being accepted');
-    await appendAudit({
-      actorUserId: caller.sub, action: 'provider_collaboration.accepted',
-      entityType: 'provider_clinical_collaborations', entityId: id,
-      metadata: { scope: 'consultation_summary' }, ipAddress: meta.ip, requestId: meta.requestId,
-    }, tx);
-    await appendAudit({
-      actorUserId: caller.sub, action: 'provider_collaboration.case_access_granted',
-      entityType: 'provider_clinical_collaborations', entityId: id,
-      metadata: { scope: 'consultation_summary' }, ipAddress: meta.ip, requestId: meta.requestId,
-    }, tx);
-    return tx.providerClinicalCollaboration.findUniqueOrThrow({ where: { id }, include: collaborationInclude });
+    if (update.count !== 1)
+      throw conflict(
+        "STATE_TRANSITION_INVALID",
+        "This request changed while being accepted",
+      );
+    await appendAudit(
+      {
+        actorUserId: caller.sub,
+        action: "provider_collaboration.accepted",
+        entityType: "provider_clinical_collaborations",
+        entityId: id,
+        metadata: { scope: "consultation_summary" },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
+    await appendAudit(
+      {
+        actorUserId: caller.sub,
+        action: "provider_collaboration.case_access_granted",
+        entityType: "provider_clinical_collaborations",
+        entityId: id,
+        metadata: { scope: "consultation_summary" },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
+    return tx.providerClinicalCollaboration.findUniqueOrThrow({
+      where: { id },
+      include: collaborationInclude,
+    });
   });
   return serialise(accepted, cpid);
 }
 
-export async function declineCollaboration(id: string, caller: Caller, meta: Meta) {
+export async function declineCollaboration(
+  id: string,
+  caller: Caller,
+  meta: Meta,
+  baseVersion?: number,
+) {
   const cpid = assertClinicianClaim(caller);
   await expireOrRevokeIfNeeded(id);
-  const row = await prisma.providerClinicalCollaboration.findUnique({ where: { id } });
-  if (!row) throw notFound('Clinical collaboration not found');
-  if (row.invitedClinicianId !== cpid) throw forbidden('NOT_RESOURCE_OWNER', 'Only the invited clinician may decline');
+  const row = await prisma.providerClinicalCollaboration.findUnique({
+    where: { id },
+  });
+  if (!row) throw notFound("Clinical collaboration not found");
+  if (row.invitedClinicianId !== cpid)
+    throw forbidden(
+      "NOT_RESOURCE_OWNER",
+      "Only the invited clinician may decline",
+    );
   await currentClinician(caller);
+  if (baseVersion !== undefined && row.version !== baseVersion)
+    throw conflict(
+      "VERSION_CONFLICT",
+      "This request changed. Refresh before acting",
+    );
   const now = new Date();
   const declined = await prisma.$transaction(async (tx) => {
     const update = await tx.providerClinicalCollaboration.updateMany({
-      where: { id, status: 'requested', expiresAt: { gt: now } },
-      data: { status: 'declined', respondedAt: now, version: { increment: 1 } },
+      where: {
+        id,
+        version: baseVersion ?? row.version,
+        status: "requested",
+        expiresAt: { gt: now },
+      },
+      data: { status: "declined", respondedAt: now, version: { increment: 1 } },
     });
-    if (update.count !== 1) throw conflict('STATE_TRANSITION_INVALID', 'This request is no longer awaiting a response');
-    await appendAudit({
-      actorUserId: caller.sub, action: 'provider_collaboration.declined',
-      entityType: 'provider_clinical_collaborations', entityId: id,
-      metadata: { scope: 'consultation_summary' }, ipAddress: meta.ip, requestId: meta.requestId,
-    }, tx);
-    return tx.providerClinicalCollaboration.findUniqueOrThrow({ where: { id }, include: collaborationInclude });
+    if (update.count !== 1)
+      throw conflict(
+        "STATE_TRANSITION_INVALID",
+        "This request is no longer awaiting a response",
+      );
+    await appendAudit(
+      {
+        actorUserId: caller.sub,
+        action: "provider_collaboration.declined",
+        entityType: "provider_clinical_collaborations",
+        entityId: id,
+        metadata: { scope: "consultation_summary" },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
+    return tx.providerClinicalCollaboration.findUniqueOrThrow({
+      where: { id },
+      include: collaborationInclude,
+    });
   });
   return serialise(declined, cpid);
 }
 
-export async function revokeCollaboration(id: string, caller: Caller, meta: Meta) {
+export async function revokeCollaboration(
+  id: string,
+  caller: Caller,
+  meta: Meta,
+  baseVersion?: number,
+) {
   const cpid = assertClinicianClaim(caller);
   await expireOrRevokeIfNeeded(id);
-  const row = await prisma.providerClinicalCollaboration.findUnique({ where: { id } });
-  if (!row) throw notFound('Clinical collaboration not found');
+  const row = await prisma.providerClinicalCollaboration.findUnique({
+    where: { id },
+  });
+  if (!row) throw notFound("Clinical collaboration not found");
   if (row.requesterClinicianId !== cpid && row.invitedClinicianId !== cpid) {
-    throw forbidden('NOT_RESOURCE_OWNER', 'Only a collaboration participant may revoke access');
+    throw forbidden(
+      "NOT_RESOURCE_OWNER",
+      "Only a collaboration participant may revoke access",
+    );
   }
   await currentClinician(caller);
+  if (baseVersion !== undefined && row.version !== baseVersion)
+    throw conflict(
+      "VERSION_CONFLICT",
+      "This request changed. Refresh before acting",
+    );
   const now = new Date();
   const revoked = await prisma.$transaction(async (tx) => {
     const update = await tx.providerClinicalCollaboration.updateMany({
-      where: { id, status: { in: ['requested', 'accepted'] } },
-      data: { status: 'revoked', revokedAt: now, revokedByUserId: caller.sub, version: { increment: 1 } },
+      where: {
+        id,
+        ...(baseVersion !== undefined ? { version: baseVersion } : {}),
+        status: { in: ["requested", "accepted"] },
+      },
+      data: {
+        status: "revoked",
+        revokedAt: now,
+        revokedByUserId: caller.sub,
+        version: { increment: 1 },
+      },
     });
-    if (update.count !== 1) throw conflict('STATE_TRANSITION_INVALID', 'This collaboration is already inactive');
-    await appendAudit({
-      actorUserId: caller.sub, action: 'provider_collaboration.revoked',
-      entityType: 'provider_clinical_collaborations', entityId: id,
-      metadata: { scope: 'consultation_summary', reason: 'participant_revoked' },
-      ipAddress: meta.ip, requestId: meta.requestId,
-    }, tx);
-    return tx.providerClinicalCollaboration.findUniqueOrThrow({ where: { id }, include: collaborationInclude });
+    if (update.count !== 1)
+      throw conflict(
+        "STATE_TRANSITION_INVALID",
+        "This collaboration is already inactive",
+      );
+    await appendAudit(
+      {
+        actorUserId: caller.sub,
+        action: "provider_collaboration.revoked",
+        entityType: "provider_clinical_collaborations",
+        entityId: id,
+        metadata: {
+          scope: "consultation_summary",
+          reason: "participant_revoked",
+        },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
+    return tx.providerClinicalCollaboration.findUniqueOrThrow({
+      where: { id },
+      include: collaborationInclude,
+    });
   });
   return serialise(revoked, cpid);
 }
@@ -568,25 +962,43 @@ export async function getSharedCase(id: string, caller: Caller, meta: Meta) {
   return prisma.$transaction(async (tx) => {
     await lockForActiveAccess(tx, id, row.patientConsentId);
     const current = await tx.providerClinicalCollaboration.findUnique({
-      where: { id }, include: { patientConsent: true, consultation: { select: { patientProfileId: true, careThreadId: true } } },
+      where: { id },
+      include: {
+        patientConsent: true,
+        consultation: {
+          select: { patientProfileId: true, careThreadId: true },
+        },
+      },
     });
     assertActiveRow(current, cpid, new Date());
     const consultation = await tx.consultationRequest.findUnique({
       where: { id: current!.consultationId },
       select: {
-        id: true, careThreadId: true, urgencyLevel: true, status: true,
-        symptomText: true, structuredSymptoms: true, createdAt: true,
+        id: true,
+        careThreadId: true,
+        urgencyLevel: true,
+        status: true,
+        symptomText: true,
+        structuredSymptoms: true,
+        createdAt: true,
       },
     });
-    if (!consultation) throw notFound('Consultation not found');
-    await appendAudit({
-      actorUserId: caller.sub, action: 'provider_collaboration.case_accessed',
-      entityType: 'provider_clinical_collaborations', entityId: id,
-      metadata: { scope: 'consultation_summary' }, ipAddress: meta.ip, requestId: meta.requestId,
-    }, tx);
+    if (!consultation) throw notFound("Consultation not found");
+    await appendAudit(
+      {
+        actorUserId: caller.sub,
+        action: "provider_collaboration.case_accessed",
+        entityType: "provider_clinical_collaborations",
+        entityId: id,
+        metadata: { scope: "consultation_summary" },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
     return {
       collaboration_id: id,
-      scope: 'consultation_summary',
+      scope: "consultation_summary",
       case: {
         consultation_id: consultation.id,
         care_thread_id: consultation.careThreadId,
@@ -596,59 +1008,136 @@ export async function getSharedCase(id: string, caller: Caller, meta: Meta) {
         structured_symptoms: consultation.structuredSymptoms ?? [],
         created_at: consultation.createdAt.toISOString(),
       },
-      viewer_role: current!.requesterClinicianId === cpid ? 'requester' as const : 'invitee' as const,
+      viewer_role:
+        current!.requesterClinicianId === cpid
+          ? ("requester" as const)
+          : ("invitee" as const),
     };
   });
 }
 
 export async function listCollaborationMessages(
-  id: string, caller: Caller, query: { cursor?: string; limit: number }, meta: Meta,
+  id: string,
+  caller: Caller,
+  query: { cursor?: string; limit: number; order?: string },
+  meta: Meta,
 ) {
   const { row, cpid } = await requireActiveCollaboration(id, caller);
   return prisma.$transaction(async (tx) => {
     await lockForActiveAccess(tx, id, row.patientConsentId);
     const current = await tx.providerClinicalCollaboration.findUnique({
-      where: { id }, include: { patientConsent: true, consultation: { select: { patientProfileId: true, careThreadId: true } } },
+      where: { id },
+      include: {
+        patientConsent: true,
+        consultation: {
+          select: { patientProfileId: true, careThreadId: true },
+        },
+      },
     });
     assertActiveRow(current, cpid, new Date());
     const rows = await tx.providerClinicalCollaborationMessage.findMany({
       where: { collaborationId: id },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [
+        { createdAt: query.order === "latest" ? "desc" : "asc" },
+        { id: query.order === "latest" ? "desc" : "asc" },
+      ],
       ...cursorArgs(query.cursor, query.limit),
     });
-    await appendAudit({
-      actorUserId: caller.sub, action: 'provider_collaboration.discussion_accessed',
-      entityType: 'provider_clinical_collaborations', entityId: id,
-      metadata: { scope: 'consultation_summary' }, ipAddress: meta.ip, requestId: meta.requestId,
-    }, tx);
-    return toCursorPage(rows, query.limit, (message) => ({
+    await appendAudit(
+      {
+        actorUserId: caller.sub,
+        action: "provider_collaboration.discussion_accessed",
+        entityType: "provider_clinical_collaborations",
+        entityId: id,
+        metadata: { scope: "consultation_summary" },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
+    const page = toCursorPage(rows, query.limit, (message) => ({
       id: message.id,
       collaboration_id: message.collaborationId,
       author_clinician_id: message.authorClinicianId,
       body: message.body,
       created_at: message.createdAt.toISOString(),
     }));
+    return {
+      ...page,
+      data: page.data as {
+        id: string;
+        collaboration_id: string;
+        author_clinician_id: string;
+        body: string;
+        created_at: string;
+      }[],
+    };
   });
 }
 
-export async function createCollaborationMessage(id: string, caller: Caller, body: string, meta: Meta) {
+export async function createCollaborationMessage(
+  id: string,
+  caller: Caller,
+  body: string,
+  meta: Meta,
+  clientMessageId?: string,
+) {
+  body = body.trim();
+  if (!body || body.length > 8000)
+    throw unprocessable("A message must contain 1 to 8000 characters");
   const { row, cpid } = await requireActiveCollaboration(id, caller);
   const message = await prisma.$transaction(async (tx) => {
     await lockForActiveAccess(tx, id, row.patientConsentId);
     const current = await tx.providerClinicalCollaboration.findUnique({
-      where: { id }, include: { patientConsent: true, consultation: { select: { patientProfileId: true, careThreadId: true } } },
+      where: { id },
+      include: {
+        patientConsent: true,
+        consultation: {
+          select: { patientProfileId: true, careThreadId: true },
+        },
+      },
     });
     const now = new Date();
     assertActiveRow(current, cpid, now);
+    if (clientMessageId) {
+      const key = `${id}:${cpid}:${clientMessageId}`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key},0))::text AS locked`;
+      const existing = await tx.providerClinicalCollaborationMessage.findFirst({
+        where: {
+          collaborationId: id,
+          authorClinicianId: cpid,
+          clientMessageId,
+        },
+      });
+      if (existing) {
+        if (existing.body !== body)
+          throw conflict(
+            "IDEMPOTENCY_KEY_CONFLICT",
+            "This message key is already used for different content",
+          );
+        return existing;
+      }
+    }
     const created = await tx.providerClinicalCollaborationMessage.create({
-      data: { collaborationId: id, authorClinicianId: cpid, body },
+      data: {
+        collaborationId: id,
+        authorClinicianId: cpid,
+        body,
+        clientMessageId,
+      },
     });
-    await appendAudit({
-      actorUserId: caller.sub, action: 'provider_collaboration.message_recorded',
-      entityType: 'provider_clinical_collaborations', entityId: id,
-      metadata: { scope: 'consultation_summary', messageId: created.id },
-      ipAddress: meta.ip, requestId: meta.requestId,
-    }, tx);
+    await appendAudit(
+      {
+        actorUserId: caller.sub,
+        action: "provider_collaboration.message_recorded",
+        entityType: "provider_clinical_collaborations",
+        entityId: id,
+        metadata: { scope: "consultation_summary", messageId: created.id },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
     return created;
   });
   return {
@@ -658,4 +1147,20 @@ export async function createCollaborationMessage(id: string, caller: Caller, bod
     body: message.body,
     created_at: message.createdAt.toISOString(),
   };
+}
+
+export async function assertCollaborationWriteAccess(
+  id: string,
+  caller: Caller,
+) {
+  const { row } = await loadCollaboration(id, caller);
+  if (
+    !["requested", "accepted"].includes(row.status) ||
+    row.expiresAt <= new Date() ||
+    !consentIsActive(row.patientConsent, row, new Date())
+  )
+    throw forbidden(
+      "COLLABORATION_NOT_ACTIVE",
+      "Patient-authorized collaboration access is no longer active",
+    );
 }

@@ -18,6 +18,15 @@ const { requireAuth, requireRole, requireVerifiedClinician } =
 const idempotency = createIdempotency(env.IDEMPOTENCY_TTL_HOURS);
 
 export const networkRouter = Router();
+for(const path of ['/network/discussions','/network/communities','/network/notifications','/network/moderation'])networkRouter.use(path,(_req,res,next)=>{res.setHeader('Cache-Control','no-store');next();});
+networkRouter.use("/network/collaborations", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
+networkRouter.use("/referrals", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 
 networkRouter.get(
   "/network/communities",
@@ -65,13 +74,11 @@ networkRouter.get(
 networkRouter.post(
   "/network/discussions",
   requireAuth,
-  idempotency,
   c.createDiscussion,
 );
 networkRouter.post(
   "/network/discussions/:discussion_id/replies",
   requireAuth,
-  idempotency,
   c.reply,
 );
 
@@ -123,6 +130,7 @@ networkRouter.post(
   "/network/collaborations",
   requireAuth,
   requireVerifiedClinician,
+  c.checkCollaborationRequestAccess,
   idempotency,
   c.requestCollaboration,
 );
@@ -130,6 +138,7 @@ networkRouter.post(
   "/network/collaborations/:collaboration_id/accept",
   requireAuth,
   requireVerifiedClinician,
+  c.checkCollaborationWriteAccess,
   idempotency,
   c.acceptCollaboration,
 );
@@ -137,6 +146,7 @@ networkRouter.post(
   "/network/collaborations/:collaboration_id/decline",
   requireAuth,
   requireVerifiedClinician,
+  c.checkCollaborationWriteAccess,
   idempotency,
   c.declineCollaboration,
 );
@@ -144,6 +154,7 @@ networkRouter.post(
   "/network/collaborations/:collaboration_id/revoke",
   requireAuth,
   requireVerifiedClinician,
+  c.checkCollaborationWriteAccess,
   idempotency,
   c.revokeCollaboration,
 );
@@ -163,6 +174,7 @@ networkRouter.post(
   "/network/collaborations/:collaboration_id/messages",
   requireAuth,
   requireVerifiedClinician,
+  c.checkCollaborationWriteAccess,
   idempotency,
   c.createCollaborationMessage,
 );
@@ -279,3 +291,8 @@ networkRouter.post(
   idempotency,
   c.cancelReferral,
 );
+
+networkRouter.post('/network/discussions/:discussion_id/report',requireAuth,requireVerifiedClinician,c.reportNetworkContent);
+networkRouter.post('/network/discussions/:discussion_id/withdraw',requireAuth,requireVerifiedClinician,c.withdrawNetworkContent);
+networkRouter.get('/network/moderation/reports',requireAuth,requireRole('platform_admin'),c.listNetworkContentReports);
+networkRouter.post('/network/moderation/reports/:report_id/review',requireAuth,requireRole('platform_admin'),c.reviewNetworkContentReport);

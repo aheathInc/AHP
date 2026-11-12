@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { clinicalArtwork } from '@/lib/premium/artwork';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { DisplayPreferences } from '@/components/premium/DisplayPreferences';
 import { Icon } from '@/components/premium/Icon';
 import { BrandMark } from '@/components/premium/BrandMark';
 import { Button, Field, Notice, inputClass } from '@/components/ui';
 
 export default function Login() {
+  const {status:sessionStatus}=useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -16,6 +17,7 @@ export default function Login() {
 
   async function staffSignIn(e: React.FormEvent) {
     e.preventDefault();
+    if(sessionStatus==='loading'||busy)return;
     setBusy(true); setError(null);
     const res = await signIn('credentials', {
       kind: 'staff',
@@ -43,7 +45,7 @@ export default function Login() {
       <section className="ahp-login-form-area"><DisplayPreferences/><form onSubmit={staffSignIn} className="ahp-login-form"><span className="ahp-eyebrow">Authorized staff access</span><h2>Welcome back.</h2><p>Sign in to your A-Health workspace with your staff account.</p>
         <Field label="Email" htmlFor="email"><input id="email" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} className={inputClass}/></Field>
         <Field label="Password" htmlFor="password"><input id="password" type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} className={inputClass}/></Field>
-        {error&&<Notice>{error}</Notice>}<Button type="submit" disabled={busy}>{busy?'Signing in…':'Sign in'}<Icon name="arrow" size={16}/></Button><span className="ahp-login-note"><Icon name="lock" size={13}/>Your role determines your workspace access.</span>
+        {error&&<Notice>{error}</Notice>}<Button type="submit" disabled={busy||sessionStatus==='loading'}>{busy?'Signing in…':'Sign in'}<Icon name="arrow" size={16}/></Button><span className="ahp-login-note"><Icon name="lock" size={13}/>Your role determines your workspace access.</span>
       </form></section>
     </div>
   );

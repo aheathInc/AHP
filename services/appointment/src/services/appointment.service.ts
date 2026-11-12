@@ -1,6 +1,6 @@
-import { prisma } from '@a-health/database';
+import { prisma, Prisma } from '@a-health/database';
 import {
-  appendAudit, conflict, cursorArgs, forbidden, notFound, recordChange, toCursorPage, unprocessable,
+  appendAudit, conflict, cursorArgs, decodeCursor, forbidden, notFound, recordChange, toCursorPage, unprocessable,
 } from '@a-health/http';
 import { env } from '../config/env.js';
 import type { CreateAppointmentInput } from '../types/appointment.types.js';
@@ -66,10 +66,10 @@ function serialiseConsultation(c: {
   };
 }
 
-async function resolvePatientProfileId(caller: Caller, requested: string | undefined): Promise<string> {
+async function resolvePatientProfileId(caller: Caller, requested: string | undefined, db: Prisma.TransactionClient = prisma): Promise<string> {
   const patientProfileId = requested ?? caller.ppid;
   if (!patientProfileId) throw forbidden('ROLE_NOT_PERMITTED', 'No patient profile for this request');
-  const patient = await prisma.patientProfile.findUnique({ where: { id: patientProfileId } });
+  const patient = await db.patientProfile.findUnique({ where: { id: patientProfileId } });
   if (!patient) throw notFound('Patient profile not found');
   if (caller.role === 'patient' && patient.userId !== caller.sub && patient.guardianUserId !== caller.sub) {
     throw forbidden('NOT_RESOURCE_OWNER', 'You cannot book an appointment for this patient');
@@ -86,63 +86,60 @@ async function resolvePatientProfileId(caller: Caller, requested: string | undef
  * the clinician. Booking does not open a consultation — that is what start()
  * is for, kept separate so a no-show never leaves a clinical record behind.
  */
-export async function createAppointment(caller: Caller, input: CreateAppointmentInput, meta: Meta) {
-  const patientProfileId = await resolvePatientProfileId(caller, input.patient_profile_id);
-
-  const slot = await prisma.slot.findUnique({ where: { id: input.slot_id } });
+async function lockAppointment(tx: Prisma.TransactionClient, id: string) {
+  await tx.$queryRaw`SELECT id FROM appointments WHERE id = ${id}::uuid FOR UPDATE`;
+  const row = await tx.appointment.findUnique({ where: { id } });
+  if (!row) throw notFound('Appointment not found');
+  return row;
+}
+async function lockPatient(tx: Prisma.TransactionClient, id: string) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`appointment-patient:${id}`}, 0))::text AS locked`;
+}
+async function ensureNoOverlap(tx: Prisma.TransactionClient, patientId: string, clinicianId: string, start: Date, duration: number, exclude = '00000000-0000-0000-0000-000000000000') {
+  const end = new Date(start.getTime() + duration * 60000);
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM appointments
+    WHERE (patient_profile_id = ${patientId}::uuid OR clinician_id = ${clinicianId}::uuid) AND id <> ${exclude}::uuid
+      AND status IN ('booked', 'started') AND starts_at < (${end.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+      AND starts_at + duration_minutes * interval '1 minute' > (${start.toISOString()}::timestamptz AT TIME ZONE 'UTC') LIMIT 1`;
+  if (rows.length) throw conflict('STATE_TRANSITION_INVALID', 'The selected time overlaps an existing appointment for this patient or clinician.');
+}
+async function claimSlot(tx: Prisma.TransactionClient, id: string) {
+  const slot = await tx.slot.findUnique({ where: { id }, include: { clinician: { include: { user: { select: { status: true } } } } } });
   if (!slot) throw notFound('Slot not found');
-  if (slot.startsAt < new Date()) throw conflict('SLOT_IN_PAST', 'This slot has already passed');
-
-  if (input.care_thread_id) {
-    const thread = await prisma.careThread.findUnique({ where: { id: input.care_thread_id } });
-    if (!thread) throw notFound('Care thread not found');
-    if (thread.patientProfileId !== patientProfileId) {
-      throw forbidden('NOT_RESOURCE_OWNER', 'That care thread does not belong to this patient');
+  if (slot.startsAt <= new Date()) throw conflict('SLOT_IN_PAST', 'This slot has already passed');
+  if (slot.clinician.verificationStatus !== 'verified' || slot.clinician.user.status !== 'active') throw conflict('SLOT_UNAVAILABLE', 'This clinician is not currently eligible for bookings.');
+  const claimed = await tx.slot.updateMany({ where: { id, isBooked: false, isPublished: true, startsAt: { gt: new Date() } }, data: { isBooked: true, version: { increment: 1 } } });
+  if (claimed.count !== 1) throw conflict('SLOT_UNAVAILABLE', 'This time is no longer available. Choose another published slot.');
+  return slot;
+}
+export async function createAppointment(caller: Caller, input: CreateAppointmentInput, meta: Meta) {
+  const appointment = await prisma.$transaction(async tx => {
+    const patientProfileId = await resolvePatientProfileId(caller, input.patient_profile_id, tx);
+    await lockPatient(tx, patientProfileId);
+    if (input.care_thread_id) {
+      const thread = await tx.careThread.findUnique({ where: { id: input.care_thread_id } });
+      if (!thread) throw notFound('Care thread not found');
+      if (thread.patientProfileId !== patientProfileId) throw forbidden('NOT_RESOURCE_OWNER', 'That care thread does not belong to this patient');
     }
-  }
-
-  const claimed = await prisma.slot.updateMany({
-    where: { id: input.slot_id, isBooked: false },
-    data: { isBooked: true },
-  });
-  if (claimed.count !== 1) {
-    throw conflict('SLOT_UNAVAILABLE', 'This slot has just been booked by someone else');
-  }
-
-  const appointment = await prisma.$transaction(async (tx) => {
-    const created = await tx.appointment.create({
-      data: {
-        slotId: slot.id,
-        careThreadId: input.care_thread_id ?? null,
-        patientProfileId,
-        clinicianId: slot.clinicianId,
-        startsAt: slot.startsAt,
-        durationMin: slot.durationMin,
-        modality: slot.modality,
-        reason: input.reason ?? null,
-      },
-    });
-    await recordChange(tx, {
-      entity: 'appointments', entityId: created.id, op: 'create',
-      version: created.version, patientProfileId, clinicianId: slot.clinicianId,
-    });
+    const slotOwner = await tx.slot.findUnique({ where: { id: input.slot_id }, select: { clinicianId: true } });
+    if (!slotOwner) throw notFound('Slot not found');
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`slot-calendar:${slotOwner.clinicianId}`}, 0))::text AS locked`;
+    const slot = await claimSlot(tx, input.slot_id);
+    await ensureNoOverlap(tx, patientProfileId, slot.clinicianId, slot.startsAt, slot.durationMin);
+    const created = await tx.appointment.create({ data: { slotId: slot.id, careThreadId: input.care_thread_id ?? null, patientProfileId,
+      clinicianId: slot.clinicianId, startsAt: slot.startsAt, durationMin: slot.durationMin, modality: slot.modality, reason: input.reason ?? null } });
+    await recordChange(tx, { entity: 'appointments', entityId: created.id, op: 'create', version: created.version, patientProfileId, clinicianId: slot.clinicianId });
+    await appendAudit({ actorUserId: caller.sub, action: 'appointment.booked', entityType: 'appointments', entityId: created.id,
+      metadata: { slotId: slot.id, startsAt: slot.startsAt.toISOString() }, ipAddress: meta.ip, requestId: meta.requestId }, tx);
     return created;
-  });
-
-  await appendAudit({
-    actorUserId: caller.sub, action: 'appointment.booked',
-    entityType: 'appointments', entityId: appointment.id,
-    metadata: { slotId: slot.id, startsAt: slot.startsAt.toISOString() },
-    ipAddress: meta.ip, requestId: meta.requestId,
-  });
-
+  }, { maxWait: 10000, timeout: 15000 });
   return serialiseAppointment(appointment);
 }
 
-async function assertVisible(appointment: { patientProfileId: string; clinicianId: string }, caller: Caller) {
+async function assertVisible(appointment: { patientProfileId: string; clinicianId: string }, caller: Caller, db: Prisma.TransactionClient = prisma) {
   if (caller.role === 'platform_admin') return;
   if (caller.cpid && appointment.clinicianId === caller.cpid) return;
-  const patient = await prisma.patientProfile.findUnique({ where: { id: appointment.patientProfileId } });
+  const patient = await db.patientProfile.findUnique({ where: { id: appointment.patientProfileId } });
   const owns = patient && (patient.userId === caller.sub || patient.guardianUserId === caller.sub);
   if (!owns) throw forbidden('NOT_RESOURCE_OWNER', 'This appointment is not yours');
 }
@@ -173,7 +170,7 @@ export async function listAppointments(
         ? { startsAt: { ...(query.from ? { gte: new Date(query.from) } : {}), ...(query.to ? { lte: new Date(query.to) } : {}) } }
         : {}),
     },
-    orderBy: { startsAt: 'asc' },
+    orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
     ...cursorArgs(query.cursor, query.limit),
   });
   return toCursorPage(rows, query.limit, serialiseAppointment);
@@ -190,9 +187,10 @@ export async function listAppointments(
  * services/consultation applies when a problem resurfaces.
  */
 export async function startAppointment(appointmentId: string, caller: Caller, meta: Meta) {
-  const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
+  const result = await prisma.$transaction(async (tx) => {
+  const appointment = await lockAppointment(tx, appointmentId);
   if (!appointment) throw notFound('Appointment not found');
-  await assertVisible(appointment, caller);
+  await assertVisible(appointment, caller, tx);
 
   if (appointment.status !== 'booked') {
     throw conflict('APPOINTMENT_ALREADY_STARTED', `This appointment is already "${appointment.status}"`);
@@ -202,7 +200,7 @@ export async function startAppointment(appointmentId: string, caller: Caller, me
     throw conflict('APPOINTMENT_NOT_YET_STARTABLE', 'It is too early to start this appointment');
   }
 
-  const result = await prisma.$transaction(async (tx) => {
+
     let threadId = appointment.careThreadId;
 
     if (threadId) {
@@ -263,47 +261,99 @@ export async function startAppointment(appointmentId: string, caller: Caller, me
       data: { currentLoad: { increment: 1 }, version: { increment: 1 } },
     });
 
+    const updated = await tx.appointment.findUniqueOrThrow({ where: { id: appointment.id } });
+    await recordChange(tx, { entity: 'appointments', entityId: appointment.id, op: 'update', version: updated.version, patientProfileId: appointment.patientProfileId, clinicianId: appointment.clinicianId });
+    await appendAudit({ actorUserId: caller.sub, action: 'appointment.started', entityType: 'appointments', entityId: appointment.id,
+      metadata: { consultationId: consultation.id }, ipAddress: meta.ip, requestId: meta.requestId }, tx);
     return consultation;
-  });
-
-  await appendAudit({
-    actorUserId: caller.sub, action: 'appointment.started',
-    entityType: 'appointments', entityId: appointment.id,
-    metadata: { consultationId: result.id },
-    ipAddress: meta.ip, requestId: meta.requestId,
-  });
+  }, { maxWait: 10000, timeout: 15000 });
 
   return serialiseConsultation(result);
 }
 
 /**
- * Cancelling releases the slot back to the pool. Only legal while `booked` —
+ * Cancelling releases the reservation. Published slots become bookable again;
+ * withdrawn slots remain unavailable. Only legal while `booked` —
  * once started, a consultation may already be in progress, and "cancelling"
  * that is a clinical action (closing the consultation), not a scheduling one.
  */
-export async function cancelAppointment(appointmentId: string, caller: Caller, reason: string | undefined, meta: Meta) {
-  const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
-  if (!appointment) throw notFound('Appointment not found');
-  await assertVisible(appointment, caller);
-
-  if (appointment.status !== 'booked') {
-    throw conflict('STATE_TRANSITION_INVALID', `Cannot cancel an appointment in status "${appointment.status}"`);
-  }
-
-  const updated = await prisma.$transaction(async (tx) => {
-    const row = await tx.appointment.update({
-      where: { id: appointment.id },
-      data: { status: 'cancelled', cancelledReason: reason ?? null, version: { increment: 1 } },
-    });
-    await tx.slot.update({ where: { id: appointment.slotId }, data: { isBooked: false } });
+export async function cancelAppointment(appointmentId: string, caller: Caller, reason: string | undefined, meta: Meta, baseVersion?: number) {
+  const updated = await prisma.$transaction(async tx => {
+    const appointment = await lockAppointment(tx, appointmentId);
+    await assertVisible(appointment, caller, tx);
+    if (baseVersion !== undefined && appointment.version !== baseVersion) throw conflict('VERSION_CONFLICT', 'This appointment changed. Refresh before cancelling.');
+    if (appointment.status !== 'booked') throw conflict('STATE_TRANSITION_INVALID', `Cannot cancel an appointment in status "${appointment.status}"`);
+    const row = await tx.appointment.update({ where: { id: appointment.id }, data: { status: 'cancelled', cancelledReason: reason ?? null, version: { increment: 1 } } });
+    await tx.slot.update({ where: { id: appointment.slotId }, data: { isBooked: false, version: { increment: 1 } } });
+    await recordChange(tx, { entity: 'appointments', entityId: row.id, op: 'update', version: row.version, patientProfileId: row.patientProfileId, clinicianId: row.clinicianId });
+    await appendAudit({ actorUserId: caller.sub, action: 'appointment.cancelled', entityType: 'appointments', entityId: row.id, reason: reason ?? null, ipAddress: meta.ip, requestId: meta.requestId }, tx);
     return row;
-  });
-
-  await appendAudit({
-    actorUserId: caller.sub, action: 'appointment.cancelled',
-    entityType: 'appointments', entityId: appointment.id,
-    reason: reason ?? null, ipAddress: meta.ip, requestId: meta.requestId,
-  });
-
+  }, { maxWait: 10000, timeout: 15000 });
   return serialiseAppointment(updated);
+}
+async function assertPatientOwner(patientProfileId: string, caller: Caller, tx: Prisma.TransactionClient = prisma) {
+  if (caller.role !== 'patient') throw forbidden('ROLE_NOT_PERMITTED', 'Patient or guardian account required.');
+  const [patient, user] = await Promise.all([
+    tx.patientProfile.findUnique({ where: { id: patientProfileId } }),
+    tx.user.findUnique({ where: { id: caller.sub }, select: { role: true, status: true } }),
+  ]);
+  if (!user || user.role !== 'patient' || user.status !== 'active' || !patient || (patient.userId !== caller.sub && patient.guardianUserId !== caller.sub)) throw forbidden('NOT_RESOURCE_OWNER', 'This appointment is not yours to reschedule.');
+}
+export async function assertRescheduleOwnership(id: string, caller: Caller) {
+  const appointment = await prisma.appointment.findUnique({ where: { id }, select: { patientProfileId: true } });
+  if (!appointment) throw notFound('Appointment not found');
+  await assertPatientOwner(appointment.patientProfileId, caller);
+}
+async function assertPatientReschedule(appointment: { patientProfileId: string; clinicianId: string; status: string; startsAt: Date }, caller: Caller, tx: Prisma.TransactionClient = prisma) {
+  await assertPatientOwner(appointment.patientProfileId, caller, tx);
+  if (appointment.status !== 'booked' || appointment.startsAt <= new Date()) throw conflict('STATE_TRANSITION_INVALID', 'Only future booked appointments can be rescheduled.');
+}
+export async function rescheduleAppointment(id: string, caller: Caller, input: { slot_id: string; base_version: number }, meta: Meta) {
+  const result = await prisma.$transaction(async tx => {
+    const appointment = await lockAppointment(tx, id);
+    await assertPatientReschedule(appointment, caller, tx);
+    if (appointment.version !== input.base_version) throw conflict('VERSION_CONFLICT', 'This appointment changed. Refresh its details before choosing a new time.');
+    if (appointment.slotId === input.slot_id) throw conflict('STATE_TRANSITION_INVALID', 'Choose a different appointment time.');
+    await lockPatient(tx, appointment.patientProfileId);
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`slot-calendar:${appointment.clinicianId}`}, 0))::text AS locked`;
+    // Stable ordering prevents two reschedules from taking slot locks in opposite order.
+    await tx.$queryRaw`SELECT id FROM slots WHERE id IN (${appointment.slotId}::uuid, ${input.slot_id}::uuid) ORDER BY id FOR UPDATE`;
+    const slot = await claimSlot(tx, input.slot_id);
+    await assertPatientReschedule(appointment, caller, tx);
+    if (slot.clinicianId !== appointment.clinicianId || slot.modality !== appointment.modality || slot.durationMin !== appointment.durationMin) throw conflict('STATE_TRANSITION_INVALID', 'Choose a slot with the same clinician, consultation method and duration.');
+    await ensureNoOverlap(tx, appointment.patientProfileId, slot.clinicianId, slot.startsAt, slot.durationMin, id);
+    const updated = await tx.appointment.update({ where: { id }, data: { slotId: slot.id, startsAt: slot.startsAt, durationMin: slot.durationMin, modality: slot.modality, version: { increment: 1 } } });
+    await tx.slot.update({ where: { id: appointment.slotId }, data: { isBooked: false, version: { increment: 1 } } });
+    await recordChange(tx, { entity: 'appointments', entityId: id, op: 'update', version: updated.version, patientProfileId: appointment.patientProfileId, clinicianId: appointment.clinicianId });
+    await appendAudit({ actorUserId: caller.sub, action: 'appointment.rescheduled', entityType: 'appointments', entityId: id,
+      metadata: { previousSlotId: appointment.slotId, slotId: slot.id, previousStartsAt: appointment.startsAt.toISOString(), startsAt: slot.startsAt.toISOString(), previousVersion: appointment.version, version: updated.version }, ipAddress: meta.ip, requestId: meta.requestId }, tx);
+    return updated;
+  }, { maxWait: 10000, timeout: 15000 });
+  return serialiseAppointment(result);
+}
+export async function rescheduleOptions(id: string, caller: Caller, query: { cursor?: string; limit: number }) {
+  const appointment = await prisma.appointment.findUnique({ where: { id } });
+  if (!appointment) throw notFound('Appointment not found');
+  await assertPatientReschedule(appointment, caller);
+  const now = new Date();
+  const cursorId = decodeCursor(query.cursor);
+  const cursor = cursorId ? await prisma.slot.findFirst({ where: { id: cursorId, clinicianId: appointment.clinicianId }, select: { id: true, startsAt: true } }) : null;
+  if (cursorId && !cursor) throw unprocessable('Invalid rescheduling cursor.', 'cursor');
+  const after = cursor ? Prisma.sql`AND (s.starts_at, s.id) > ((${cursor.startsAt.toISOString()}::timestamptz AT TIME ZONE 'UTC'), ${cursor.id}::uuid)` : Prisma.empty;
+  const horizon = new Date(now.getTime() + 90 * 86400000);
+  const rows = await prisma.$queryRaw<{ id: string; startsAt: Date; durationMin: number; modality: string }[]>`
+    SELECT s.id, s.starts_at AS "startsAt", s.duration_minutes AS "durationMin", s.modality::text AS modality
+    FROM slots s JOIN clinician_profiles c ON c.id = s.clinician_id JOIN users u ON u.id = c.user_id
+    WHERE s.id <> ${appointment.slotId}::uuid AND s.clinician_id = ${appointment.clinicianId}::uuid
+      AND s.is_booked = false AND s.is_published = true AND s.duration_minutes = ${appointment.durationMin}
+      AND s.modality::text = ${appointment.modality} AND c.verification_status = 'verified' AND u.status = 'active'
+      AND s.starts_at > (${now.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+      AND s.starts_at <= (${horizon.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+      AND NOT EXISTS (SELECT 1 FROM appointments a WHERE a.id <> ${id}::uuid AND a.status IN ('booked', 'started')
+        AND (a.patient_profile_id = ${appointment.patientProfileId}::uuid OR a.clinician_id = s.clinician_id)
+        AND a.starts_at < s.starts_at + s.duration_minutes * interval '1 minute'
+        AND a.starts_at + a.duration_minutes * interval '1 minute' > s.starts_at)
+      ${after} ORDER BY s.starts_at ASC, s.id ASC LIMIT ${query.limit + 1}`;
+  const clinician = await prisma.clinicianProfile.findUniqueOrThrow({ where: { id: appointment.clinicianId }, select: { user: { select: { fullName: true } } } });
+  return { appointment: serialiseAppointment(appointment), clinician_name: clinician.user.fullName, ...toCursorPage(rows, query.limit, slot => ({ id: slot.id, starts_at: slot.startsAt.toISOString(), duration_minutes: slot.durationMin, modality: slot.modality })), as_of: now.toISOString() };
 }

@@ -43,6 +43,147 @@ class _SyntheticReferralDenialAdapter implements HttpClientAdapter {
 }
 
 void main() {
+  testWidgets(
+      'account change clears an open referral screen and discards its pending response',
+      (tester) async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final pending = Completer<List<Map<String, dynamic>>>();
+    await tester.pumpWidget(MaterialApp(
+        home: ReferralsScreen(loadReferrals: () => pending.future)));
+    await Session.save(
+        accessToken: 'synthetic-token',
+        refreshToken: 'synthetic-refresh',
+        user: {'id': 'synthetic-new-patient', 'role': 'patient'});
+    await tester.pumpAndSettle();
+    pending.complete([
+      {
+        'id': 'previous-account-referral',
+        'status': 'accepted',
+        'destination': {
+          'facility': {'name': 'Previous account destination'}
+        }
+      }
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('Previous account destination'), findsNothing);
+    expect(find.textContaining('Akaunti imebadilika'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await Session.clear();
+  });
+
+  testWidgets('expanded referral fits a narrow screen with large text',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!),
+        home: ReferralsScreen(
+            loadReferrals: () async => [
+                  {
+                    'id': 'synthetic-long-referral-reference',
+                    'status': 'accepted',
+                    'priority': 'urgent',
+                    'purpose':
+                        'Synthetic referral context with a long explanation',
+                    'destination': {
+                      'facility': {
+                        'name': 'Synthetic receiving facility with a long name'
+                      }
+                    }
+                  }
+                ])));
+    await tester.pumpAndSettle();
+    final title=find.text('Synthetic receiving facility with a long name');
+    await tester.scrollUntilVisible(title, 250, scrollable:find.byType(Scrollable).first);
+    await Scrollable.ensureVisible(tester.element(title), alignment:0.1);
+    await tester.pumpAndSettle();
+    await tester.tap(title);
+    await tester.pumpAndSettle();
+    expect(find.text('Namba ya rufaa'),findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('ignores an older refresh that completes after a newer result',
+      (tester) async {
+    final first = Completer<List<Map<String, dynamic>>>();
+    var calls = 0;
+    await tester
+        .pumpWidget(MaterialApp(home: ReferralsScreen(loadReferrals: () {
+      calls++;
+      return calls == 1
+          ? first.future
+          : Future.value([
+              {
+                'id': 'new-referral',
+                'status': 'accepted',
+                'purpose': 'New response',
+                'destination': {
+                  'facility': {'name': 'New destination'}
+                }
+              }
+            ]);
+    })));
+    // A lifecycle resume starts a fresh request while the old request is pending.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('New destination'), findsOneWidget);
+    first.complete([
+      {
+        'id': 'old-referral',
+        'status': 'submitted',
+        'destination': {
+          'facility': {'name': 'Old destination'}
+        }
+      }
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('New destination'), findsOneWidget);
+    expect(find.text('Old destination'), findsNothing);
+  });
+
+  test(
+      'rejects a partially malformed successful response rather than silently dropping rows',
+      () {
+    expect(
+        () => ReferralsScreen.parseResponse({
+              'data': [
+                {'id': 'valid', 'status': 'submitted'},
+                'broken'
+              ]
+            }),
+        throwsA(isA<ApiException>()));
+  });
+
+  testWidgets(
+      'active filter separates completed referrals and remains refreshable when empty',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+        home: ReferralsScreen(
+            loadReferrals: () async => [
+                  {
+                    'id': 'closed-referral',
+                    'status': 'completed',
+                    'destination': {
+                      'facility': {'name': 'Completed destination'}
+                    }
+                  }
+                ])));
+    await tester.pumpAndSettle();
+    expect(find.text('Completed destination'), findsOneWidget);
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    expect(find.text('Completed destination'), findsNothing);
+    expect(find.textContaining('Hakuna rufaa inayoendelea'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('shows submitted status as distinct from acceptance and care',
       (tester) async {
     await tester.pumpWidget(MaterialApp(

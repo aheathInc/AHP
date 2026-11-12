@@ -1384,6 +1384,7 @@ paths:
             schema:
               type: object
               properties:
+                base_version: { type: integer, minimum: 1 }
                 reason: { type: string, maxLength: 500 }
       responses:
         '200':
@@ -1392,6 +1393,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Appointment'
+        '409': { $ref: '#/components/responses/Conflict' }
+
+
+  /appointments/{appointment_id}/reschedule-options:
+    get:
+      tags: [appointments]
+      summary: List matching published alternatives for a patient-owned appointment
+      operationId: getAppointmentRescheduleOptions
+      description: Future booked appointments only. Alternatives retain the same clinician, modality and duration and lie within the next 90 days. Availability is rechecked on confirmation.
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Authorized current appointment and published matching slots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentRescheduleOptions'
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /appointments/{appointment_id}/reschedule:
+    post:
+      tags: [appointments]
+      summary: Atomically move a patient-owned booking to a matching published slot
+      operationId: rescheduleAppointment
+      description: Patient or authorized guardian only. Requires the current appointment version. The original booking is retained if the target cannot be secured. No consultation is created or cancelled.
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [slot_id, base_version]
+              properties:
+                slot_id: { type: string, format: uuid }
+                base_version: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Persisted replacement time for the same appointment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
   /consultations:
@@ -2125,7 +2182,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [scheduled, responded, missed]
+            enum: [scheduled, responded, missed, due]
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -2818,15 +2875,14 @@ paths:
   /emergency-requests:
     post:
       tags: [emergency]
-      summary: Raise an emergency
+      summary: Record an emergency report (not a dispatch confirmation)
+      security: []
       description: |
-        Reachable from the app's single prominent emergency action, from USSD,
-        from SMS, and from a device alert. `scale` distinguishes an individual
-        emergency from a mass-casualty incident so the receiving facility can
-        mobilise proportionately before the first patient arrives.
-
-        Deliberately tolerant of missing information. Someone reporting a road
-        crash may know nothing but where they are.
+        Anonymous reporting is allowed. A received report is not acknowledgement
+        by a dispatcher or confirmation that a crew is travelling. Supply a
+        stable client_request_id for database-level retry deduplication. Keep
+        its payload unchanged. Signed device integrations must attest the full
+        JSON body; public callers cannot link arbitrary patient profiles.
       operationId: createEmergencyRequest
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2838,6 +2894,12 @@ paths:
               type: object
               required: [scale, location]
               properties:
+                client_request_id: { type: string, format: uuid }
+                device_alert_id: { type: string, format: uuid, description: Requires a signed internal device-report attestation }
+                location_source: { type: string, enum: [gps, manual, device], default: manual }
+                location_accuracy_m: { type: number, minimum: 0, maximum: 1000000 }
+                location_captured_at: { type: string, format: date-time }
+                landmark: { type: string, maxLength: 500 }
                 scale: { $ref: '#/components/schemas/EmergencyScale' }
                 category: { $ref: '#/components/schemas/EmergencyCategory' }
                 location: { $ref: '#/components/schemas/GeoPoint' }
@@ -2849,7 +2911,7 @@ paths:
                 channel: { $ref: '#/components/schemas/Channel' }
       responses:
         '201':
-          description: Emergency raised and routed
+          description: Report persisted; dispatch is a separate action
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EmergencyRequest' }
@@ -2857,9 +2919,12 @@ paths:
     get:
       tags: [emergency]
       summary: List emergencies
-      description: Dispatcher and facility view. Cursor paginated, most urgent first.
+      description: Active dispatcher/admin access. Scope is applied before pagination; highest priority, unassessed and other priority, then scale and oldest report.
       operationId: listEmergencyRequests
       parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [active, closed, all], default: all }
         - name: status
           in: query
           schema: { $ref: '#/components/schemas/EmergencyStatus' }
@@ -2883,6 +2948,24 @@ paths:
                   meta: { $ref: '#/components/schemas/CursorMeta' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /emergency-requests/by-client-id/{client_id}:
+    get:
+      tags: [emergency]
+      summary: Recover the signed-in reporter's own committed emergency after a timeout
+      operationId: recoverEmergencyRequest
+      parameters:
+        - name: client_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Authorized current incident read-back, with no-store caching
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmergencyRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /emergency-requests/{emergency_id}:
     get:
       tags: [emergency]
@@ -2903,10 +2986,11 @@ paths:
       tags: [emergency]
       summary: Assign transport and a receiving facility
       description: |
-        Dispatcher action. Assigning transport also notifies the receiving
-        facility's emergency department with whatever patient context consent
-        allows — known conditions, allergies, current medications — so the team
-        is prepared rather than meeting an anonymous arrival.
+        Locks the incident and available unit, checks the active destination,
+        and atomically persists assignment, history and audit. Highest/other
+        priority must be explicitly assessed for an unassessed incident.
+        No hospital capacity, crew acceptance, arrival time or context delivery
+        is asserted. Break-glass access requires an explicit justification.
       operationId: dispatchEmergency
       parameters:
         - $ref: '#/components/parameters/EmergencyId'
@@ -2919,12 +3003,43 @@ paths:
               type: object
               required: [transport_unit_id, destination_facility_id]
               properties:
+                base_version: { type: integer, minimum: 1 }
+                priority: { type: string, enum: [highest, other] }
+                break_glass_reason: { type: string, minLength: 10, maxLength: 500 }
                 transport_unit_id: { type: string, format: uuid }
                 destination_facility_id: { type: string, format: uuid }
                 notes: { type: string }
       responses:
         '200':
           description: Dispatched
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmergencyRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /emergency-requests/{emergency_id}/priority:
+    post:
+      tags: [emergency]
+      summary: Reassess an active incident priority
+      description: Active dispatcher/admin only. Requires the current version and a private reason; records an audited human assessment.
+      operationId: reassessEmergencyPriority
+      parameters:
+        - $ref: '#/components/parameters/EmergencyId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priority, base_version, notes]
+              properties:
+                priority: { type: string, enum: [highest, other] }
+                base_version: { type: integer, minimum: 1 }
+                notes: { type: string, minLength: 10, maxLength: 1000 }
+      responses:
+        '200':
+          description: Updated assessment
           content:
             application/json:
               schema: { $ref: '#/components/schemas/EmergencyRequest' }
@@ -2950,7 +3065,9 @@ paths:
               type: object
               required: [status]
               properties:
-                status: { $ref: '#/components/schemas/EmergencyStatus' }
+                base_version: { type: integer, minimum: 1 }
+                priority: { type: string, enum: [highest, other], description: Required for triaged acknowledgement }
+                status: { type: string, enum: [triaged, en_route, arrived, resolved, cancelled] }
                 outcome: { $ref: '#/components/schemas/EmergencyOutcome' }
                 notes: { type: string }
       responses:
@@ -3031,7 +3148,8 @@ paths:
               type: object
               required: [status]
               properties:
-                status: { $ref: '#/components/schemas/TransportStatus' }
+                base_version: { type: integer, minimum: 1 }
+                status: { type: string, enum: [available, out_of_service], description: Requires no active incident assignment }
       responses:
         '200':
           description: Updated
@@ -3411,6 +3529,10 @@ paths:
         stock status visible before the patient travels, rather than after.
       operationId: searchMedication
       parameters:
+        - name: exact_match
+          in: query
+          description: Match the full prescribed medication name (case-insensitive); never select a medication substitute.
+          schema: { type: boolean, default: false }
         - name: medication_name
           in: query
           required: true
@@ -3598,7 +3720,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [care_thread_id, investigation_code]
+              required: [care_thread_id, investigation_code, investigation_type]
               properties:
                 care_thread_id: { type: string, format: uuid }
                 consultation_id: { type: string, format: uuid }
@@ -3621,6 +3743,12 @@ paths:
         - name: care_thread_id
           in: query
           schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: worklist
+          in: query
+          schema: { type: string, enum: [all, awaiting_sample, in_lab, review, critical, acknowledged] }
         - name: status
           in: query
           schema: { $ref: '#/components/schemas/InvestigationStatus' }
@@ -3663,15 +3791,69 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /investigation-orders/{order_id}/collect:
+    post:
+      tags: [diagnostics]
+      summary: Receive an identified specimen at the assigned laboratory
+      operationId: receiveDiagnosticSpecimen
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_version]
+              properties:
+                base_version: { type: integer, minimum: 1 }
+                specimen_reference: { type: string, maxLength: 100 }
+                specimen_type: { type: string, maxLength: 100 }
+                collected_at: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Receipt time and actor recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvestigationOrder' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /investigation-orders/{order_id}/release:
+    post:
+      tags: [diagnostics]
+      summary: Authorize release of a prepared laboratory report
+      operationId: releaseDiagnosticReport
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_version, confirm_review]
+              properties:
+                base_version: { type: integer, minimum: 1 }
+                confirm_review: { type: boolean, const: true }
+      responses:
+        '200':
+          description: Immutable final report with recorded authorizer and release time
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InvestigationOrder' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /investigation-orders/{order_id}/results:
     post:
       tags: [diagnostics]
       summary: File a result
       description: |
-        Results outside their critical bounds set `is_critical` and raise an
-        urgent review task immediately, rather than waiting for a clinician to
-        open the record. A critical potassium that nobody looked at for three
-        days is exactly the failure this exists to stop.
+        Assigned laboratory staff may save_as_draft after specimen receipt.
+        Preliminary values are hidden from patients until explicit review/release.
+        Numeric flags use the report-supplied bounds; no clinical thresholds are prefilled.
+        Legacy final submission remains supported when save_as_draft is omitted.
       operationId: fileInvestigationResult
       parameters:
         - $ref: '#/components/parameters/OrderId'
@@ -3684,12 +3866,13 @@ paths:
               type: object
               required: [values]
               properties:
+                base_version: { type: integer, minimum: 1 }
+                save_as_draft: { type: boolean, default: false }
                 values:
                   type: array
                   items: { $ref: '#/components/schemas/ResultValue' }
                 narrative: { type: string }
                 attachment_key: { type: string }
-                reported_by_id: { type: string, format: uuid }
       responses:
         '201':
           description: Result filed
@@ -3701,12 +3884,17 @@ paths:
     post:
       tags: [diagnostics]
       summary: Acknowledge a critical result
-      description: |
-        Closes the loop on an urgent finding. Until a clinician acknowledges,
-        the alert keeps escalating — silence is never treated as receipt.
+      description: Records explicit receipt by the active verified ordering clinician; viewing the report does not acknowledge it.
       operationId: acknowledgeResult
       parameters:
         - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1 }
       responses:
         '200':
           description: Acknowledged
@@ -3747,6 +3935,12 @@ paths:
         - name: community_id
           in: query
           schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: view
+          in: query
+          schema: { type: string, enum: [all, mine, unanswered] }
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -3771,16 +3965,16 @@ paths:
         thread. The thread reference is never returned to group members. Clinicians
         must omit patient identifiers from free text; there is no automatic text redaction.
       operationId: createDiscussion
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [community_id, title, body]
+              required: [community_id, title, body, privacy_confirmed, client_request_id]
               properties:
+                privacy_confirmed: { type: boolean, const: true }
+                client_request_id: { type: string, format: uuid, description: Durable per-author publication key; retain across uncertain retries. }
                 community_id: { type: string, format: uuid }
                 title: { type: string, maxLength: 200 }
                 body: { type: string, maxLength: 8000 }
@@ -3818,6 +4012,7 @@ paths:
                   - $ref: '#/components/schemas/Discussion'
                   - type: object
                     properties:
+                      viewer_clinician_id: { type: string, format: uuid }
                       community_name: { type: string }
                       replies_meta: { $ref: '#/components/schemas/CursorMeta' }
                       replies:
@@ -3852,16 +4047,17 @@ paths:
       operationId: replyToDiscussion
       parameters:
         - $ref: '#/components/parameters/DiscussionId'
-        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [body]
+              required: [body, privacy_confirmed, client_reply_id]
               properties:
                 body: { type: string, maxLength: 8000 }
+                privacy_confirmed: { type: boolean, const: true }
+                client_reply_id: { type: string, format: uuid }
                 parent_reply_id: { type: string, format: uuid, description: Optional parent in this same discussion. Omit for a group-wide reply to the discussion. Maximum eight nesting levels. }
       responses:
         '201':
@@ -3869,6 +4065,90 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/DiscussionReply' }
+
+  /network/discussions/{discussion_id}/report:
+    post:
+      tags: [network]
+      summary: Report content for manual moderation
+      operationId: reportProfessionalContent
+      parameters:
+        - $ref: '#/components/parameters/DiscussionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category]
+              properties:
+                category: { type: string, enum: [privacy, misinformation, conduct, spam] }
+                reply_id: { type: string, format: uuid }
+      responses:
+        '201': { description: Report recorded }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Stale version or unavailable content }
+
+  /network/discussions/{discussion_id}/withdraw:
+    post:
+      tags: [network]
+      summary: Withdraw own content while retaining the audit record
+      operationId: withdrawProfessionalContent
+      parameters:
+        - $ref: '#/components/parameters/DiscussionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_version]
+              properties:
+                base_version: { type: integer, minimum: 1 }
+                reply_id: { type: string, format: uuid }
+      responses:
+        '200': { description: Action recorded }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Stale version or unavailable content }
+
+  /network/moderation/reports:
+    get:
+      tags: [network]
+      summary: Platform administrator content review queue
+      operationId: listProfessionalContentReports
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, reviewed, all], default: open }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { description: Paginated reports including restricted original content; access is audited }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /network/moderation/reports/{report_id}/review:
+    post:
+      tags: [network]
+      summary: Record an audited platform administrator moderation decision
+      operationId: reviewProfessionalContentReport
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_version, action]
+              properties:
+                base_version: { type: integer, minimum: 1 }
+                action: { type: string, enum: [hide, dismiss] }
+      responses:
+        '200': { description: Decision and audit saved atomically }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { description: Report already reviewed or stale version }
 
   /network/communities/{community_id}/membership:
     parameters:
@@ -3905,9 +4185,12 @@ paths:
       tags: [network]
       summary: Read own professional group notifications
       operationId: listNetworkNotifications
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
       responses:
         '200':
-          description: Latest 50 notifications and total unread count in active joined groups
+          description: Cursor-paginated notifications (default 50) and total unread count in active joined groups
           content:
             application/json:
               schema:
@@ -4152,6 +4435,13 @@ paths:
       summary: List the current clinician's collaboration requests
       operationId: listProviderCollaborations
       parameters:
+        - name: view
+          in: query
+          schema: { type: string, enum: [all, incoming, sent, active, closed] }
+        - name: q
+          in: query
+          description: Clinician name, exact consultation UUID or exact collaboration UUID within the current participant scope.
+          schema: { type: string, maxLength: 100 }
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -4228,6 +4518,13 @@ paths:
           required: true
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1, description: Stale displayed versions return 409 }
       responses:
         '200':
           description: Accepted and access activated after consent is rechecked
@@ -4248,6 +4545,13 @@ paths:
           required: true
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1, description: Stale displayed versions return 409 }
       responses:
         '200':
           description: Request declined
@@ -4268,6 +4572,13 @@ paths:
           required: true
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1, description: Stale displayed versions return 409 }
       responses:
         '200':
           description: Access revoked
@@ -4312,6 +4623,9 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - name: order
+          in: query
+          schema: { type: string, enum: [oldest, latest], default: oldest }
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
       responses:
@@ -4347,6 +4661,7 @@ paths:
               required: [body]
               properties:
                 body: { type: string, minLength: 1, maxLength: 8000 }
+                client_message_id: { type: string, format: uuid, description: Durable retry key scoped to this collaboration and author. Current consent is checked before returning a replay. }
       responses:
         '201':
           description: Message recorded; patient-facing care-thread messages are unchanged
@@ -4532,6 +4847,14 @@ paths:
           required: true
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1, description: Current displayed referral version; stale versions return 409 }
       responses:
         '200':
           description: Persisted referral status
@@ -4552,6 +4875,14 @@ paths:
           required: true
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1, description: Current displayed referral version; stale versions return 409 }
       responses:
         '200':
           description: Receipt recorded; this does not mean acceptance
@@ -4572,6 +4903,14 @@ paths:
           required: true
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1, description: Current displayed referral version; stale versions return 409 }
       responses:
         '200':
           description: Accepted by the assigned receiving clinician; care has not started
@@ -4600,6 +4939,7 @@ paths:
               type: object
               required: [reason]
               properties:
+                base_version: { type: integer, minimum: 1 }
                 reason: { type: string, minLength: 3, maxLength: 500 }
       responses:
         '200':
@@ -4621,6 +4961,14 @@ paths:
           required: true
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1, description: Current displayed referral version; stale versions return 409 }
       responses:
         '200':
           description: Care-start timestamp recorded by the accepting clinician
@@ -4667,6 +5015,14 @@ paths:
           required: true
           schema: { type: string, format: uuid }
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base_version: { type: integer, minimum: 1, description: Current displayed referral version; stale versions return 409 }
       responses:
         '200':
           description: Cancelled referral
@@ -4851,12 +5207,23 @@ paths:
   # ----------------------------------------------------------------------
 
   /families:
+    get:
+      tags: [families]
+      summary: List own families, assigned clinician panel or administrator directory
+      operationId: listFamilies
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { description: Paginated family details within current caller scope }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [families]
       summary: Create a family group
       operationId: createFamily
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -4866,7 +5233,7 @@ paths:
               required: [name]
               properties:
                 name: { type: string, maxLength: 150 }
-                subscription_tier: { $ref: '#/components/schemas/SubscriptionTier' }
+                subscription_tier: { type: string, const: none, description: Paid package selection requires a separate reviewed request. }
       responses:
         '201':
           description: Created
@@ -4894,7 +5261,6 @@ paths:
       operationId: addFamilyMember
       parameters:
         - $ref: '#/components/parameters/FamilyId'
-        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -4917,34 +5283,203 @@ paths:
     post:
       tags: [families]
       summary: Assign the family's doctors
-      description: |
-        Two assignments, not one: a general practitioner for overall family
-        health, and an obstetrics-and-gynaecology clinician for maternal and
-        reproductive care. Pregnancy handled by whoever happens to be free is
-        the outcome this pairing exists to prevent.
-
-        Assignment draws on the employed-clinician panel with a bounded number
-        of families each, so the promise has a delivery mechanism behind it
-        rather than being a slogan.
+      description: Active platform administrators only. Requires current family version. Uses active verified clinicians with matching GP or OB-GYN specialty. Capacity and reassignment are serialized and audited atomically. Null clears a slot; omitted slots are retained.
       operationId: assignFamilyDoctors
       parameters:
         - $ref: '#/components/parameters/FamilyId'
-        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [base_version]
               properties:
-                gp_clinician_id: { type: string, format: uuid }
-                obgyn_clinician_id: { type: string, format: uuid }
+                base_version: { type: integer, minimum: 1 }
+                gp_clinician_id: { type: [string, 'null'], format: uuid }
+                obgyn_clinician_id: { type: [string, 'null'], format: uuid }
       responses:
         '200':
           description: Assigned
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FamilyDetail' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /families/{family_id}:
+    get:
+      tags: [families]
+      summary: Read family metadata within current caller scope
+      operationId: getFamily
+      parameters:
+        - $ref: '#/components/parameters/FamilyId'
+      responses:
+        '200':
+          description: Family detail without clinical records
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FamilyDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /families/plans:
+    get:
+      tags: [families]
+      summary: Read published package catalogue including closed packages
+      operationId: listFamilyPlans
+      responses:
+        '200':
+          description: Package catalogue; no payment is collected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/FamilyPlan' } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /families/plans/{tier}:
+    put:
+      tags: [families]
+      summary: Save versioned package terms as an active platform administrator
+      operationId: updateFamilyPlan
+      parameters:
+        - name: tier
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/SubscriptionTier' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/FamilyPlan'
+                - type: object
+                  required: [base_version, name, description, benefits, exclusions, price_minor, currency, billing_period, accepting_requests]
+                  properties:
+                    base_version: { type: integer, minimum: 1 }
+      responses:
+        '200': { description: Terms saved; opening requests requires price and benefits }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /families/{family_id}/subscription-requests:
+    parameters:
+      - $ref: '#/components/parameters/FamilyId'
+    get:
+      tags: [families]
+      summary: Read scoped package request history and original terms snapshots
+      operationId: listFamilyPackageRequests
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, reviewed, all], default: pending }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { description: Paginated request history }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [families]
+      summary: Family head requests a package without collecting payment
+      operationId: requestFamilyPackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tier, plan_version, client_request_id, terms_confirmed]
+              properties:
+                tier: { $ref: '#/components/schemas/SubscriptionTier' }
+                plan_version: { type: integer, minimum: 1 }
+                client_request_id: { type: string, format: uuid, description: Keep this UUID across uncertain retries. }
+                terms_confirmed: { type: boolean, const: true }
+      responses:
+        '201': { description: Request recorded or existing matching request returned }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /families/subscription-requests:
+    get:
+      tags: [families]
+      summary: Active platform administrator enrollment review queue
+      operationId: listAllFamilyPackageRequests
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, reviewed, all], default: pending }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { description: Paginated review queue with original terms snapshots }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /families/subscription-requests/{request_id}/review:
+    post:
+      tags: [families]
+      summary: Approve administrative allocation or decline a package request
+      description: Approval requires unchanged family and package revisions. It does not create a payment, invoice or renewal schedule. The decision and audit are atomic.
+      operationId: reviewFamilyPackageRequest
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_version, action, note]
+              properties:
+                base_version: { type: integer, minimum: 1 }
+                action: { type: string, enum: [approve, decline] }
+                note: { type: string, minLength: 5, maxLength: 600 }
+      responses:
+        '200': { description: Review recorded }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /families/clinicians:
+    get:
+      tags: [families]
+      summary: Administrator roster of active verified GP and OB-GYN clinicians
+      operationId: listFamilyClinicians
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': { description: Paginated roster including family capacity }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /families/{family_id}/members/{member_id}/remove:
+    post:
+      tags: [families]
+      summary: Head or administrator removes a family link without deleting the patient
+      operationId: removeFamilyMember
+      parameters:
+        - $ref: '#/components/parameters/FamilyId'
+        - name: member_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_version]
+              properties:
+                base_version: { type: integer, minimum: 1 }
+      responses:
+        '200': { description: Membership removed and audit recorded }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
 
   # ----------------------------------------------------------------------
@@ -6581,6 +7116,14 @@ paths:
         required: false
         schema:
           $ref: '#/components/schemas/FrontDeskStatus'
+      - name: q
+        in: query
+        description: Patient name, AHP ticket or exact visit UUID within the authorized scope.
+        schema: { type: string, maxLength: 100 }
+      - name: worklist
+        in: query
+        description: Applied before cursor pagination. Mutually exclusive with status.
+        schema: { type: string, enum: [active, review, waiting, called, in_consultation, escalated, completed, cancelled] }
       - name: cursor
         in: query
         required: false
@@ -7160,6 +7703,9 @@ paths:
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
       parameters:
+      - name: exceptions_only
+        in: query
+        schema: { type: boolean }
       - name: cursor
         in: query
         schema:
@@ -7875,6 +8421,380 @@ paths:
   /research/projects/{id}/aggregates:
     $ref: './research-portal-v1.yaml#/paths/~1research~1projects~1{id}~1aggregates'
 
+  /care-continuity/cycles/{id}/afpe:
+    get:
+      operationId: getAfpeReport
+      summary: Read the authorized longitudinal follow-up report
+      tags:
+      - Follow-up
+      description: getAfpeReport
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfpeReport'
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: activateAfpePlan
+      summary: Activate a diagnosis-linked follow-up plan
+      tags:
+      - Follow-up
+      description: activateAfpePlan
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AfpeActivation'
+  /care-continuity/cycles/{id}/afpe/preferences:
+    post:
+      operationId: setAfpeFallback
+      summary: Choose an explicitly consented fallback channel
+      tags:
+      - Follow-up
+      description: setAfpeFallback
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fallback_channel:
+                    type: string
+                    enum:
+                    - none
+                    - sms
+                    - whatsapp
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fallback_channel:
+                  type: string
+                  enum:
+                  - none
+                  - sms
+                  - whatsapp
+              required:
+              - fallback_channel
+  /care-continuity/check-ins/{id}/conversation:
+    post:
+      operationId: afpeConverse
+      summary: Ask the contextual follow-up assistant
+      tags:
+      - Follow-up
+      description: afpeConverse
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfpeConversationReply'
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AfpeConversationInput'
+  /care-continuity/afpe/alerts:
+    get:
+      operationId: getAfpeAlerts
+      summary: List assigned clinician alerts
+      tags:
+      - Follow-up
+      description: getAfpeAlerts
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AfpeAlert'
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+  /care-continuity/afpe/alerts/{id}/acknowledge:
+    post:
+      operationId: acknowledgeAfpeAlert
+      summary: Acknowledge a scoped follow-up alert
+      tags:
+      - Follow-up
+      description: acknowledgeAfpeAlert
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  acknowledged:
+                    type: boolean
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /care-continuity/afpe/events:
+    get:
+      operationId: streamAfpeAlerts
+      summary: Stream assigned clinician dashboard alerts
+      tags:
+      - Follow-up
+      description: Assigned-clinician SSE stream, reauthorized on each update; reconnects after 55 seconds.
+      responses:
+        '200':
+          description: AFPE alert events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '403':
+          description: Clinician access required
+  /check-ins/{check_in_id}:
+    get:
+      operationId: getCheckInSource
+      summary: Read a protected source check-in
+      tags:
+      - Follow-up
+      description: getCheckInSource
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckIn'
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+      parameters:
+      - name: check_in_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+  /integrations/gothomis/discharge:
+    post:
+      operationId: receiveGothomisDischarge
+      summary: Receive a signed mapped hospital discharge
+      tags:
+      - Follow-up
+      description: HMAC SHA-256 over timestamp + dot + exact JSON body. X-AFPE-Timestamp is Unix seconds within 300 seconds.
+        Requires an existing mapped cycle and matching signed ICD-10 codes.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cycle_id:
+                  type: string
+                  format: uuid
+                configuration:
+                  $ref: '#/components/schemas/AfpeActivation'
+              required:
+              - cycle_id
+              - configuration
+      security: []
+      parameters:
+      - name: X-AFPE-Timestamp
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: X-AFPE-Signature
+        in: header
+        required: true
+        schema:
+          type: string
+  /integrations/afpe/messages:
+    post:
+      operationId: receiveAfpeMessage
+      summary: Receive a signed patient messaging callback
+      tags:
+      - Follow-up
+      description: Signed provider callback; requires explicit patient channel consent and exact registered sender match. Uses
+        X-AFPE-Timestamp and X-AFPE-Signature headers.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid input
+        '403':
+          description: Not permitted
+        '409':
+          description: State or version conflict
+        '503':
+          description: Provider unavailable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_id:
+                  type: string
+                check_in_id:
+                  type: string
+                  format: uuid
+                channel:
+                  type: string
+                  enum:
+                  - sms
+                  - whatsapp
+                sender:
+                  type: string
+                text:
+                  type: string
+                language:
+                  type: string
+                  enum:
+                  - en
+                  - sw
+                answers:
+                  type: object
+                  additionalProperties: true
+              required:
+              - message_id
+              - check_in_id
+              - channel
+              - sender
+      security: []
+      parameters:
+      - name: X-AFPE-Timestamp
+        in: header
+        required: true
+        schema:
+          type: string
+      - name: X-AFPE-Signature
+        in: header
+        required: true
+        schema:
+          type: string
+
 components:
 
   securitySchemes:
@@ -8119,6 +9039,405 @@ components:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
 
   schemas:
+    AfpeBaseline:
+      type: object
+      properties:
+        symptom_severity:
+          type: number
+          minimum: 0
+          maximum: 10
+        vitals:
+          type: object
+          additionalProperties: { type: number }
+        medication_required:
+          type: boolean
+        vital_bounds:
+          type: object
+          minProperties: 1
+          properties:
+            temperature_c:
+              type: object
+              properties:
+                min:
+                  type: number
+                max:
+                  type: number
+              required:
+              - min
+              - max
+            systolic:
+              type: object
+              properties:
+                min:
+                  type: number
+                max:
+                  type: number
+              required:
+              - min
+              - max
+            diastolic:
+              type: object
+              properties:
+                min:
+                  type: number
+                max:
+                  type: number
+              required:
+              - min
+              - max
+            glucose_mmol_l:
+              type: object
+              properties:
+                min:
+                  type: number
+                max:
+                  type: number
+              required:
+              - min
+              - max
+            spo2:
+              type: object
+              properties:
+                min:
+                  type: number
+                max:
+                  type: number
+              required:
+              - min
+              - max
+          additionalProperties: false
+      required:
+      - symptom_severity
+      - medication_required
+      - vitals
+      - vital_bounds
+    AfpeDischargeConfiguration:
+      type: object
+      properties:
+        category:
+          type: string
+          enum:
+          - auto
+          - acute
+          - subacute
+          - chronic
+        baseline:
+          $ref: '#/components/schemas/AfpeBaseline'
+        diagnosis_context:
+          type: string
+          enum: [new, stable, uncontrolled, high_risk, postoperative, treatment_initiation]
+        consent_confirmed:
+          type: boolean
+          const: true
+      required:
+      - category
+      - baseline
+      - consent_confirmed
+    AfpeActivation:
+      type: object
+      properties:
+        category:
+          type: string
+          enum:
+          - auto
+          - acute
+          - subacute
+          - chronic
+        baseline:
+          $ref: '#/components/schemas/AfpeBaseline'
+        diagnosis_context:
+          type: string
+          enum: [new, stable, uncontrolled, high_risk, postoperative, treatment_initiation]
+        consent_confirmed:
+          type: boolean
+          const: true
+        diagnosis_codes:
+          type: array
+          items:
+            type: string
+        duration_days:
+          type: integer
+          minimum: 7
+          maximum: 365
+      required:
+      - category
+      - baseline
+      - consent_confirmed
+      - diagnosis_codes
+    AfpeAssessmentResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        score:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+          maximum: 100
+        band:
+          type: string
+          enum:
+          - green
+          - yellow
+          - red
+          - incomplete
+        components:
+          type: object
+          properties:
+            adherence:
+              type:
+              - number
+              - 'null'
+              minimum: 0
+              maximum: 100
+            symptoms:
+              type:
+              - number
+              - 'null'
+              minimum: 0
+              maximum: 100
+            biometrics:
+              type:
+              - number
+              - 'null'
+              minimum: 0
+              maximum: 100
+          required:
+          - adherence
+          - symptoms
+          - biometrics
+        missing:
+          type: array
+          items:
+            type: string
+        patient_report:
+          type: object
+          properties:
+            en:
+              type: string
+            sw:
+              type: string
+          required:
+          - en
+          - sw
+        urgent_care_required:
+          type: boolean
+        rule_version:
+          type: string
+      required:
+      - id
+      - score
+      - band
+      - components
+      - missing
+      - patient_report
+    AfpeAssessment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        score:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+          maximum: 100
+        band:
+          type: string
+          enum:
+          - green
+          - yellow
+          - red
+          - incomplete
+        components:
+          type: object
+          properties:
+            adherence:
+              type:
+              - number
+              - 'null'
+              minimum: 0
+              maximum: 100
+            symptoms:
+              type:
+              - number
+              - 'null'
+              minimum: 0
+              maximum: 100
+            biometrics:
+              type:
+              - number
+              - 'null'
+              minimum: 0
+              maximum: 100
+          required:
+          - adherence
+          - symptoms
+          - biometrics
+        missing:
+          type: array
+          items:
+            type: string
+        patient_report:
+          type: object
+          properties:
+            en:
+              type: string
+            sw:
+              type: string
+          required:
+          - en
+          - sw
+        urgent_care_required:
+          type: boolean
+        rule_version:
+          type: string
+        check_in_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        clinical_summary:
+          type: array
+          items:
+            type: object
+            properties:
+              section:
+                type: string
+              text:
+                type: string
+              source:
+                type: object
+                properties:
+                  check_in_id:
+                    type: string
+                    format: uuid
+                  received_at:
+                    type: string
+                    format: date-time
+                required:
+                - check_in_id
+                - received_at
+            required:
+            - section
+            - text
+            - source
+        sources:
+          type: object
+          additionalProperties: true
+      required:
+      - id
+      - score
+      - band
+      - components
+      - missing
+      - patient_report
+      - check_in_id
+      - created_at
+    AfpeAlert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cycle_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - reason
+      - created_at
+    AfpeReport:
+      type: object
+      properties:
+        plan:
+          type:
+          - object
+          - 'null'
+          properties:
+            id:
+              type: string
+              format: uuid
+            category:
+              type: string
+              enum:
+              - acute
+              - subacute
+              - chronic
+            baseline:
+              $ref: '#/components/schemas/AfpeBaseline'
+            duration_days:
+              type: integer
+            interval_days:
+              type: integer
+            next_due_at:
+              type: string
+              format: date-time
+            rule_version:
+              type: string
+            fallback_channel:
+              type: string
+              enum:
+              - none
+              - sms
+              - whatsapp
+        assessments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AfpeAssessment'
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AfpeAlert'
+        adherence_streak:
+          type: integer
+        messaging_available:
+          type: boolean
+      required:
+      - plan
+      - assessments
+      - alerts
+    AfpeConversationInput:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 2000
+        language:
+          type: string
+          enum:
+          - en
+          - sw
+      required:
+      - text
+    AfpeConversationReply:
+      type: object
+      properties:
+        question:
+          type: string
+        question_key:
+          type: string
+        urgent_care_required:
+          type: boolean
+        mode:
+          type: string
+          enum:
+          - structured
+          - contextual_model
+      required:
+      - question
+      - question_key
+      - urgent_care_required
+      - mode
     ContinuityPageMeta:
       type: object
       properties:
@@ -8570,6 +9889,9 @@ components:
         unreviewed_checkins:
           type: integer
           minimum: 0
+        urgent_checkins:
+          type: integer
+          minimum: 0
         version:
           type: integer
           minimum: 1
@@ -8584,6 +9906,7 @@ components:
       - patient_name
       - start_date
       - unreviewed_checkins
+      - urgent_checkins
       - version
     ContinuityReminder:
       type: object
@@ -8840,6 +10163,8 @@ components:
                 type: string
               is_deviation:
                 type: boolean
+              urgent_care_required:
+                type: boolean
               responses: {}
               deviation_reasons: {}
               reviewed_at:
@@ -8859,6 +10184,7 @@ components:
             - scheduled_at
             - status
             - is_deviation
+            - urgent_care_required
             - responses
             - deviation_reasons
             - reviewed_at
@@ -9223,6 +10549,10 @@ components:
         - NOT_RESOURCE_OWNER
         - NOT_FOUND
         - IDEMPOTENCY_KEY_CONFLICT
+        - REQUEST_KEY_CONFLICT
+        - TRANSPORT_UNIT_BUSY
+        - FACILITY_UNAVAILABLE
+        - UNIT_HAS_ACTIVE_EMERGENCY
         - FRONT_DESK_DISABLED
         - FRONT_DESK_URGENT_REVIEW
         - FRONT_DESK_VISIT_EXISTS
@@ -9818,6 +11148,31 @@ components:
           $ref: '#/components/schemas/ConsultationModality'
         is_booked: { type: boolean }
 
+    AppointmentRescheduleOptions:
+      type: object
+      required: [appointment, clinician_name, data, meta, as_of]
+      properties:
+        appointment:
+          $ref: '#/components/schemas/Appointment'
+        clinician_name: { type: [string, 'null'] }
+        as_of: { type: string, format: date-time }
+        data:
+          type: array
+          items:
+            type: object
+            required: [id, starts_at, duration_minutes, modality]
+            properties:
+              id: { type: string, format: uuid }
+              starts_at: { type: string, format: date-time }
+              duration_minutes: { type: integer }
+              modality: { type: string }
+        meta:
+          type: object
+          required: [next_cursor, has_more]
+          properties:
+            next_cursor: { type: [string, 'null'] }
+            has_more: { type: boolean }
+
     Appointment:
       type: object
       required: [id, slot_id, patient_profile_id, clinician_id, starts_at, status, version, updated_at]
@@ -9916,8 +11271,10 @@ components:
 
     CheckIn:
       type: object
-      required: [id, follow_up_cycle_id, scheduled_at, status, version, updated_at]
+      required: [id, follow_up_cycle_id, scheduled_at, status, urgent_care_required, version, updated_at]
       properties:
+        afpe:
+          $ref: '#/components/schemas/AfpeAssessmentResult'
         id: { type: string, format: uuid }
         follow_up_cycle_id: { type: string, format: uuid }
         care_thread_id: { type: string, format: uuid }
@@ -9937,6 +11294,9 @@ components:
         is_deviation:
           type: boolean
           description: Computed server-side against `recovery_criteria`. Never client-supplied.
+        urgent_care_required:
+          type: boolean
+          description: True when a deterministic red-flag rule matched. Requires urgent-care guidance and clinician review; not a diagnosis.
         deviation_reasons:
           type: array
           items: { type: string }
@@ -10052,6 +11412,8 @@ components:
       type: object
       required: [frequency, duration_days]
       properties:
+        afpe:
+          $ref: '#/components/schemas/AfpeDischargeConfiguration'
         frequency:
           type: string
           enum: [daily, twice_daily, weekly, custom]
@@ -10403,6 +11765,42 @@ components:
       required: [id, scale, status, reported_at, version]
       properties:
         id: { type: string, format: uuid }
+        priority: { type: string, enum: [highest, unassessed, other] }
+        acknowledged_at: { type: [string, 'null'], format: date-time }
+        location_source: { type: string, enum: [gps, manual, device] }
+        location_accuracy_m: { type: [number, 'null'] }
+        location_captured_at: { type: [string, 'null'], format: date-time }
+        landmark: { type: [string, 'null'] }
+        reporter_phone: { type: [string, 'null'], description: Dispatcher/admin detail only }
+        as_of: { type: string, format: date-time }
+        context_shared: { type: boolean, description: False; context availability is not hospital transmission }
+        context_available: { type: boolean }
+        break_glass: { type: boolean }
+        timeline:
+          type: array
+          items:
+            type: object
+            properties:
+              status: { $ref: '#/components/schemas/EmergencyStatus' }
+              occurred_at: { type: string, format: date-time }
+              notes: { type: [string, 'null'], description: Staff only }
+              kind: { type: string, enum: [status, priority_assessment], description: Staff only }
+        response_unit:
+          type: [object, 'null']
+          properties:
+            id: { type: string, format: uuid }
+            call_sign: { type: string }
+            assignment_active: { type: boolean }
+            status: { $ref: '#/components/schemas/TransportStatus' }
+            version: { type: integer }
+            location: { $ref: '#/components/schemas/GeoPoint' }
+            location_is_stale: { type: boolean }
+            location_updated_at: { type: [string, 'null'], format: date-time }
+        destination_facility:
+          type: [object, 'null']
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
         scale: { $ref: '#/components/schemas/EmergencyScale' }
         category: { $ref: '#/components/schemas/EmergencyCategory' }
         source: { $ref: '#/components/schemas/EmergencySource' }
@@ -10428,6 +11826,8 @@ components:
       type: object
       required: [id, call_sign, status]
       properties:
+        version: { type: integer }
+        location_is_stale: { type: boolean }
         id: { type: string, format: uuid }
         call_sign: { type: string }
         facility_id: { type: [string, 'null'], format: uuid }
@@ -10774,9 +12174,11 @@ components:
         unit: { type: [string, 'null'] }
         reference_low: { type: [number, 'null'] }
         reference_high: { type: [number, 'null'] }
+        critical_low: { type: [number, 'null'] }
+        critical_high: { type: [number, 'null'] }
         flag:
           type: string
-          enum: [normal, low, high, critical_low, critical_high]
+          enum: [normal, low, high, critical_low, critical_high, not_assessed]
 
     InvestigationOrder:
       type: object
@@ -10793,6 +12195,19 @@ components:
         urgency: { $ref: '#/components/schemas/UrgencyLevel' }
         status: { $ref: '#/components/schemas/InvestigationStatus' }
         clinical_notes: { type: [string, 'null'] }
+        patient_name: { type: string }
+        facility_name: { type: [string, 'null'] }
+        ordering_clinician: { type: [string, 'null'] }
+        report_state: { type: string, enum: [pending, preliminary, final, acknowledged] }
+        specimen_reference: { type: [string, 'null'] }
+        specimen_type: { type: [string, 'null'] }
+        collected_at: { type: [string, 'null'], format: date-time }
+        received_at: { type: [string, 'null'], format: date-time }
+        received_by_id: { type: [string, 'null'], format: uuid }
+        report_prepared_at: { type: [string, 'null'], format: date-time }
+        entered_by_id: { type: [string, 'null'], format: uuid }
+        released_by_id: { type: [string, 'null'], format: uuid }
+        released_by_name: { type: [string, 'null'] }
         values:
           type: array
           items: { $ref: '#/components/schemas/ResultValue' }
@@ -10801,9 +12216,8 @@ components:
         is_critical:
           type: boolean
           description: |
-            Set by the server from the reference bounds. A critical result
-            escalates until a clinician acknowledges it; silence is never
-            treated as receipt.
+            Computed from report-supplied numeric bounds. Hidden from patient views before release.
+            A displayed alert does not establish clinician acknowledgement or prove external notification.
         acknowledged_by_id: { type: [string, 'null'], format: uuid }
         acknowledged_at: { type: [string, 'null'], format: date-time }
         ordered_at: { type: string, format: date-time }
@@ -10861,6 +12275,7 @@ components:
           format: uuid
           description: Always null in group responses. Assigned care-thread references are stored privately and never exposed to group members.
         reply_count: { type: integer }
+        moderation_status: { type: string, enum: [visible, hidden] }
         created_at: { type: string, format: date-time }
         version: { type: integer }
 
@@ -10870,10 +12285,12 @@ components:
       properties:
         id: { type: string, format: uuid }
         discussion_id: { type: string, format: uuid }
+        version: { type: integer }
         parent_reply_id: { type: [string, 'null'], format: uuid }
         author_name: { type: string }
         body: { type: string }
         author_clinician_id: { type: string, format: uuid }
+        moderation_status: { type: string, enum: [visible, hidden] }
         created_at: { type: string, format: date-time }
 
     SecondOpinion:
@@ -10939,7 +12356,7 @@ components:
         status:
           type: string
           enum: [requested, accepted, declined, revoked, expired]
-        question: { type: string }
+        question: { type: [string, 'null'], description: Redacted after access closes or the exact patient authorization is unavailable }
         requested_at: { type: string, format: date-time }
         responded_at: { type: [string, 'null'], format: date-time }
         expires_at: { type: string, format: date-time }
@@ -11000,6 +12417,7 @@ components:
       type: object
       required: [outcome_status]
       properties:
+        base_version: { type: integer, minimum: 1 }
         outcome_status: { $ref: '#/components/schemas/DigitalReferralOutcomeStatus' }
         follow_up_recommendation: { type: string, maxLength: 1000 }
         patient_instructions: { type: string, maxLength: 1000 }
@@ -11155,6 +12573,21 @@ components:
       type: string
       enum: [head, spouse, child, parent, sibling, dependant, other]
 
+    FamilyPlan:
+      type: object
+      properties:
+        tier: { $ref: '#/components/schemas/SubscriptionTier', readOnly: true }
+        name: { type: string, maxLength: 100 }
+        description: { type: string, maxLength: 600 }
+        benefits: { type: array, maxItems: 12, items: { type: string, maxLength: 200 } }
+        exclusions: { type: array, maxItems: 12, items: { type: string, maxLength: 200 } }
+        price_minor: { type: [integer, 'null'], minimum: 0, description: Amount in hundredths of TZS; null means unpublished. }
+        currency: { type: string, const: TZS }
+        billing_period: { type: string, enum: [monthly, annual] }
+        accepting_requests: { type: boolean }
+        version: { type: integer, readOnly: true }
+        updated_at: { type: string, format: date-time, readOnly: true }
+
     Family:
       type: object
       required: [id, name, subscription_tier]
@@ -11180,6 +12613,7 @@ components:
         - $ref: '#/components/schemas/Family'
         - type: object
           properties:
+            is_head: { type: boolean }
             members:
               type: array
               items: { $ref: '#/components/schemas/FamilyMember' }
@@ -11188,7 +12622,7 @@ components:
               properties:
                 id: { type: string, format: uuid }
                 full_name: { type: string }
-                current_family_load: { type: integer }
+                available: { type: boolean }
             obgyn_clinician:
               type: [object, 'null']
               description: |
@@ -11197,7 +12631,7 @@ components:
               properties:
                 id: { type: string, format: uuid }
                 full_name: { type: string }
-                current_family_load: { type: integer }
+                available: { type: boolean }
 
     ResearchDataset:
       type: object
@@ -11723,6 +13157,7 @@ components:
     FrontDeskPagination:
       type: object
       properties:
+        as_of: { type: string, format: date-time, description: Staff worklist snapshot time }
         has_more:
           type: boolean
         next_cursor:
@@ -11998,6 +13433,10 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/FrontDeskStatus'
+        permitted_actions:
+          type: array
+          description: Staff worklist hints based on current actor, assignment and availability; writes recheck authorization and version.
+          items: { type: string, enum: [clinical-review, administrative-review, call, start, cancel] }
         version:
           type: integer
           minimum: 1

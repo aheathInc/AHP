@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { DeclineReason, QueueEntry } from '@/lib/api';
 import { countdown } from '@/lib/format';
 import { urgencyStyle } from '@/lib/urgency';
@@ -15,29 +15,22 @@ const REASONS: { value: DeclineReason; label: string }[] = [
 ];
 
 export function QueueCard({
-  entry, busy, scope, onAccept, onDecline,
+  entry, busy, scope, now, onAccept, onDecline,
 }: {
   entry: QueueEntry;
   busy: boolean;
+  now: number;
   scope: 'offered' | 'mine';
   onAccept: (id: string) => void;
   onDecline: (id: string, reason: DeclineReason) => void;
 }) {
   const s = urgencyStyle(entry.consultation.urgency_level);
-  const [now, setNow] = useState(() => Date.now());
   const [choosing, setChoosing] = useState(false);
   const deadline = scope === 'offered'
     ? Date.parse(entry.offer?.expires_at ?? '')
     : Date.parse(entry.consultation.sla_deadline_at);
   const left = Number.isFinite(deadline) ? Math.max(0, Math.ceil((deadline - now) / 1000)) : 0;
   const expired = scope === 'offered' && left <= 0;
-
-  // A queue that silently goes stale is worse than none: it shows time
-  // remaining that has already run out.
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   const p = entry.patient_summary;
 
@@ -76,7 +69,7 @@ export function QueueCard({
           {p.has_chronic_conditions ? ' · chronic condition noted' : ''}
         </p>
       )}
-      <p className="mt-1 text-xs text-ink-soft">Full record access opens only after you accept this case.</p>
+      {scope === 'offered' && <p className="mt-1 text-xs text-ink-soft">Full record access opens only after you accept this case.</p>}
 
       {scope === 'mine' ? (
         <Link

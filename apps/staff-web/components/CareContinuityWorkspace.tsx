@@ -4,20 +4,21 @@ import React, { Component, type FormEvent } from 'react';
 import { api, errorMessage } from '@/lib/api';
 import { ClinicalHero } from './premium/ClinicalHero';
 import { Icon } from './premium/Icon';
+import { AfpePanel, AfpeLiveAlerts } from './AfpePanel';
 
 export interface CareApi {
   get<T>(path: string): Promise<{ data: T }>;
   post<T>(path: string, body: unknown, options?: { headers: Record<string, string> }): Promise<{ data: T }>;
 }
 interface Cycle { id: string; patient_name: string; patient_profile_id: string; care_thread_id: string; start_date: string; end_date: string;
-  status: string; outcome: string | null; review_due: boolean; unreviewed_checkins: number; version: number }
+  status: string; outcome: string | null; review_due: boolean; unreviewed_checkins: number; urgent_checkins?: number; version: number }
 export interface Plan { id: string; version: number; status: string; start_date: string; timezone: string; times: string[] }
 export interface CareMedicationItem { id: string; medication_name: string; dosage: string; frequency_per_day: number; duration_days: number; has_reports?: boolean; plan: Plan | null }
 interface Contact { id: string; scheduled_at: string; channel: string; purpose: string; status: string; version: number; note?: string | null }
 interface Detail {
   id: string; patient_name: string; patient_profile_id: string; care_thread_id: string; source_consultation_id: string;
   contact_phone: string | null; status: string; review_due: boolean; outcome: string | null; end_date: string; version: number;
-  checkins: { id: string; scheduled_at: string; status: string; is_deviation: boolean; responses: unknown; deviation_reasons: unknown;
+  checkins: { id: string; scheduled_at: string; status: string; is_deviation: boolean; urgent_care_required?: boolean; responses: unknown; deviation_reasons: unknown;
     reviewed_at: string | null; review_note: string | null; version: number }[];
   prescriptions: { id: string; status: string; can_schedule: boolean; items: CareMedicationItem[];
     recent_doses: { id: string; medication_name: string; scheduled_at: string; state: string }[]; doses_truncated: boolean }[];
@@ -26,7 +27,7 @@ interface Detail {
 interface Props { identityKey: string; client?: CareApi }
 interface State {
   rows: Cycle[]; detail: Detail | null; loading: boolean; detailLoading: boolean; error: string | null; success: string | null;
-  busy: boolean; next: string | null; tab: 'review' | 'schedule' | 'contacts'; filter: string; compact: boolean; search: string;
+  busy: boolean; next: string | null; tab: 'review' | 'schedule' | 'contacts'; filter: string; compact: boolean; search: string; exceptionsOnly: boolean;
 }
 const date = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const text = (value: unknown) => typeof value === 'string' ? value : JSON.stringify(value ?? {});
@@ -48,7 +49,7 @@ export function careRequestKey(): string {
 /** All data uses authenticated BFF calls; client injection is for explicit preview/tests. */
 export class CareContinuityWorkspace extends Component<Props, State> {
   state: State = { rows: [], detail: null, loading: true, detailLoading: false, error: null, success: null, busy: false,
-    next: null, tab: 'review', filter: 'active', compact: false, search: '' };
+    next: null, tab: 'review', filter: 'active', compact: false, search: '', exceptionsOnly: true };
   private generation = 0;
   private detailGeneration = 0;
   private mounted = false;
@@ -69,7 +70,7 @@ export class CareContinuityWorkspace extends Component<Props, State> {
     this.setState({ loading: true, detailLoading: false, error: null });
     try {
       const response = await this.client.get<{ data: Cycle[]; meta: { next_cursor: string | null } }>(
-        `/care-continuity/worklist?limit=30&status=${this.state.filter}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+        `/care-continuity/worklist?limit=30&exceptions_only=${this.state.exceptionsOnly}&status=${this.state.filter}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
       if (!Array.isArray(response.data.data)) throw new Error('Invalid worklist response.');
       if (this.current(generation)) this.setState(s => ({ rows: cursor ? [...s.rows, ...response.data.data] : response.data.data,
         next: response.data.meta?.next_cursor ?? null }));
@@ -124,11 +125,13 @@ export class CareContinuityWorkspace extends Component<Props, State> {
   }
   private renderReview(detail: Detail) {
     return <>
+      <AfpePanel key={detail.id} cycleId={detail.id} client={this.client}/>
       {detail.review_due && <div className="care-alert care-alert-warn" role="status">The follow-up window has ended. Review is needed; recovery has not been assumed.</div>}
       <div className="care-section-title"><h3>Check-ins & clinical review</h3><span>Patient-reported information</span></div>
       {!detail.checkins.length && <p className="care-empty">No check-ins yet. Scheduled follow-up responses will appear here.</p>}
-      {detail.checkins.map(c => <section key={c.id} className="care-checkin">
+      {detail.checkins.map(c => <section key={c.id} id={`checkin-${c.id}`} className="care-checkin">
         <div className="care-row"><strong>{date(c.scheduled_at)}</strong><span className={`care-badge ${c.is_deviation && !c.reviewed_at ? 'care-attention' : ''}`}>{c.reviewed_at ? 'Reviewed' : c.is_deviation ? 'Review requested' : statusLabel(c.status)}</span></div>
+        {c.urgent_care_required && <p className="care-alert care-alert-warn" role="alert">Urgent symptom reported. Review this patient promptly; automated guidance does not replace emergency care.</p>}
         {c.responses != null && <pre className="care-response">{text(c.responses)}</pre>}
         {!c.reviewed_at && (c.status === 'responded' || new Date(c.scheduled_at) <= new Date()) && <form onSubmit={e => this.review(e, c.id, c.version)}>
           <label className="care-label" htmlFor={`review-${c.id}`}>Review note <span>Clinician-only</span></label>
@@ -181,7 +184,7 @@ export class CareContinuityWorkspace extends Component<Props, State> {
       </form>}
       <h3 className="care-subheading">Contact history</h3>
       {!detail.contacts.length && <p className="care-empty">No contacts have been scheduled yet.</p>}
-      {detail.contacts.map(c => <section key={c.id} className="care-checkin"><div className="care-row"><strong>{date(c.scheduled_at)}</strong><span className="care-badge">{statusLabel(c.status)}</span></div><p>{c.purpose}</p><p className="care-muted">{c.channel === 'phone' ? 'Phone call' : 'Care-thread chat'}</p>
+      {detail.contacts.map(c => <section key={c.id} id={`checkin-${c.id}`} className="care-checkin"><div className="care-row"><strong>{date(c.scheduled_at)}</strong><span className="care-badge">{statusLabel(c.status)}</span></div><p>{c.purpose}</p><p className="care-muted">{c.channel === 'phone' ? 'Phone call' : 'Care-thread chat'}</p>
         {c.status === 'scheduled' && <form onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); void this.write(`/care-continuity/contacts/${c.id}/outcome`,
           { base_version: c.version, status: String(f.get('status')), note: String(f.get('note') ?? '') }, 'Contact outcome recorded; no clinical recovery was inferred.'); }}>
           <label className="care-label" htmlFor={`outcome-${c.id}`}>Contact outcome</label><select id={`outcome-${c.id}`} name="status" required defaultValue=""><option value="" disabled>Select an observed outcome</option><option value="completed">Contact completed</option><option value="no_answer">No answer</option><option value="cancelled">Cancelled</option></select>
@@ -197,12 +200,14 @@ export class CareContinuityWorkspace extends Component<Props, State> {
         action={<><a className="care-button care-secondary" href="/doctor/follow-up/medication-times">Medication schedules</a><button className="care-button care-secondary" aria-pressed={compact} onClick={() => this.setState({ compact: !compact })}>{compact ? 'Comfortable view' : 'Compact view'}</button><button className="care-button" disabled={loading || busy} onClick={() => void this.load()}>Refresh worklist</button></>} />
       {error && <div className="care-alert care-alert-error" role="alert">{error}<button className="care-inline" onClick={() => void this.load()}>Reload</button></div>}
       {success && <div className="care-alert care-alert-success" role="status">{success}</div>}
+      {!this.props.client && <AfpeLiveAlerts key={this.props.identityKey} onOpen={id => void this.open(id)}/>}
       <div className={`care-layout ${!detail && !this.state.detailLoading ? 'care-layout--browse' : ''}`}><aside className="care-panel care-list"><div className="care-list-heading"><h2>My follow-ups {!loading && <span className="care-count">({rows.length})</span>}</h2><label className="care-sr-only" htmlFor="care-filter">Cycle status</label><select id="care-filter" value={this.state.filter} disabled={busy} onChange={e => this.setState({ filter: e.target.value, detail: null }, () => void this.load())}><option value="active">Active</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+        <label className="care-muted"><input type="checkbox" checked={this.state.exceptionsOnly} onChange={e => this.setState({ exceptionsOnly: e.target.checked }, () => void this.load())}/> Show follow-ups needing attention only</label>
         <div className="ahp-followup-tools"><label className="ahp-filter-input"><Icon name="search" size={17}/><span className="sr-only">Filter loaded follow-up patients</span><input value={this.state.search} type="search" placeholder="Search loaded patients…" onChange={e=>this.setState({search:e.target.value})}/></label><span className="ahp-caption">{rows.filter(row=>row.review_due).length} windows need review</span></div>
         {loading && <p className="care-empty" role="status">Loading authorized follow-up records…</p>}
-        {!loading && !error && !rows.length && <p className="care-empty">No {this.state.filter} cycles. Follow-up plans created during consultation completion appear here.</p>}
+        {!loading && !error && !rows.length && <p className="care-empty">{this.state.exceptionsOnly ? 'No loaded follow-ups need attention. Clear the attention filter to see all assigned plans.' : `No ${this.state.filter} cycles. Follow-up plans created during consultation completion appear here.`}</p>}
         {rows.filter(row=>row.patient_name.toLowerCase().includes(this.state.search.toLowerCase())).map(row => <button key={row.id} className={`care-patient ${detail?.id === row.id ? 'care-selected' : ''}`} disabled={busy} onClick={() => void this.open(row.id)} aria-pressed={detail?.id === row.id}>
-          <span className="care-avatar" aria-hidden="true">{row.patient_name.split(' ').map(word => word[0]).slice(0, 2).join('')}</span><span className="care-patient-copy"><strong>{row.patient_name}</strong><small>{row.unreviewed_checkins ? `${row.unreviewed_checkins} check-in(s) to review` : row.review_due ? 'Review follow-up window' : 'Care plan in progress'}</small></span><span className={`care-badge ${row.review_due ? 'care-attention' : ''}`}>{row.review_due ? 'Review due' : statusLabel(row.status)}</span><span className="care-row-date">Ends {new Date(row.end_date).toLocaleDateString()}</span><span className="care-review-label">Review <Icon name="chevron" size={13}/></span>
+          <span className="care-avatar" aria-hidden="true">{row.patient_name.split(' ').map(word => word[0]).slice(0, 2).join('')}</span><span className="care-patient-copy"><strong>{row.patient_name}</strong><small>{row.urgent_checkins ? `${row.urgent_checkins} urgent report(s)` : row.unreviewed_checkins ? `${row.unreviewed_checkins} check-in(s) to review` : row.review_due ? 'Review follow-up window' : 'Care plan in progress'}</small></span><span className={`care-badge ${row.urgent_checkins || row.review_due ? 'care-attention' : ''}`}>{row.urgent_checkins ? `${row.urgent_checkins} urgent` : row.review_due ? 'Review due' : statusLabel(row.status)}</span><span className="care-row-date">Ends {new Date(row.end_date).toLocaleDateString()}</span><span className="care-review-label">Review <Icon name="chevron" size={13}/></span>
         </button>)}
         {!loading && !error && rows.length>0 && !rows.some(row=>row.patient_name.toLowerCase().includes(this.state.search.toLowerCase())) && <p className="care-empty">No loaded patients match your search.</p>}
         {this.state.next && <button className="care-button care-secondary care-more" onClick={() => void this.load(this.state.next!)} disabled={loading || busy}>Load more</button>}

@@ -1,4 +1,5 @@
 import '../core/l10n.dart';
+import '../core/app_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -209,18 +210,77 @@ class _CheckInForm extends StatefulWidget {
 class _CheckInFormState extends State<_CheckInForm> {
   int _feeling = 3;
   final _note = TextEditingController();
+  final _temperature = TextEditingController();
+  bool? _chestPain;
+  bool? _severeBleeding;
+  bool? _difficultyBreathing;
   bool _busy = false;
   String? _message;
   bool _submitted = false;
   bool _queued = false;
+  bool _urgent = false;
+  double? _symptomSeverity;
+  String? _assistantPrompt;
+  bool _assistantBusy = false;
+  final _sideEffects = TextEditingController();
+  final Map<String, TextEditingController> _vitals = {};
+  bool get _afpe => (widget.checkIn['questions'] as List? ?? [])
+      .any((q) => q is Map && q['afpe'] == true);
+  @override
+  void initState() {
+    super.initState();
+    for (final q in widget.checkIn['questions'] as List? ?? []) {
+      if (q is Map && q['afpe'] == true) {
+        for (final key in q['vital_keys'] as List? ?? []) {
+          if (key != 'temperature_c') {
+            _vitals[key as String] = TextEditingController();
+          }
+        }
+      }
+    }
+  }
 
   @override
   void dispose() {
     _note.dispose();
+    _temperature.dispose();
+    _sideEffects.dispose();
+    for (final c in _vitals.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _submit() async {
+    if (_chestPain == null ||
+        _severeBleeding == null ||
+        _difficultyBreathing == null) {
+      setState(() => _message =
+          L.tr('Jibu maswali yote ya dalili za hatari kabla ya kutuma.'));
+      return;
+    }
+    if (_afpe && _symptomSeverity == null) {
+      setState(
+          () => _message = L.tr('Chagua ukali wa dalili kabla ya kutuma.'));
+      return;
+    }
+    final temperatureText = _temperature.text.trim();
+    final temperature = temperatureText.isEmpty
+        ? null
+        : double.tryParse(temperatureText.replaceAll(',', '.'));
+    if (temperatureText.isNotEmpty &&
+        (temperature == null || temperature < 30 || temperature > 45)) {
+      setState(() => _message =
+          L.tr('Weka joto sahihi kwa °C, au acha wazi ikiwa hujalipima.'));
+      return;
+    }
+    if (_vitals.values.any((c) =>
+        c.text.trim().isNotEmpty &&
+        double.tryParse(c.text.trim().replaceAll(',', '.')) == null)) {
+      setState(() => _message =
+          L.tr('Weka vipimo kwa namba au acha wazi ikiwa hujapima.'));
+      return;
+    }
     setState(() {
       _busy = true;
       _message = null;
@@ -233,18 +293,42 @@ class _CheckInFormState extends State<_CheckInForm> {
         syncPath: '/check-ins/{check_in_id}/respond',
         pathParams: {'check_in_id': id},
         body: {
-          'responses': {'feeling': _feeling, 'note': _note.text},
+          'responses': {
+            if (_afpe)
+              'afpe': {
+                'symptom_severity': _symptomSeverity,
+                'side_effects': _sideEffects.text,
+                'vitals': {
+                  if (temperature != null) 'temperature_c': temperature,
+                  for (final e in _vitals.entries)
+                    if (e.value.text.trim().isNotEmpty)
+                      e.key: double.parse(
+                          e.value.text.trim().replaceAll(',', '.')),
+                },
+              },
+            'feeling': _feeling,
+            'note': _note.text,
+            'chest_pain': _chestPain,
+            'severe_bleeding': _severeBleeding,
+            'difficulty_breathing': _difficultyBreathing,
+            if (temperature != null) 'temperature_c': temperature,
+          },
           'channel': 'app',
           'client_created_at': DateTime.now().toIso8601String(),
         },
       );
       if (!mounted) return;
       final status = result is Map ? result['status'] as String? : null;
+      final urgent = result is Map && result['urgent_care_required'] == true;
       setState(() {
         _submitted = true;
-        _message = status == null
-            ? L.tr('Jibu limehifadhiwa na seva.')
-            : L.tr("Jibu limehifadhiwa na seva. Hali: {0}", [status]);
+        _urgent = urgent;
+        _message = urgent
+            ? L.tr(
+                'Dalili ya hatari imeripotiwa na imewekewa alama kwa mapitio ya kliniki. Tafuta huduma ya dharura sasa; usisubiri ujumbe mwingine wa follow-up.')
+            : status == null
+                ? L.tr('Jibu limehifadhiwa na seva.')
+                : L.tr("Jibu limehifadhiwa na seva. Hali: {0}", [status]);
         _busy = false;
       });
     } on Queued {
@@ -267,6 +351,31 @@ class _CheckInFormState extends State<_CheckInForm> {
     }
   }
 
+  Future<void> _askAssistant() async {
+    setState(() => _assistantBusy = true);
+    try {
+      final result = await Api.post(
+          '/care-continuity/check-ins/${widget.checkIn['id']}/conversation',
+          {
+            'text': _note.text,
+            'language': AppPreferences.instance.language == 'sw' ? 'sw' : 'en',
+          },
+          idempotencyKey: newOpId());
+      if (mounted) {
+        setState(() {
+          _assistantPrompt = result['question'] as String;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _assistantPrompt =
+            L.tr('Msaidizi hapatikani. Endelea kujibu maswali hapa chini.'));
+      }
+    } finally {
+      if (mounted) setState(() => _assistantBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
@@ -282,11 +391,24 @@ class _CheckInFormState extends State<_CheckInForm> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          Notice(
+              L.tr(
+                  'Ikiwa una maumivu ya kifua, shida ya kupumua, damu nyingi, homa kali au hali inazidi kuwa mbaya, tafuta huduma ya dharura sasa.'),
+              tone: NoticeTone.problem),
+          const SizedBox(height: 12),
           if (_submitted || _queued) ...[
             Notice(
               _message ?? L.tr('Jibu limehifadhiwa na seva.'),
               tone: NoticeTone.attention,
             ),
+            if (_urgent) ...[
+              const SizedBox(height: 12),
+              Notice(
+                L.tr(
+                    'Ikiwa una maumivu ya kifua, shida ya kupumua, damu nyingi, homa kali au hali inazidi kuwa mbaya, tafuta huduma ya dharura sasa.'),
+                tone: NoticeTone.problem,
+              ),
+            ],
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(_submitted || _queued),
@@ -327,7 +449,66 @@ class _CheckInFormState extends State<_CheckInForm> {
                 ),
               );
             }),
+            const SizedBox(height: 16),
+            Text(L.tr('Dalili za hatari'),
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(
+                L.tr(
+                    'Chagua Ndiyo au Hapana kwa kila swali. Jibu la Ndiyo litawekewa alama kwa mapitio ya kliniki.'),
+                style: const TextStyle(color: AppColors.inkSoft)),
+            _redFlagQuestion(L.tr('Una maumivu ya kifua?'), _chestPain,
+                (v) => setState(() => _chestPain = v)),
+            _redFlagQuestion(L.tr('Una damu nyingi au kutokwa damu sana?'),
+                _severeBleeding, (v) => setState(() => _severeBleeding = v)),
+            _redFlagQuestion(
+                L.tr('Una shida kubwa ya kupumua?'),
+                _difficultyBreathing,
+                (v) => setState(() => _difficultyBreathing = v)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _temperature,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                  labelText: L.tr('Joto la mwili °C (hiari)'),
+                  hintText: L.tr('Mfano: 37.5')),
+            ),
             const SizedBox(height: 20),
+            if (_afpe) ...[
+              if (_assistantPrompt != null)
+                Notice(_assistantPrompt!, tone: NoticeTone.attention),
+              OutlinedButton(
+                  onPressed: _assistantBusy ? null : _askAssistant,
+                  child: Text(L.tr('Msaidizi wa ufuatiliaji'))),
+              Text(L.tr('Ukali wa dalili (0 hakuna, 10 kali zaidi): {0}',
+                  [_symptomSeverity?.round() ?? '—'])),
+              Slider(
+                  value: _symptomSeverity ?? 0,
+                  min: 0,
+                  max: 10,
+                  divisions: 10,
+                  label: '${_symptomSeverity?.round() ?? 0}',
+                  onChanged: (v) => setState(() => _symptomSeverity = v)),
+              TextField(
+                  controller: _sideEffects,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                      labelText: L.tr('Madhara ya dawa uliyoona (hiari)'))),
+              ..._vitals.entries.map((e) => TextField(
+                  controller: e.value,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                      labelText: L.tr({
+                            'systolic': 'Shinikizo la damu systolic (mmHg)',
+                            'diastolic': 'Shinikizo la damu diastolic (mmHg)',
+                            'glucose_mmol_l': 'Sukari ya damu (mmol/L)',
+                            'spo2': 'Oksijeni kwenye damu (%)'
+                          }[e.key] ??
+                          e.key)))),
+              const SizedBox(height: 16),
+            ],
             Text(
               L.tr('Kuna kitu kingine unataka daktari ajue?'),
               style: TextStyle(fontWeight: FontWeight.w500),
@@ -348,4 +529,24 @@ class _CheckInFormState extends State<_CheckInForm> {
       ),
     );
   }
+
+  Widget _redFlagQuestion(
+          String question, bool? value, ValueChanged<bool> onChanged) =>
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(question),
+          const SizedBox(height: 4),
+          Wrap(spacing: 8, children: [
+            ChoiceChip(
+                label: Text(L.tr('Ndiyo')),
+                selected: value == true,
+                onSelected: (_) => onChanged(true)),
+            ChoiceChip(
+                label: Text(L.tr('Hapana')),
+                selected: value == false,
+                onSelected: (_) => onChanged(false)),
+          ]),
+        ]),
+      );
 }

@@ -26,9 +26,7 @@ class PremiumCard extends StatefulWidget {
   State<PremiumCard> createState() => _PremiumCardState();
 }
 
-/// A restrained bento frame for grouping actions without turning every row
-/// into a separate visual container. The faint line pattern provides a shared
-/// surface cue across the home and services destinations.
+/// A quiet shared surface for related patient actions.
 class PremiumBentoFrame extends StatelessWidget {
   const PremiumBentoFrame({
     super.key,
@@ -44,51 +42,12 @@ class PremiumBentoFrame extends StatelessWidget {
     Localizations.localeOf(context);
     final palette = AppPalette.of(context);
     return Container(
-      clipBehavior: Clip.antiAlias,
+      padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            palette.mintWash.withValues(alpha: .72),
-            palette.surface.withValues(alpha: .82),
-          ],
-        ),
-        border: Border.all(color: palette.line.withValues(alpha: .72)),
-        boxShadow: [
-          BoxShadow(
-            color: palette.ink.withValues(alpha: .06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -38,
-            top: -42,
-            child: ExcludeSemantics(
-              child: Transform.rotate(
-                angle: -.28,
-                child: Container(
-                  width: 150,
-                  height: 92,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: palette.petrol.withValues(alpha: .08),
-                      width: 12,
-                    ),
-                    borderRadius: BorderRadius.circular(32),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Padding(padding: padding, child: child),
-        ],
-      ),
+          color: palette.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: palette.line)),
+      child: child,
     );
   }
 }
@@ -103,9 +62,8 @@ class _PremiumCardState extends State<PremiumCard> {
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return AnimatedScale(
-      duration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 140),
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
       curve: Curves.easeOutCubic,
       scale: widget.onTap != null && _pressed ? .985 : 1,
       child: Material(
@@ -181,9 +139,8 @@ class _PremiumAuroraHeroState extends State<PremiumAuroraHero>
       child: Padding(padding: widget.padding, child: widget.child),
       builder: (context, foreground) {
         final palette = AppPalette.of(context);
-        final t = _reduced
-            ? .55
-            : Curves.easeOutCubic.transform(_animation.value);
+        final t =
+            _reduced ? .55 : Curves.easeOutCubic.transform(_animation.value);
         return Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
@@ -274,9 +231,8 @@ class _PremiumHeroButtonState extends State<PremiumHeroButton> {
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return AnimatedScale(
       scale: _pressed ? .98 : 1,
-      duration: reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 130),
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 130),
       child: Material(
         color: palette.surface,
         borderRadius: BorderRadius.circular(14),

@@ -1,9 +1,13 @@
+import { z } from 'zod';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { createAuthGuards, createIdempotency, createTokenService, pathParam } from '@a-health/http';
 import { env } from '../config/env.js';
 import * as s from './service.js';
 import * as v from './types.js';
 import * as medication from './medication.js';
+import * as afpe from '../afpe/service.js';
+import { activateSchema } from '../afpe/types.js';
+import { converse, conversationSchema } from '../afpe/conversation.js';
 const { requireAuth } = createAuthGuards(createTokenService({ secret: env.JWT_SECRET, issuer: env.JWT_ISSUER,
   audience: env.JWT_AUDIENCE, ttlSeconds: env.ACCESS_TOKEN_TTL_SECONDS }));
 const idem = createIdempotency(env.IDEMPOTENCY_TTL_HOURS);
@@ -30,3 +34,27 @@ continuityRouter.post('/care-continuity/plans/:id/state', idem, handle((r, res) 
 continuityRouter.post('/care-continuity/check-ins/:id/review', idem, handle((r, res) => s.reviewCheckIn(resourceId(r), caller(r), v.reviewSchema.parse(r.body), meta(r, res))));
 continuityRouter.post('/care-continuity/cycles/:id/contacts', idem, handle((r, res) => s.scheduleContact(resourceId(r), caller(r), v.contactSchema.parse(r.body), meta(r, res))));
 continuityRouter.post('/care-continuity/contacts/:id/outcome', idem, handle((r, res) => s.recordContact(resourceId(r), caller(r), v.contactOutcomeSchema.parse(r.body), meta(r, res))));
+
+continuityRouter.get('/care-continuity/cycles/:id/afpe', handle(r => afpe.report(resourceId(r), caller(r))));
+continuityRouter.post('/care-continuity/cycles/:id/afpe', idem, handle((r, res) => afpe.activate(resourceId(r), caller(r), activateSchema.parse(r.body), meta(r, res))));
+continuityRouter.post('/care-continuity/afpe/alerts/:id/acknowledge', idem, handle((r, res) => afpe.acknowledge(resourceId(r), caller(r), meta(r, res))));
+continuityRouter.get('/care-continuity/afpe/alerts', handle(r => afpe.alertFeed(caller(r))));
+continuityRouter.get('/care-continuity/afpe/events', async (r, res, next) => {
+  try {
+    const first = await afpe.alertFeed(caller(r));
+    res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+    res.flushHeaders();
+    const send = (data: unknown) => res.write(`event: afpe-alert\ndata: ${JSON.stringify(data)}\n\n`);
+    send(first);
+    let busy = false;
+    const timer = setInterval(() => { if (busy || res.writableEnded) return; busy = true;
+      void afpe.alertFeed(caller(r)).then(send).catch(() => res.end()).finally(() => { busy = false; });
+    }, 5000);
+    const timeout = setTimeout(() => res.end(), 55000);
+    res.on('close', () => { clearInterval(timer); clearTimeout(timeout); });
+  } catch (error) { next(error); }
+});
+
+continuityRouter.post('/care-continuity/check-ins/:id/conversation', idem, handle(r => converse(resourceId(r), caller(r), conversationSchema.parse(r.body))));
+
+continuityRouter.post('/care-continuity/cycles/:id/afpe/preferences', idem, handle((r, res) => afpe.setFallback(resourceId(r), caller(r), z.object({ fallback_channel: z.enum(['none', 'sms', 'whatsapp']) }).parse(r.body).fallback_channel, meta(r, res))));

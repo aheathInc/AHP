@@ -26,7 +26,7 @@ export async function publishEmergencyEvent(
     const audienceUserIds = await audienceFor(emergencyId);
     if (audienceUserIds.length === 0) return;
     const event: DomainEvent = {
-      event: 'emergency.dispatched',
+      event: data?.status === 'dispatched' ? 'emergency.dispatched' : 'emergency.updated',
       entity: 'emergency_requests',
       id: emergencyId,
       audienceUserIds,

@@ -18,7 +18,7 @@ export default async function QueuePage() {
         lede="Your care overview, clearly connected. Review authorized offers and continue your active consultations."
         action={<AvailabilityToggle initial={profile?.is_available} initiallyVerified={profile ? profile.verification_status === 'verified' : undefined} />} />
 
-      <QueueView />
+      <QueueView key={session.user?.id} />
     </PageShell>
   );
 }

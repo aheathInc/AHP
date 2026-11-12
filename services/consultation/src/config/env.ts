@@ -4,6 +4,8 @@ import { z } from 'zod';
 dotenv.config();
 
 const envSchema = z.object({
+  AFPE_CLINICAL_POLICY_APPROVED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
+  AFPE_DIAGNOSIS_RULES_JSON: z.string().optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(4005),
   DATABASE_URL: z.string(),

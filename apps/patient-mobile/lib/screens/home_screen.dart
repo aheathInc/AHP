@@ -16,6 +16,7 @@ import '../core/session.dart';
 import '../core/strings.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
+import '../widgets/service_directory.dart';
 import '../widgets/consultation_call_action.dart';
 import '../widgets/premium.dart';
 import 'appointments_screen.dart';
@@ -96,16 +97,15 @@ class _HomeScreenState extends State<HomeScreen> {
     await Api.flushOutbox();
     final pending = ownerId == null ? 0 : await Outbox.pendingCount(ownerId);
     final failed = ownerId == null ? 0 : await Outbox.failedCount(ownerId);
-    final retryableFailed = ownerId == null
-        ? 0
-        : await Outbox.retryableFailedCount(ownerId);
+    final retryableFailed =
+        ownerId == null ? 0 : await Outbox.retryableFailedCount(ownerId);
 
     List<Map<String, dynamic>> consultations = [];
     if (online) {
       try {
         final data = await Api.get('/consultations', query: {'limit': 20});
-        consultations = ((data['data'] as List?) ?? [])
-            .cast<Map<String, dynamic>>();
+        consultations =
+            ((data['data'] as List?) ?? []).cast<Map<String, dynamic>>();
         // Keep the most recent advice available when the patient loses signal.
         if (ownerId != null) await _cacheNotes(ownerId);
       } catch (_) {
@@ -279,146 +279,127 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _listPage(List<Widget> children) => ListView(
-    physics: const AlwaysScrollableScrollPhysics(),
-    padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-    children: children,
-  );
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        children: children,
+      );
 
   List<Widget> _syncNotices() => [
-    if (!_online) ...[
-      Notice(
-        L.tr(
-          'Hakuna mtandao. Unaweza kusoma dawa na ushauri uliohifadhiwa; mabadiliko salama yakihifadhiwa yataonyesha Pending sync hadi seva ithibitishe.',
-        ),
-        tone: NoticeTone.attention,
-      ),
-      const SizedBox(height: 12),
-    ],
-    if (_pending > 0) ...[
-      Notice(
-        L.tr("Pending sync: majibu {0} bado hayajathibitishwa na seva.", [
-          _pending,
-        ]),
-        tone: NoticeTone.attention,
-      ),
-      const SizedBox(height: 12),
-    ],
-    if (_failed > 0) ...[
-      Notice(
-        L.tr(
-          "{0} mabadiliko yanahitaji kuangaliwa mtandaoni. Hayatajaribiwa tena kiotomatiki.",
-          [_failed],
-        ),
-        tone: NoticeTone.attention,
-      ),
-      if (_retryableFailed > 0)
-        OutlinedButton.icon(
-          onPressed: _online ? _retrySync : null,
-          icon: const Icon(Icons.sync),
-          label: Text(
-            L.tr("Jaribu tena usawazishaji ({0})", [_retryableFailed]),
+        if (!_online) ...[
+          Notice(
+            L.tr(
+              'Hakuna mtandao. Unaweza kusoma dawa na ushauri uliohifadhiwa; mabadiliko salama yakihifadhiwa yataonyesha Pending sync hadi seva ithibitishe.',
+            ),
+            tone: NoticeTone.attention,
           ),
-        ),
-      const SizedBox(height: 12),
-    ],
-  ];
+          const SizedBox(height: 12),
+        ],
+        if (_pending > 0) ...[
+          Notice(
+            L.tr("Pending sync: majibu {0} bado hayajathibitishwa na seva.", [
+              _pending,
+            ]),
+            tone: NoticeTone.attention,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (_failed > 0) ...[
+          Notice(
+            L.tr(
+              "{0} mabadiliko yanahitaji kuangaliwa mtandaoni. Hayatajaribiwa tena kiotomatiki.",
+              [_failed],
+            ),
+            tone: NoticeTone.attention,
+          ),
+          if (_retryableFailed > 0)
+            OutlinedButton.icon(
+              onPressed: _online ? _retrySync : null,
+              icon: const Icon(Icons.sync),
+              label: Text(
+                L.tr("Jaribu tena usawazishaji ({0})", [_retryableFailed]),
+              ),
+            ),
+          const SizedBox(height: 12),
+        ],
+      ];
 
   Widget _homePage() => _listPage([
-    ..._syncNotices(),
-    PremiumAuroraHero(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            L.tr('Huduma za afya, karibu nawe'),
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(color: Colors.white, fontSize: 27),
+        ..._syncNotices(),
+        WorkspaceIntro(
+            title: L.tr('Huduma za afya, karibu nawe'),
+            description:
+                L.tr('Angalia foleni na daktari aliyepo kabla ya kwenda.'),
+            action: FilledButton.icon(
+                onPressed: () => _go(const FacilityBrowserScreen()),
+                icon: const Icon(Icons.search),
+                label: Text(L.tr('Tafuta daktari au kituo')))),
+        PremiumBentoFrame(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final emergency = PremiumAction(
+                icon: Icons.warning_amber_rounded,
+                title: S.emergency,
+                subtitle: L.tr('Fungua huduma ya dharura'),
+                iconColor: AppPalette.of(context).clay,
+                iconBackground: AppPalette.of(context).urgentWash,
+                onTap: () => _go(const EmergencyScreen()),
+              );
+              final newConsultation = PremiumAction(
+                icon: Icons.medical_services_outlined,
+                title: S.homeGetHelp,
+                subtitle: L.tr('Anzisha ombi jipya'),
+                onTap: () => _go(const NewConsultationScreen()),
+              );
+              if (constraints.maxWidth < 540) {
+                return Column(
+                  children: [
+                    emergency,
+                    const SizedBox(height: 12),
+                    newConsultation,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: emergency),
+                  const SizedBox(width: 12),
+                  Expanded(child: newConsultation),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 8),
-          Text(
-            L.tr('Angalia foleni na daktari aliyepo kabla ya kwenda.'),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 20),
-          PremiumHeroButton(
-            label: L.tr('Tafuta daktari au kituo'),
-            onPressed: () => _go(const FacilityBrowserScreen()),
+        ),
+        const SizedBox(height: 20),
+        PremiumSectionHeading(L.tr('Matibabu yanayoendelea')),
+        _consultationsSummary(_active, active: true),
+        if (_recent.isNotEmpty) ...[
+          PremiumSectionHeading(L.tr('Matibabu ya hivi karibuni')),
+          ..._recent.take(3).map(_consultationCard),
+          PremiumLinkRow(
+            icon: Icons.history_rounded,
+            title: L.tr('Angalia rekodi zote'),
+            onTap: () => _select(2),
           ),
         ],
-      ),
-    ),
-    const SizedBox(height: 20),
-    PremiumBentoFrame(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final emergency = PremiumAction(
-            icon: Icons.warning_amber_rounded,
-            title: S.emergency,
-            subtitle: L.tr('Fungua huduma ya dharura'),
-            iconColor: AppPalette.of(context).clay,
-            iconBackground: AppPalette.of(context).urgentWash,
-            onTap: () => _go(const EmergencyScreen()),
-          );
-          final newConsultation = PremiumAction(
-            icon: Icons.medical_services_outlined,
-            title: S.homeGetHelp,
-            subtitle: L.tr('Anzisha ombi jipya'),
-            onTap: () => _go(const NewConsultationScreen()),
-          );
-          if (constraints.maxWidth < 540) {
-            return Column(
-              children: [
-                emergency,
-                const SizedBox(height: 12),
-                newConsultation,
-              ],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: emergency),
-              const SizedBox(width: 12),
-              Expanded(child: newConsultation),
-            ],
-          );
-        },
-      ),
-    ),
-    const SizedBox(height: 20),
-    PremiumSectionHeading(L.tr('Matibabu yanayoendelea')),
-    _consultationsSummary(_active, active: true),
-    if (_recent.isNotEmpty) ...[
-      PremiumSectionHeading(L.tr('Matibabu ya hivi karibuni')),
-      ..._recent.take(3).map(_consultationCard),
-      PremiumLinkRow(
-        icon: Icons.history_rounded,
-        title: L.tr('Angalia rekodi zote'),
-        onTap: () => _select(2),
-      ),
-    ],
-    const SizedBox(height: 12),
-    PremiumSectionHeading(L.tr('Huduma zako')),
-    PremiumLinkRow(
-      icon: Icons.calendar_month_outlined,
-      title: L.tr('Miadi'),
-      onTap: () => _go(const AppointmentsScreen()),
-    ),
-    PremiumLinkRow(
-      icon: Icons.medication_outlined,
-      title: S.medications,
-      onTap: () => _go(const MedicationFollowupScreen()),
-    ),
-    PremiumLinkRow(
-      icon: Icons.chat_bubble_outline_rounded,
-      title: L.tr('Mazungumzo kuhusu ziara'),
-      onTap: () => _select(3),
-    ),
-  ]);
+        const SizedBox(height: 12),
+        PremiumSectionHeading(L.tr('Huduma zako')),
+        PremiumLinkRow(
+          icon: Icons.calendar_month_outlined,
+          title: L.tr('Miadi'),
+          onTap: () => _go(const AppointmentsScreen()),
+        ),
+        PremiumLinkRow(
+          icon: Icons.medication_outlined,
+          title: S.medications,
+          onTap: () => _go(const MedicationFollowupScreen()),
+        ),
+        PremiumLinkRow(
+          icon: Icons.chat_bubble_outline_rounded,
+          title: L.tr('Mazungumzo kuhusu ziara'),
+          onTap: () => _select(3),
+        ),
+      ]);
 
   Widget _consultationsSummary(
     List<Map<String, dynamic>> consultations, {
@@ -439,322 +420,295 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     return Column(
-      children: consultations
-          .take(active ? 5 : 10)
-          .map(_consultationCard)
-          .toList(),
+      children:
+          consultations.take(active ? 5 : 10).map(_consultationCard).toList(),
     );
   }
 
   Widget _consultationCard(Map<String, dynamic> consultation) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: PremiumCard(
-      onTap: () => _go(ConsultationDetailScreen(consultation: consultation)),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.only(bottom: 10),
+        child: PremiumCard(
+          onTap: () =>
+              _go(ConsultationDetailScreen(consultation: consultation)),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                Icons.medical_information_outlined,
-                color: AppPalette.of(context).petrol,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.medical_information_outlined,
+                    color: AppPalette.of(context).petrol,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (consultation['symptom_text'] as String?) ??
+                              L.tr('Ombi la matibabu'),
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 4),
+                        PremiumStatus(
+                          consultationStatusLabel(
+                            consultation['status'] as String? ?? 'pending',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppPalette.of(context).inkSoft,
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      (consultation['symptom_text'] as String?) ??
-                          L.tr('Ombi la matibabu'),
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 4),
-                    PremiumStatus(
-                      consultationStatusLabel(
-                        consultation['status'] as String? ?? 'pending',
-                      ),
-                    ),
-                  ],
+              ConsultationCallAction(
+                consultation: consultation,
+                onJoin: () => _go(
+                  ConsultationCallScreen(
+                    consultationId: consultation['id'] as String,
+                    video: consultation['modality'] == 'video',
+                  ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: AppPalette.of(context).inkSoft,
               ),
             ],
           ),
-          ConsultationCallAction(
-            consultation: consultation,
-            onJoin: () => _go(
-              ConsultationCallScreen(
-                consultationId: consultation['id'] as String,
-                video: consultation['modality'] == 'video',
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 
-  Widget _servicesPage() => _listPage([
-    ..._syncNotices(),
-    PremiumAuroraHero(
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            L.tr('Huduma zote'),
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(color: Colors.white, fontSize: 27),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            L.tr('Chagua huduma inayokufaa leo.'),
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
-          const SizedBox(height: 18),
-          PremiumHeroButton(
+  Widget _servicesPage() {
+    final sections = <({
+      String title,
+      List<({IconData icon, String label, Widget screen})> items
+    })>[
+      (
+        title: L.tr('Anza au tafuta huduma'),
+        items: [
+          (
+            icon: Icons.search,
             label: L.tr('Tafuta daktari au kituo'),
-            onPressed: () => _go(const FacilityBrowserScreen()),
+            screen: const FacilityBrowserScreen()
           ),
-        ],
+          (
+            icon: Icons.medical_services_outlined,
+            label: S.homeGetHelp,
+            screen: const NewConsultationScreen()
+          ),
+          (
+            icon: Icons.map_outlined,
+            label: L.tr('Pharmacy karibu nami'),
+            screen: const PharmacyMapScreen()
+          ),
+        ]
       ),
-    ),
-    const SizedBox(height: 18),
-    PremiumBentoFrame(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final items = [
-            _link(
-              Icons.groups_outlined,
-              L.tr('Community ya afya'),
-              const PatientCommunityScreen(),
-            ),
-            _link(
-              Icons.map_outlined,
-              L.tr('Pharmacy karibu nami'),
-              const PharmacyMapScreen(),
-            ),
-            _link(
-              Icons.medical_services_outlined,
-              S.homeGetHelp,
-              const NewConsultationScreen(),
-            ),
-            _link(
-              Icons.auto_awesome_outlined,
-              L.tr('Msaidizi wa A-Health'),
-              const AssistantScreen(),
-            ),
-          ];
-          if (constraints.maxWidth < 560) {
-            return Column(
+      (
+        title: L.tr('Matibabu na ufuatiliaji'),
+        items: [
+          (
+            icon: Icons.calendar_month_outlined,
+            label: L.tr('Miadi'),
+            screen: const AppointmentsScreen()
+          ),
+          (
+            icon: Icons.local_hospital_outlined,
+            label: L.tr('Huduma hospitalini'),
+            screen: const FrontDeskScreen()
+          ),
+          (
+            icon: Icons.notifications_active_outlined,
+            label: L.tr('Ufuatiliaji wangu'),
+            screen: const CareContinuityScreen()
+          ),
+          (
+            icon: Icons.alt_route_rounded,
+            label: L.tr('Rufaa Zangu'),
+            screen: const ReferralsScreen()
+          ),
+          (
+            icon: Icons.biotech_outlined,
+            label: L.tr('Vipimo na majibu'),
+            screen: const DiagnosticsScreen()
+          ),
+          (
+            icon: Icons.medication_outlined,
+            label: S.medications,
+            screen: const MedicationFollowupScreen()
+          ),
+          (
+            icon: Icons.checklist_rtl_outlined,
+            label: S.checkIns,
+            screen: const CheckInsScreen()
+          ),
+        ]
+      ),
+      (
+        title: L.tr('Prevention'),
+        items: [
+          (
+            icon: Icons.favorite_outline_rounded,
+            label: S.screening,
+            screen: const ScreeningScreen()
+          ),
+          (
+            icon: Icons.vaccines_outlined,
+            label: S.vaccinations,
+            screen: const VaccinationsScreen()
+          ),
+          (
+            icon: Icons.menu_book_outlined,
+            label: L.tr('Elimu ya afya'),
+            screen: const EducationScreen()
+          ),
+        ]
+      ),
+      (
+        title: L.tr('Familia na taarifa'),
+        items: [
+          (
+            icon: Icons.family_restroom_rounded,
+            label: L.tr('Familia na wategemezi'),
+            screen: const FamilyScreen()
+          ),
+          (
+            icon: Icons.groups_outlined,
+            label: L.tr('Community ya afya'),
+            screen: const PatientCommunityScreen()
+          ),
+          (
+            icon: Icons.auto_awesome_outlined,
+            label: L.tr('Msaidizi wa A-Health'),
+            screen: const AssistantScreen()
+          ),
+          (
+            icon: Icons.history_rounded,
+            label: L.tr('Historia Yangu ya Afya'),
+            screen: const HealthHistoryScreen()
+          ),
+        ]
+      ),
+      (
+        title: L.tr('Account & support'),
+        items: [
+          (
+            icon: Icons.privacy_tip_outlined,
+            label: L.tr('Faragha na ruhusa'),
+            screen: const PrivacyConsentScreen()
+          ),
+          (
+            icon: Icons.feedback_outlined,
+            label: L.tr('Maoni na malalamiko'),
+            screen: const FeedbackScreen()
+          ),
+          (
+            icon: Icons.track_changes,
+            label: L.tr('Fuatilia feedback'),
+            screen: const FeedbackTrackingScreen()
+          ),
+          (
+            icon: Icons.account_balance_wallet_outlined,
+            label: L.tr('Bima na malipo'),
+            screen: const InsurancePaymentsScreen()
+          ),
+          (
+            icon: Icons.receipt_long_outlined,
+            label: L.tr('Bili na risiti'),
+            screen: const PaymentBillsScreen()
+          ),
+          (
+            icon: Icons.person_outline_rounded,
+            label: S.profile,
+            screen: const ProfileScreen()
+          ),
+        ]
+      ),
+    ];
+    return _listPage([
+      ..._syncNotices(),
+      WorkspaceIntro(
+          title: L.tr('Huduma zote'),
+          description: L.tr('Find the care or support you need.')),
+      ServiceDirectory(
+          sections: sections,
+          onOpen: _go,
+          emergency: PremiumLinkRow(
+              icon: Icons.warning_amber_rounded,
+              title: S.emergency,
+              iconColor: AppPalette.of(context).clay,
+              onTap: () => _go(const EmergencyScreen()))),
+    ]);
+  }
+
+  Widget _recordsPage() => _listPage([
+        ..._syncNotices(),
+        WorkspaceIntro(
+            title: L.tr('Rekodi za afya'),
+            description:
+                L.tr('Mahali pamoja pa historia, dawa, vipimo na ziara zako.'),
+            action: OutlinedButton.icon(
+                onPressed: () => _go(const HealthHistoryScreen()),
+                icon: const Icon(Icons.history),
+                label: Text(L.tr('Fungua historia ya afya')))),
+        PremiumSectionHeading(L.tr('Fungua rekodi')),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final items = [
+              PremiumAction(
+                icon: Icons.history_rounded,
+                title: L.tr('Historia ya afya'),
+                subtitle: L.tr('Matukio na taarifa zako'),
+                onTap: () => _go(const HealthHistoryScreen()),
+              ),
+              PremiumAction(
+                icon: Icons.medication_outlined,
+                title: S.medications,
+                subtitle: L.tr('Ratiba na ufuatiliaji'),
+                onTap: () => _go(const MedicationFollowupScreen()),
+              ),
+              PremiumAction(
+                icon: Icons.biotech_outlined,
+                title: L.tr('Vipimo na majibu'),
+                subtitle: L.tr('Matokeo yaliyowasilishwa'),
+                onTap: () => _go(const DiagnosticsScreen()),
+              ),
+            ];
+            if (constraints.maxWidth < 560) {
+              return Column(
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    items[i],
+                    if (i < items.length - 1) const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (var i = 0; i < items.length; i++) ...[
-                  items[i],
-                  if (i < items.length - 1) const SizedBox(height: 4),
+                  Expanded(child: items[i]),
+                  if (i < items.length - 1) const SizedBox(width: 10),
                 ],
               ],
             );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                Expanded(child: items[i]),
-                if (i < items.length - 1) const SizedBox(width: 10),
-              ],
-            ],
-          );
-        },
-      ),
-    ),
-    const SizedBox(height: 18),
-    PremiumSectionHeading(L.tr('Anza au tafuta huduma')),
-    _link(
-      Icons.warning_amber_rounded,
-      S.emergency,
-      const EmergencyScreen(),
-      iconColor: AppPalette.of(context).clay,
-    ),
-    PremiumSectionHeading(L.tr('Matibabu na ufuatiliaji')),
-    _link(
-      Icons.calendar_month_outlined,
-      L.tr('Miadi'),
-      const AppointmentsScreen(),
-    ),
-    _link(
-      Icons.local_hospital_outlined,
-      L.tr('Huduma hospitalini'),
-      const FrontDeskScreen(),
-    ),
-    _link(
-      Icons.notifications_active_outlined,
-      L.tr('Ufuatiliaji wangu'),
-      const CareContinuityScreen(),
-    ),
-    _link(
-      Icons.alt_route_rounded,
-      L.tr('Rufaa Zangu'),
-      const ReferralsScreen(),
-    ),
-    _link(
-      Icons.biotech_outlined,
-      L.tr('Vipimo na majibu'),
-      const DiagnosticsScreen(),
-    ),
-    _link(
-      Icons.medication_outlined,
-      S.medications,
-      const MedicationFollowupScreen(),
-    ),
-    _link(Icons.checklist_rtl_outlined, S.checkIns, const CheckInsScreen()),
-    _link(Icons.favorite_outline_rounded, S.screening, const ScreeningScreen()),
-    _link(Icons.vaccines_outlined, S.vaccinations, const VaccinationsScreen()),
-    PremiumSectionHeading(L.tr('Familia na taarifa')),
-    _link(
-      Icons.family_restroom_rounded,
-      L.tr('Familia na wategemezi'),
-      const FamilyScreen(),
-    ),
-    _link(
-      Icons.menu_book_outlined,
-      L.tr('Elimu ya afya'),
-      const EducationScreen(),
-    ),
-    _link(
-      Icons.history_rounded,
-      L.tr('Historia Yangu ya Afya'),
-      const HealthHistoryScreen(),
-    ),
-    _link(
-      Icons.privacy_tip_outlined,
-      L.tr('Faragha na ruhusa'),
-      const PrivacyConsentScreen(),
-    ),
-    _link(
-      Icons.feedback_outlined,
-      L.tr('Maoni na malalamiko'),
-      const FeedbackScreen(),
-    ),
-    _link(
-      Icons.track_changes,
-      L.tr('Fuatilia feedback'),
-      const FeedbackTrackingScreen(),
-    ),
-    _link(
-      Icons.account_balance_wallet_outlined,
-      L.tr('Bima na malipo'),
-      const InsurancePaymentsScreen(),
-    ),
-    _link(
-      Icons.receipt_long_outlined,
-      L.tr('Bili na risiti'),
-      const PaymentBillsScreen(),
-    ),
-    _link(Icons.person_outline_rounded, S.profile, const ProfileScreen()),
-  ]);
-
-  Widget _recordsPage() => _listPage([
-    ..._syncNotices(),
-    PremiumAuroraHero(
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            L.tr('Rekodi za afya'),
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(color: Colors.white, fontSize: 27),
-          ),
+          },
+        ),
+        const SizedBox(height: 18),
+        PremiumSectionHeading(L.tr('Ziara zinazoendelea')),
+        _consultationsSummary(_active, active: true),
+        if (_recent.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
-            L.tr('Mahali pamoja pa historia, dawa, vipimo na ziara zako.'),
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+          PremiumSectionHeading(
+            L.tr('Ziara za hivi karibuni'),
+            action: L.tr('Historia ya afya'),
+            onAction: () => _go(const HealthHistoryScreen()),
           ),
-          const SizedBox(height: 18),
-          PremiumHeroButton(
-            label: L.tr('Fungua historia ya afya'),
-            icon: Icons.arrow_forward_rounded,
-            onPressed: () => _go(const HealthHistoryScreen()),
-          ),
+          ..._recent.take(5).map(_consultationCard),
         ],
-      ),
-    ),
-    const SizedBox(height: 22),
-    PremiumSectionHeading(L.tr('Fungua rekodi')),
-    LayoutBuilder(
-      builder: (context, constraints) {
-        final items = [
-          PremiumAction(
-            icon: Icons.history_rounded,
-            title: L.tr('Historia ya afya'),
-            subtitle: L.tr('Matukio na taarifa zako'),
-            onTap: () => _go(const HealthHistoryScreen()),
-          ),
-          PremiumAction(
-            icon: Icons.medication_outlined,
-            title: S.medications,
-            subtitle: L.tr('Ratiba na ufuatiliaji'),
-            onTap: () => _go(const MedicationFollowupScreen()),
-          ),
-          PremiumAction(
-            icon: Icons.biotech_outlined,
-            title: L.tr('Vipimo na majibu'),
-            subtitle: L.tr('Matokeo yaliyowasilishwa'),
-            onTap: () => _go(const DiagnosticsScreen()),
-          ),
-        ];
-        if (constraints.maxWidth < 560) {
-          return Column(
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                items[i],
-                if (i < items.length - 1) const SizedBox(height: 10),
-              ],
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < items.length; i++) ...[
-              Expanded(child: items[i]),
-              if (i < items.length - 1) const SizedBox(width: 10),
-            ],
-          ],
-        );
-      },
-    ),
-    const SizedBox(height: 18),
-    PremiumSectionHeading(L.tr('Ziara zinazoendelea')),
-    _consultationsSummary(_active, active: true),
-    if (_recent.isNotEmpty) ...[
-      const SizedBox(height: 8),
-      PremiumSectionHeading(
-        L.tr('Ziara za hivi karibuni'),
-        action: L.tr('Historia ya afya'),
-        onAction: () => _go(const HealthHistoryScreen()),
-      ),
-      ..._recent.take(5).map(_consultationCard),
-    ],
-  ]);
-
-  Widget _link(
-    IconData icon,
-    String label,
-    Widget screen, {
-    Color? iconColor,
-  }) => PremiumLinkRow(
-    icon: icon,
-    title: label,
-    iconColor: iconColor,
-    onTap: () => _go(screen),
-  );
+      ]);
 }
 
 class _Destination {

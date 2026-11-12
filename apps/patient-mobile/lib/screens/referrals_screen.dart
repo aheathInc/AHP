@@ -1,3 +1,5 @@
+import 'dart:async';
+import '../core/session.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -21,8 +23,25 @@ class ReferralsScreen extends StatefulWidget {
         L.tr('Rufaa hazikuweza kusomwa. Jaribu tena.'),
       );
     }
+    if (rows.any((row) =>
+        row is! Map ||
+        row['id'] is! String ||
+        row['status'] is! String ||
+        !const [
+          'submitted',
+          'received',
+          'accepted',
+          'in_care',
+          'completed',
+          'declined',
+          'cancelled',
+          'expired'
+        ].contains(row['status']))) {
+      throw ApiException(502, 'INVALID_RESPONSE',
+          L.tr('Rufaa hazikuweza kusomwa. Jaribu tena.'));
+    }
     return rows
-        .whereType<Map>()
+        .cast<Map>()
         .map((row) => Map<String, dynamic>.from(row))
         .toList();
   }
@@ -31,7 +50,36 @@ class ReferralsScreen extends StatefulWidget {
   State<ReferralsScreen> createState() => _ReferralsScreenState();
 }
 
-class _ReferralsScreenState extends State<ReferralsScreen> {
+class _ReferralsScreenState extends State<ReferralsScreen>
+    with WidgetsBindingObserver {
+  int _request = 0;
+  bool _activeOnly = false;
+  DateTime? _lastChecked;
+
+  void _identityChanged() {
+    _request++;
+    if (!mounted) return;
+    setState(() {
+      _referrals = [];
+      _error = L.tr('Akaunti imebadilika. Sasisha rufaa kwa akaunti ya sasa.');
+      _lastChecked = null;
+      _loading = false;
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _request++;
+    Session.identityChanges.removeListener(_identityChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   List<Map<String, dynamic>> _referrals = [];
   bool _loading = true;
   String? _error;
@@ -39,6 +87,8 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
   @override
   void initState() {
     super.initState();
+    Session.identityChanges.addListener(_identityChanged);
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
@@ -49,6 +99,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
   }
 
   Future<void> _load() async {
+    final request = ++_request;
     setState(() {
       _loading = true;
       _error = null;
@@ -56,13 +107,14 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
     });
     try {
       final rows = await _fetch();
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _referrals = rows;
+        _lastChecked = DateTime.now();
         _loading = false;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _error = error is ApiException
             ? error.message
@@ -102,15 +154,32 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     return Scaffold(
-      appBar: AppBar(title: Text(L.tr('Rufaa Zangu'))),
+      appBar: AppBar(title: Text(L.tr('Rufaa Zangu')), actions: [
+        IconButton(
+            tooltip: L.tr('Sasisha rufaa'),
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh))
+      ]),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
             Notice(L.tr(
                 'Kutumwa kwa rufaa hakumaanishi imekubaliwa. Hali ya kituo na hatua ya huduma huonyeshwa tofauti.')),
             const SizedBox(height: 12),
+            SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(L.tr('Onyesha rufaa zinazoendelea tu')),
+                value: _activeOnly,
+                onChanged: (value) => setState(() => _activeOnly = value)),
+            if (_lastChecked != null)
+              Text(
+                  L.tr('Imekaguliwa: {0}', [
+                    '${_lastChecked!.hour.toString().padLeft(2, '0')}:${_lastChecked!.minute.toString().padLeft(2, '0')}'
+                  ]),
+                  style: Theme.of(context).textTheme.bodySmall),
             if (_loading)
               const Padding(
                 padding: EdgeInsets.all(32),
@@ -130,13 +199,23 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
             ] else if (_referrals.isEmpty)
               Empty(L.tr(
                   'Bado hakuna rufaa. Rufaa itakayoanzishwa na clinician wako itaonekana hapa.'))
+            else if (_visible.isEmpty)
+              Empty(L.tr(
+                  'Hakuna rufaa inayoendelea. Zima kichujio kuona zilizofungwa.'))
             else
-              ..._referrals.map(_referralCard),
+              ..._visible.map(_referralCard),
           ],
         ),
       ),
     );
   }
+
+  List<Map<String, dynamic>> get _visible => _referrals
+      .where((row) =>
+          !_activeOnly ||
+          const ['submitted', 'received', 'accepted', 'in_care']
+              .contains(row['status']))
+      .toList();
 
   Widget _referralCard(Map<String, dynamic> referral) {
     final destination = referral['destination'] is Map
@@ -171,6 +250,18 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
         subtitle: Text(_status(status), style: TextStyle(color: tone)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: [
+          _detail(L.tr('Namba ya rufaa'), referral['id'] as String? ?? '—'),
+          if (referral['priority'] is String)
+            _detail(
+                L.tr('Kipaumbele'),
+                switch (referral['priority']) {
+                  'emergency' => L.tr('Dharura'),
+                  'urgent' => L.tr('Haraka'),
+                  _ => L.tr('Kawaida')
+                }),
+          if (const ['submitted', 'received'].contains(status))
+            _detail(L.tr('Mwisho wa muda wa kupokea'),
+                _date(referral['expires_at'])),
           _detail(L.tr('Kituo kilichotuma'),
               sourceFacility['name'] as String? ?? '—'),
           _detail(L.tr('Kituo kinachopokea'),
@@ -207,11 +298,12 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-                width: 140,
+            Expanded(
+                flex: 2,
                 child: Text(L.tr(label),
                     style: const TextStyle(color: AppColors.inkSoft))),
-            Expanded(child: Text(value)),
+            const SizedBox(width: 12),
+            Expanded(flex: 3, child: SelectableText(value)),
           ],
         ),
       );

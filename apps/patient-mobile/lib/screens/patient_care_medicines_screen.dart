@@ -10,6 +10,8 @@ import '../core/phone.dart';
 import '../core/session.dart';
 import '../core/theme.dart';
 import '../widgets/common.dart';
+import '../widgets/prescription_handoff_qr.dart';
+import '../widgets/prescription_nearby_pharmacies.dart';
 
 class PatientCareMedicinesScreen extends StatefulWidget {
   const PatientCareMedicinesScreen({super.key});
@@ -45,11 +47,25 @@ class _PatientCareMedicinesScreenState
   @override
   void initState() {
     super.initState();
+    Session.identityChanges.addListener(_ownerChanged);
     _load();
+  }
+
+  void _ownerChanged() {
+    if (!mounted) return;
+    _loadGeneration++;
+    _ownerGeneration++;
+    setState(() {
+      _clearOwnerData(null);
+      _loading = false;
+      _offline = true;
+      _error = L.tr('Account imebadilika. Fungua taarifa zako tena.');
+    });
   }
 
   @override
   void dispose() {
+    Session.identityChanges.removeListener(_ownerChanged);
     _search.dispose();
     _latitudeInput.dispose();
     _longitudeInput.dispose();
@@ -269,7 +285,8 @@ class _PatientCareMedicinesScreenState
       final result = await _care.createPrescriptionHandoff(prescriptionId);
       if (!await _isCurrentOwnerRequest(ownerGeneration, ownerId)) return;
       final reference = result['reference'];
-      if (reference is! String || reference.length != 43) {
+      if (reference is! String ||
+          !RegExp(r'^[A-Za-z0-9_-]{43}$').hasMatch(reference)) {
         throw const FormatException(
             'Secure handoff reference response is invalid.');
       }
@@ -508,6 +525,8 @@ class _PatientCareMedicinesScreenState
                     onIssueHandoff: _createHandoff,
                     onRevokeHandoff: _revokeHandoff,
                     onSearchNearbyMedication: _searchPrescriptionItem,
+                    latitude: _latitude,
+                    longitude: _longitude,
                   ),
                   SectionTitle(L.tr('Ratiba na uthibitisho wa dozi')),
                   if (_logs.isEmpty) Empty(L.tr('Hakuna dozi zilizopangiwa.')),
@@ -646,6 +665,8 @@ class MedicationPrescriptionCards extends StatelessWidget {
     this.onIssueHandoff,
     this.onRevokeHandoff,
     this.onSearchNearbyMedication,
+    this.latitude,
+    this.longitude,
     super.key,
   });
 
@@ -656,6 +677,7 @@ class MedicationPrescriptionCards extends StatelessWidget {
   final Map<String, String> handoffReferences;
   final Set<String> handoffBusy;
   final bool canIssueHandoff;
+  final double? latitude, longitude;
   final Future<void> Function(String prescriptionId)? onIssueHandoff;
   final Future<void> Function(String prescriptionId)? onRevokeHandoff;
   final Future<void> Function(String medicationName, int quantity)?
@@ -783,7 +805,14 @@ class MedicationPrescriptionCards extends StatelessWidget {
                         '${pharmacy['name'] ?? L.tr('Pharmacy')} • ${formatDate(event['dispensed_at'])}: ${eventItems.map((row) => '${row['medication_name']} × ${row['quantity_dispensed']}').join(', ')}');
                   }),
                 ],
+                if (fulfilment != null && canIssueHandoff)
+                  PrescriptionNearbyPharmacies(
+                      key: ValueKey('$prescriptionId:${fulfilment.hashCode}'),
+                      fulfillment: fulfilment,
+                      latitude: latitude,
+                      longitude: longitude),
                 if (reference != null) ...[
+                  PrescriptionHandoffQr(reference: reference),
                   const SizedBox(height: 12),
                   Text(
                       L.tr(

@@ -70,9 +70,22 @@ export const completeSchema = z.object({
       duration_days: z.number().int().min(1).max(365),
       questionnaire_key: z.string().max(80).optional(),
       recovery_criteria: z.record(z.string(), z.unknown()).optional(),
+      afpe: z.object({
+        category: z.enum(['auto', 'acute', 'subacute', 'chronic']),
+        diagnosis_context: z.enum(['new', 'stable', 'uncontrolled', 'high_risk', 'postoperative', 'treatment_initiation']).optional(),
+        consent_confirmed: z.literal(true),
+        baseline: z.object({
+          symptom_severity: z.number().min(0).max(10), medication_required: z.boolean(),
+          vitals: z.partialRecord(z.enum(['temperature_c', 'systolic', 'diastolic', 'glucose_mmol_l', 'spo2']), z.number().finite()),
+          vital_bounds: z.partialRecord(z.enum(['temperature_c', 'systolic', 'diastolic', 'glucose_mmol_l', 'spo2']), z.object({ min: z.number().finite(), max: z.number().finite() }).refine(b => b.min <= b.max)).refine(v => Object.keys(v).length > 0),
+        }).refine(v => Object.keys(v.vital_bounds).every(key => Number.isFinite(v.vitals[key as keyof typeof v.vitals])), 'Discharge readings are required for configured vital measures.'),
+      }).optional(),
     })
     .optional(),
   close_care_thread: z.boolean().optional(),
+}).superRefine((input, ctx) => {
+  if (input.follow_up_cycle?.afpe && (!input.note.diagnosis_codes?.length || input.note.diagnosis_codes.some(code => !/^[A-Z][0-9]{2}(\.[A-Z0-9]{1,4})?$/.test(code)))) ctx.addIssue({ code: 'custom', path: ['note', 'diagnosis_codes'], message: 'Valid signed ICD-10 codes are required for AFPE.' });
+  if (input.follow_up_cycle && input.close_care_thread) ctx.addIssue({ code: 'custom', path: ['close_care_thread'], message: 'A thread with an active follow-up plan must remain open.' });
 });
 
 export const referSchema = z.object({

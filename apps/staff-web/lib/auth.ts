@@ -27,6 +27,7 @@ async function refreshAccessToken(token: Record<string, unknown>): Promise<Recor
 
   const res = await fetch(`${base}/auth/token/refresh`, {
     method: 'POST',
+    cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: token.refreshToken }),
   }).catch(() => null);
@@ -89,6 +90,7 @@ export const authOptions: NextAuthOptions = {
 
         const res = await fetch(`${base}${authPath}`, {
           method: 'POST',
+          cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         }).catch(() => null);

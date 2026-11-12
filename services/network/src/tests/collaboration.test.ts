@@ -1,18 +1,23 @@
-import { after, before, describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { randomInt, randomUUID } from 'node:crypto';
-import { prisma } from '@a-health/database';
-import { assertIsolatedLocalTestTarget, verifyLocalTestIdentity } from '@a-health/database/test-safety';
-import { verifyAuditChain, type AppError } from '@a-health/http';
-import * as collaborations from '../services/collaboration.service.js';
-import * as patientConsents from '../../../patient/src/services/consent.service.js';
-import { listLedgerEvents } from '../../../auth/src/services/ledger.service.js';
+import { after, before, describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { randomInt, randomUUID } from "node:crypto";
+import { prisma } from "@a-health/database";
+import {
+  assertIsolatedLocalTestTarget,
+  verifyLocalTestIdentity,
+} from "@a-health/database/test-safety";
+import { verifyAuditChain, type AppError } from "@a-health/http";
+import * as collaborations from "../services/collaboration.service.js";
+import * as patientConsents from "../../../patient/src/services/consent.service.js";
+import { listLedgerEvents } from "../../../auth/src/services/ledger.service.js";
 
 const testTarget = assertIsolatedLocalTestTarget(process.env);
 
-before(async () => { await verifyLocalTestIdentity(prisma, testTarget); });
+before(async () => {
+  await verifyLocalTestIdentity(prisma, testTarget);
+});
 
-const meta = { ip: '127.0.0.1', requestId: 'provider-collaboration-test' };
+const meta = { ip: "127.0.0.1", requestId: "provider-collaboration-test" };
 const userIds: string[] = [];
 const clinicianIds: string[] = [];
 const facilityIds: string[] = [];
@@ -24,31 +29,63 @@ const consentIds: string[] = [];
 const collaborationIds: string[] = [];
 
 after(async () => {
-  await prisma.providerClinicalCollaboration.deleteMany({ where: { id: { in: collaborationIds } } }).catch(() => undefined);
-  await prisma.patientConsent.deleteMany({ where: { id: { in: consentIds } } }).catch(() => undefined);
-  await prisma.consultationRequest.deleteMany({ where: { id: { in: consultationIds } } }).catch(() => undefined);
-  await prisma.careThread.deleteMany({ where: { id: { in: careThreadIds } } }).catch(() => undefined);
-  await prisma.patientProfile.deleteMany({ where: { id: { in: patientProfileIds } } }).catch(() => undefined);
-  await prisma.clinicianProfile.deleteMany({ where: { id: { in: clinicianIds } } }).catch(() => undefined);
-  await prisma.department.deleteMany({ where: { id: { in: departmentIds } } }).catch(() => undefined);
-  await prisma.facility.deleteMany({ where: { id: { in: facilityIds } } }).catch(() => undefined);
-  await prisma.user.deleteMany({ where: { id: { in: userIds } } }).catch(() => undefined);
+  await prisma.providerClinicalCollaboration
+    .deleteMany({ where: { id: { in: collaborationIds } } })
+    .catch(() => undefined);
+  await prisma.patientConsent
+    .deleteMany({ where: { id: { in: consentIds } } })
+    .catch(() => undefined);
+  await prisma.consultationRequest
+    .deleteMany({ where: { id: { in: consultationIds } } })
+    .catch(() => undefined);
+  await prisma.careThread
+    .deleteMany({ where: { id: { in: careThreadIds } } })
+    .catch(() => undefined);
+  await prisma.patientProfile
+    .deleteMany({ where: { id: { in: patientProfileIds } } })
+    .catch(() => undefined);
+  await prisma.clinicianProfile
+    .deleteMany({ where: { id: { in: clinicianIds } } })
+    .catch(() => undefined);
+  await prisma.department
+    .deleteMany({ where: { id: { in: departmentIds } } })
+    .catch(() => undefined);
+  await prisma.facility
+    .deleteMany({ where: { id: { in: facilityIds } } })
+    .catch(() => undefined);
+  await prisma.user
+    .deleteMany({ where: { id: { in: userIds } } })
+    .catch(() => undefined);
   await prisma.$disconnect();
 });
 
 async function makeFacility(name: string) {
-  const facility = await prisma.facility.create({ data: { name: `${name} ${randomUUID().slice(0, 8)}`, type: 'clinic' } });
+  const facility = await prisma.facility.create({
+    data: { name: `${name} ${randomUUID().slice(0, 8)}`, type: "clinic" },
+  });
   facilityIds.push(facility.id);
   const firstDepartment = await prisma.department.create({
-    data: { facilityId: facility.id, name: `General ${randomUUID().slice(0, 6)}`, specialty: 'general_practice' },
+    data: {
+      facilityId: facility.id,
+      name: `General ${randomUUID().slice(0, 6)}`,
+      specialty: "general_practice",
+    },
   });
   departmentIds.push(firstDepartment.id);
   return { facility, department: firstDepartment };
 }
 
-async function makeDepartment(facilityId: string, name: string, specialty: 'general_practice' | 'other') {
+async function makeDepartment(
+  facilityId: string,
+  name: string,
+  specialty: "general_practice" | "other",
+) {
   const department = await prisma.department.create({
-    data: { facilityId, name: `${name} ${randomUUID().slice(0, 6)}`, specialty },
+    data: {
+      facilityId,
+      name: `${name} ${randomUUID().slice(0, 6)}`,
+      specialty,
+    },
   });
   departmentIds.push(department.id);
   return department;
@@ -57,13 +94,15 @@ async function makeDepartment(facilityId: string, name: string, specialty: 'gene
 async function makeClinician(
   facilityId: string,
   departmentId: string,
-  verificationStatus: 'verified' | 'pending' = 'verified',
+  verificationStatus: "verified" | "pending" = "verified",
 ) {
   const user = await prisma.user.create({
     data: {
       phoneNumber: `+2557${randomInt(10_000_000, 99_999_999)}`,
       email: `${randomUUID()}@collaboration.test`,
-      role: 'clinician', status: 'active', fullName: 'Synthetic Collaboration Clinician',
+      role: "clinician",
+      status: "active",
+      fullName: "Synthetic Collaboration Clinician",
     },
   });
   userIds.push(user.id);
@@ -71,28 +110,36 @@ async function makeClinician(
     data: {
       userId: user.id,
       licenseNumber: `COLLAB-${randomUUID().slice(0, 12)}`,
-      specialty: 'general_practice',
+      specialty: "general_practice",
       verificationStatus,
       facilityId,
       departmentId,
     },
   });
   clinicianIds.push(clinician.id);
-  return { sub: user.id, role: 'clinician', cpid: clinician.id };
+  return { sub: user.id, role: "clinician", cpid: clinician.id };
 }
 
 async function makeCase(requester: { cpid: string }) {
   const patientUser = await prisma.user.create({
     data: {
       phoneNumber: `+2557${randomInt(10_000_000, 99_999_999)}`,
-      role: 'patient', status: 'active', fullName: 'Synthetic Case Patient',
+      role: "patient",
+      status: "active",
+      fullName: "Synthetic Case Patient",
     },
   });
   userIds.push(patientUser.id);
-  const patient = await prisma.patientProfile.create({ data: { userId: patientUser.id, fullName: 'Synthetic Case Patient' } });
+  const patient = await prisma.patientProfile.create({
+    data: { userId: patientUser.id, fullName: "Synthetic Case Patient" },
+  });
   patientProfileIds.push(patient.id);
   const thread = await prisma.careThread.create({
-    data: { patientProfileId: patient.id, primaryClinicianId: requester.cpid, reasonSummary: 'Synthetic collaboration case' },
+    data: {
+      patientProfileId: patient.id,
+      primaryClinicianId: requester.cpid,
+      reasonSummary: "Synthetic collaboration case",
+    },
   });
   careThreadIds.push(thread.id);
   const consultation = await prisma.consultationRequest.create({
@@ -100,32 +147,40 @@ async function makeCase(requester: { cpid: string }) {
       careThreadId: thread.id,
       patientProfileId: patient.id,
       assignedClinicianId: requester.cpid,
-      channel: 'web',
-      urgencyLevel: 'routine',
-      triageRuleVersion: 'collaboration-test',
-      status: 'in_progress',
-      symptomText: 'Synthetic symptom summary for access-control tests',
-      structuredSymptoms: [{ code: 'SYNTHETIC' }],
+      channel: "web",
+      urgencyLevel: "routine",
+      triageRuleVersion: "collaboration-test",
+      status: "in_progress",
+      symptomText: "Synthetic symptom summary for access-control tests",
+      structuredSymptoms: [{ code: "SYNTHETIC" }],
       slaDeadlineAt: new Date(Date.now() + 60 * 60_000),
     },
   });
   consultationIds.push(consultation.id);
-  return { patientId: patient.id, patientUserId: patientUser.id, careThreadId: thread.id, consultationId: consultation.id };
+  return {
+    patientId: patient.id,
+    patientUserId: patientUser.id,
+    careThreadId: thread.id,
+    consultationId: consultation.id,
+  };
 }
 
 async function grantThreadConsent(
-  patientProfileId: string, careThreadId: string, invitedClinicianId: string, expiresAt?: Date,
+  patientProfileId: string,
+  careThreadId: string,
+  invitedClinicianId: string,
+  expiresAt?: Date,
 ) {
   const consent = await prisma.patientConsent.create({
     data: {
       patientProfileId,
       careThreadId,
-      granteeType: 'clinician',
+      granteeType: "clinician",
       granteeClinicianId: invitedClinicianId,
-      scope: 'current_thread',
+      scope: "current_thread",
       allowed: true,
       breakGlass: false,
-      reason: 'Synthetic provider collaboration acceptance fixture',
+      reason: "Synthetic provider collaboration acceptance fixture",
       expiresAt: expiresAt ?? null,
     },
   });
@@ -138,255 +193,816 @@ async function requestAndAccept(
   invitee: { sub: string; role: string; cpid: string },
   consultationId: string,
 ) {
-  const requested = await collaborations.requestCollaboration(requester, {
-    consultation_id: consultationId,
-    invited_clinician_id: invitee.cpid,
-    question: 'Synthetic question: please review the limited consultation summary.',
-  }, meta);
+  const requested = await collaborations.requestCollaboration(
+    requester,
+    {
+      consultation_id: consultationId,
+      invited_clinician_id: invitee.cpid,
+      question:
+        "Synthetic question: please review the limited consultation summary.",
+    },
+    meta,
+  );
   collaborationIds.push(requested.id);
-  const incoming = await collaborations.listCollaborations(invitee, { limit: 50 });
+  const incoming = await collaborations.listCollaborations(invitee, {
+    limit: 50,
+  });
   const incomingItems = incoming.data as Array<{ id: string }>;
   assert.ok(incomingItems.some((item) => item.id === requested.id));
-  const accepted = await collaborations.acceptCollaboration(requested.id, invitee, meta);
-  assert.equal(accepted.status, 'accepted');
+  const accepted = await collaborations.acceptCollaboration(
+    requested.id,
+    invitee,
+    meta,
+  );
+  assert.equal(accepted.status, "accepted");
   return accepted;
 }
 
-describe('provider clinical collaboration', () => {
-  it('supports same-facility, same-department case sharing and provider-only discussion', async () => {
-    const context = await makeFacility('Same facility');
-    const requester = await makeClinician(context.facility.id, context.department.id);
-    const invitee = await makeClinician(context.facility.id, context.department.id);
+describe("provider clinical collaboration", () => {
+  it("supports same-facility, same-department case sharing and provider-only discussion", async () => {
+    const context = await makeFacility("Same facility");
+    const requester = await makeClinician(
+      context.facility.id,
+      context.department.id,
+    );
+    const invitee = await makeClinician(
+      context.facility.id,
+      context.department.id,
+    );
     const record = await makeCase(requester);
-    await grantThreadConsent(record.patientId, record.careThreadId, invitee.cpid);
+    await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      invitee.cpid,
+    );
 
-    const eligible = await collaborations.listEligibleClinicians(record.consultationId, requester);
-    assert.ok(eligible.data.some((clinician) => clinician.clinician_id === invitee.cpid));
-    const accepted = await requestAndAccept(requester, invitee, record.consultationId);
-    const shared = await collaborations.getSharedCase(accepted.id, invitee, meta);
+    const eligible = await collaborations.listEligibleClinicians(
+      record.consultationId,
+      requester,
+    );
+    assert.ok(
+      eligible.data.some(
+        (clinician) => clinician.clinician_id === invitee.cpid,
+      ),
+    );
+    const accepted = await requestAndAccept(
+      requester,
+      invitee,
+      record.consultationId,
+    );
+    const shared = await collaborations.getSharedCase(
+      accepted.id,
+      invitee,
+      meta,
+    );
     assert.equal(shared.case.consultation_id, record.consultationId);
-    assert.equal('patient_profile_id' in shared.case, false);
-    assert.equal('patient' in shared.case, false);
+    assert.equal("patient_profile_id" in shared.case, false);
+    assert.equal("patient" in shared.case, false);
 
-    const first = await collaborations.createCollaborationMessage(accepted.id, requester,
-      'Synthetic provider-only message.', meta);
-    const reply = await collaborations.createCollaborationMessage(accepted.id, invitee,
-      'Synthetic provider-only reply.', meta);
+    const first = await collaborations.createCollaborationMessage(
+      accepted.id,
+      requester,
+      "Synthetic provider-only message.",
+      meta,
+    );
+    const reply = await collaborations.createCollaborationMessage(
+      accepted.id,
+      invitee,
+      "Synthetic provider-only reply.",
+      meta,
+    );
     assert.equal(first.author_clinician_id, requester.cpid);
     assert.equal(reply.author_clinician_id, invitee.cpid);
-    const messages = await collaborations.listCollaborationMessages(accepted.id, requester, { limit: 50 }, meta);
+    const messages = await collaborations.listCollaborationMessages(
+      accepted.id,
+      requester,
+      { limit: 50 },
+      meta,
+    );
     const discussionMessages = messages.data as Array<{ body: string }>;
-    assert.deepEqual(discussionMessages.map((message) => message.body), [
-      'Synthetic provider-only message.', 'Synthetic provider-only reply.',
-    ]);
-    assert.equal(await prisma.message.count({ where: { careThreadId: record.careThreadId } }), 0,
-      'provider-only discussion must not appear in patient-facing care-thread messaging');
+    assert.deepEqual(
+      discussionMessages.map((message) => message.body),
+      ["Synthetic provider-only message.", "Synthetic provider-only reply."],
+    );
+    assert.equal(
+      await prisma.message.count({
+        where: { careThreadId: record.careThreadId },
+      }),
+      0,
+      "provider-only discussion must not appear in patient-facing care-thread messaging",
+    );
     const events = await prisma.auditLog.findMany({
-      where: { entityType: 'provider_clinical_collaborations', entityId: accepted.id },
+      where: {
+        entityType: "provider_clinical_collaborations",
+        entityId: accepted.id,
+      },
       select: { action: true, metadata: true },
     });
-    assert.ok(events.some((event) => event.action === 'provider_collaboration.case_access_granted'));
-    assert.ok(events.some((event) => event.action === 'provider_collaboration.message_recorded'));
-    assert.ok(events.every((event) => JSON.stringify(event.metadata).includes('Synthetic provider-only') === false),
-      'audit metadata must not store collaboration message bodies');
-    const ledger = await listLedgerEvents({ category: 'collaboration', limit: 100 });
-    const safeEvent = ledger.data.find((event) => event.resource_id === accepted.id && event.event_type === 'provider_collaboration.message_recorded');
+    assert.ok(
+      events.some(
+        (event) =>
+          event.action === "provider_collaboration.case_access_granted",
+      ),
+    );
+    assert.ok(
+      events.some(
+        (event) => event.action === "provider_collaboration.message_recorded",
+      ),
+    );
+    assert.ok(
+      events.every(
+        (event) =>
+          JSON.stringify(event.metadata).includes("Synthetic provider-only") ===
+          false,
+      ),
+      "audit metadata must not store collaboration message bodies",
+    );
+    const ledger = await listLedgerEvents({
+      category: "collaboration",
+      limit: 100,
+    });
+    const safeEvent = ledger.data.find(
+      (event) =>
+        event.resource_id === accepted.id &&
+        event.event_type === "provider_collaboration.message_recorded",
+    );
     assert.ok(safeEvent);
-    assert.deepEqual(safeEvent.details, { scope: 'consultation_summary' });
+    assert.deepEqual(safeEvent.details, { scope: "consultation_summary" });
     assert.equal((await verifyAuditChain()).ok, true);
 
-    const outsiderFacility = await makeFacility('Unrelated facility');
-    const outsider = await makeClinician(outsiderFacility.facility.id, outsiderFacility.department.id);
+    const outsiderFacility = await makeFacility("Unrelated facility");
+    const outsider = await makeClinician(
+      outsiderFacility.facility.id,
+      outsiderFacility.department.id,
+    );
     await assert.rejects(
       () => collaborations.getSharedCase(accepted.id, outsider, meta),
-      (error: AppError) => error.code === 'NOT_RESOURCE_OWNER',
+      (error: AppError) => error.code === "NOT_RESOURCE_OWNER",
     );
     const patientBCase = await makeCase(outsider);
     await assert.rejects(
-      () => collaborations.listEligibleClinicians(patientBCase.consultationId, invitee),
-      (error: AppError) => error.code === 'NOT_RESOURCE_OWNER',
-      'a collaborator cannot enumerate a different patient case',
+      () =>
+        collaborations.listEligibleClinicians(
+          patientBCase.consultationId,
+          invitee,
+        ),
+      (error: AppError) => error.code === "NOT_RESOURCE_OWNER",
+      "a collaborator cannot enumerate a different patient case",
     );
   });
 
-  it('supports same-facility cross-department sharing only with named patient consent', async () => {
-    const facility = await makeFacility('Cross-department facility');
-    const radiology = await makeDepartment(facility.facility.id, 'Radiology', 'other');
-    const requester = await makeClinician(facility.facility.id, facility.department.id);
+  it("supports same-facility cross-department sharing only with named patient consent", async () => {
+    const facility = await makeFacility("Cross-department facility");
+    const radiology = await makeDepartment(
+      facility.facility.id,
+      "Radiology",
+      "other",
+    );
+    const requester = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
     const invitee = await makeClinician(facility.facility.id, radiology.id);
     const record = await makeCase(requester);
-    await grantThreadConsent(record.patientId, record.careThreadId, invitee.cpid);
+    await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      invitee.cpid,
+    );
 
-    const accepted = await requestAndAccept(requester, invitee, record.consultationId);
+    const accepted = await requestAndAccept(
+      requester,
+      invitee,
+      record.consultationId,
+    );
     assert.equal(accepted.requester.facility_id, accepted.invited.facility_id);
-    assert.notEqual(accepted.requester.department_id, accepted.invited.department_id);
-    assert.equal((await collaborations.getSharedCase(accepted.id, invitee, meta)).scope, 'consultation_summary');
+    assert.notEqual(
+      accepted.requester.department_id,
+      accepted.invited.department_id,
+    );
+    assert.equal(
+      (await collaborations.getSharedCase(accepted.id, invitee, meta)).scope,
+      "consultation_summary",
+    );
   });
 
-  it('supports cross-facility sharing through explicit clinician-specific consent', async () => {
-    const firstFacility = await makeFacility('Facility one');
-    const secondFacility = await makeFacility('Facility two');
-    const requester = await makeClinician(firstFacility.facility.id, firstFacility.department.id);
-    const invitee = await makeClinician(secondFacility.facility.id, secondFacility.department.id);
+  it("supports cross-facility sharing through explicit clinician-specific consent", async () => {
+    const firstFacility = await makeFacility("Facility one");
+    const secondFacility = await makeFacility("Facility two");
+    const requester = await makeClinician(
+      firstFacility.facility.id,
+      firstFacility.department.id,
+    );
+    const invitee = await makeClinician(
+      secondFacility.facility.id,
+      secondFacility.department.id,
+    );
     const record = await makeCase(requester);
-    await grantThreadConsent(record.patientId, record.careThreadId, invitee.cpid);
+    await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      invitee.cpid,
+    );
 
-    const accepted = await requestAndAccept(requester, invitee, record.consultationId);
-    assert.notEqual(accepted.requester.facility_id, accepted.invited.facility_id);
-    assert.equal((await collaborations.getSharedCase(accepted.id, invitee, meta)).case.consultation_id, record.consultationId);
+    const accepted = await requestAndAccept(
+      requester,
+      invitee,
+      record.consultationId,
+    );
+    assert.notEqual(
+      accepted.requester.facility_id,
+      accepted.invited.facility_id,
+    );
+    assert.equal(
+      (await collaborations.getSharedCase(accepted.id, invitee, meta)).case
+        .consultation_id,
+      record.consultationId,
+    );
   });
 
-  it('fails closed without consent, for an unverified invitee, and for a clinician not involved in the case', async () => {
-    const facility = await makeFacility('Authorization facility');
-    const requester = await makeClinician(facility.facility.id, facility.department.id);
-    const unverified = await makeClinician(facility.facility.id, facility.department.id, 'pending');
-    const stranger = await makeClinician(facility.facility.id, facility.department.id);
+  it("fails closed without consent, for an unverified invitee, and for a clinician not involved in the case", async () => {
+    const facility = await makeFacility("Authorization facility");
+    const requester = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
+    const unverified = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+      "pending",
+    );
+    const stranger = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
     const record = await makeCase(requester);
-    await grantThreadConsent(record.patientId, record.careThreadId, unverified.cpid);
+    await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      unverified.cpid,
+    );
 
     await assert.rejects(
-      () => collaborations.requestCollaboration(requester, {
+      () =>
+        collaborations.requestCollaboration(
+          requester,
+          {
+            consultation_id: record.consultationId,
+            invited_clinician_id: unverified.cpid,
+            question: "Synthetic question",
+          },
+          meta,
+        ),
+      (error: AppError) => error.code === "COLLABORATOR_NOT_ELIGIBLE",
+    );
+    await assert.rejects(
+      () =>
+        collaborations.requestCollaboration(
+          requester,
+          {
+            consultation_id: record.consultationId,
+            invited_clinician_id: stranger.cpid,
+            question: "Synthetic question",
+          },
+          meta,
+        ),
+      (error: AppError) => error.code === "PATIENT_CONSENT_REQUIRED",
+    );
+    await assert.rejects(
+      () =>
+        collaborations.listEligibleClinicians(record.consultationId, stranger),
+      (error: AppError) => error.code === "NOT_RESOURCE_OWNER",
+    );
+    await assert.rejects(
+      () =>
+        collaborations.listCollaborations(
+          { sub: stranger.sub, role: "platform_admin", cpid: requester.cpid },
+          { limit: 50 },
+        ),
+      (error: AppError) => error.code === "ROLE_NOT_PERMITTED",
+    );
+    await assert.rejects(
+      () =>
+        collaborations.listCollaborativeCases(
+          { sub: stranger.sub, role: "clinician", cpid: requester.cpid },
+          { limit: 50 },
+        ),
+      (error: AppError) => error.code === "CLINICIAN_NOT_VERIFIED",
+    );
+  });
+
+  it("supports decline and participant revocation, immediately denying case and discussion access", async () => {
+    const facility = await makeFacility("Lifecycle facility");
+    const requester = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
+    const invitee = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
+    const record = await makeCase(requester);
+    await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      invitee.cpid,
+    );
+
+    const declinedRequest = await collaborations.requestCollaboration(
+      requester,
+      {
         consultation_id: record.consultationId,
-        invited_clinician_id: unverified.cpid,
-        question: 'Synthetic question',
-      }, meta),
-      (error: AppError) => error.code === 'COLLABORATOR_NOT_ELIGIBLE',
+        invited_clinician_id: invitee.cpid,
+        question: "Synthetic decline test.",
+      },
+      meta,
     );
-    await assert.rejects(
-      () => collaborations.requestCollaboration(requester, {
-        consultation_id: record.consultationId,
-        invited_clinician_id: stranger.cpid,
-        question: 'Synthetic question',
-      }, meta),
-      (error: AppError) => error.code === 'PATIENT_CONSENT_REQUIRED',
-    );
-    await assert.rejects(
-      () => collaborations.listEligibleClinicians(record.consultationId, stranger),
-      (error: AppError) => error.code === 'NOT_RESOURCE_OWNER',
-    );
-    await assert.rejects(
-      () => collaborations.listCollaborations({ sub: stranger.sub, role: 'platform_admin', cpid: requester.cpid }, { limit: 50 }),
-      (error: AppError) => error.code === 'ROLE_NOT_PERMITTED',
-    );
-    await assert.rejects(
-      () => collaborations.listCollaborativeCases({ sub: stranger.sub, role: 'clinician', cpid: requester.cpid }, { limit: 50 }),
-      (error: AppError) => error.code === 'CLINICIAN_NOT_VERIFIED',
-    );
-  });
-
-  it('supports decline and participant revocation, immediately denying case and discussion access', async () => {
-    const facility = await makeFacility('Lifecycle facility');
-    const requester = await makeClinician(facility.facility.id, facility.department.id);
-    const invitee = await makeClinician(facility.facility.id, facility.department.id);
-    const record = await makeCase(requester);
-    await grantThreadConsent(record.patientId, record.careThreadId, invitee.cpid);
-
-    const declinedRequest = await collaborations.requestCollaboration(requester, {
-      consultation_id: record.consultationId,
-      invited_clinician_id: invitee.cpid,
-      question: 'Synthetic decline test.',
-    }, meta);
     collaborationIds.push(declinedRequest.id);
-    assert.equal((await collaborations.declineCollaboration(declinedRequest.id, invitee, meta)).status, 'declined');
+    assert.equal(
+      (
+        await collaborations.declineCollaboration(
+          declinedRequest.id,
+          invitee,
+          meta,
+        )
+      ).status,
+      "declined",
+    );
 
-    const active = await requestAndAccept(requester, invitee, record.consultationId);
-    await collaborations.createCollaborationMessage(active.id, requester, 'Before revocation.', meta);
-    assert.equal((await collaborations.revokeCollaboration(active.id, requester, meta)).status, 'revoked');
+    const active = await requestAndAccept(
+      requester,
+      invitee,
+      record.consultationId,
+    );
+    await collaborations.createCollaborationMessage(
+      active.id,
+      requester,
+      "Before revocation.",
+      meta,
+    );
+    assert.equal(
+      (await collaborations.revokeCollaboration(active.id, requester, meta))
+        .status,
+      "revoked",
+    );
     await assert.rejects(
       () => collaborations.getSharedCase(active.id, invitee, meta),
-      (error: AppError) => error.code === 'COLLABORATION_NOT_ACTIVE',
+      (error: AppError) => error.code === "COLLABORATION_NOT_ACTIVE",
     );
     await assert.rejects(
-      () => collaborations.createCollaborationMessage(active.id, invitee, 'After revocation.', meta),
-      (error: AppError) => error.code === 'COLLABORATION_NOT_ACTIVE',
+      () =>
+        collaborations.createCollaborationMessage(
+          active.id,
+          invitee,
+          "After revocation.",
+          meta,
+        ),
+      (error: AppError) => error.code === "COLLABORATION_NOT_ACTIVE",
     );
   });
 
-  it('serializes duplicate requests and concurrent acceptance/revocation', async () => {
-    const facility = await makeFacility('Concurrency facility');
-    const requester = await makeClinician(facility.facility.id, facility.department.id);
-    const invitee = await makeClinician(facility.facility.id, facility.department.id);
+  it("serializes duplicate requests and concurrent acceptance/revocation", async () => {
+    const facility = await makeFacility("Concurrency facility");
+    const requester = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
+    const invitee = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
     const record = await makeCase(requester);
-    await grantThreadConsent(record.patientId, record.careThreadId, invitee.cpid);
+    await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      invitee.cpid,
+    );
     const input = {
       consultation_id: record.consultationId,
       invited_clinician_id: invitee.cpid,
-      question: 'Synthetic concurrent request.',
+      question: "Synthetic concurrent request.",
     };
 
     const attempts = await Promise.allSettled([
       collaborations.requestCollaboration(requester, input, meta),
       collaborations.requestCollaboration(requester, input, meta),
     ]);
-    const created = attempts.filter((result) => result.status === 'fulfilled');
-    assert.equal(created.length, 1, 'only one request for a clinician pair and consultation may be active');
-    const collaboration = (created[0] as PromiseFulfilledResult<Awaited<ReturnType<typeof collaborations.requestCollaboration>>>).value;
+    const created = attempts.filter((result) => result.status === "fulfilled");
+    assert.equal(
+      created.length,
+      1,
+      "only one request for a clinician pair and consultation may be active",
+    );
+    const collaboration = (
+      created[0] as PromiseFulfilledResult<
+        Awaited<ReturnType<typeof collaborations.requestCollaboration>>
+      >
+    ).value;
     collaborationIds.push(collaboration.id);
-    const rejected = attempts.find((result) => result.status === 'rejected') as PromiseRejectedResult;
-    assert.equal((rejected.reason as AppError).code, 'COLLABORATION_ALREADY_EXISTS');
+    const rejected = attempts.find(
+      (result) => result.status === "rejected",
+    ) as PromiseRejectedResult;
+    assert.equal(
+      (rejected.reason as AppError).code,
+      "COLLABORATION_ALREADY_EXISTS",
+    );
 
     const [acceptResult, revokeResult] = await Promise.allSettled([
       collaborations.acceptCollaboration(collaboration.id, invitee, meta),
       collaborations.revokeCollaboration(collaboration.id, requester, meta),
     ]);
-    assert.ok(acceptResult.status === 'fulfilled' || revokeResult.status === 'fulfilled');
-    const final = await prisma.providerClinicalCollaboration.findUniqueOrThrow({ where: { id: collaboration.id } });
-    assert.equal(final.status, 'revoked');
-    await assert.rejects(() => collaborations.getSharedCase(collaboration.id, invitee, meta));
+    assert.ok(
+      acceptResult.status === "fulfilled" ||
+        revokeResult.status === "fulfilled",
+    );
+    const final = await prisma.providerClinicalCollaboration.findUniqueOrThrow({
+      where: { id: collaboration.id },
+    });
+    assert.equal(final.status, "revoked");
+    await assert.rejects(() =>
+      collaborations.getSharedCase(collaboration.id, invitee, meta),
+    );
   });
 
-  it('serializes a new request with patient consent revocation', async () => {
-    const facility = await makeFacility('Consent race facility');
-    const requester = await makeClinician(facility.facility.id, facility.department.id);
-    const invitee = await makeClinician(facility.facility.id, facility.department.id);
+  it("serializes a new request with patient consent revocation", async () => {
+    const facility = await makeFacility("Consent race facility");
+    const requester = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
+    const invitee = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
     const record = await makeCase(requester);
-    const consent = await grantThreadConsent(record.patientId, record.careThreadId, invitee.cpid);
+    const consent = await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      invitee.cpid,
+    );
 
     const [requestResult, revokeResult] = await Promise.allSettled([
-      collaborations.requestCollaboration(requester, {
-        consultation_id: record.consultationId,
-        invited_clinician_id: invitee.cpid,
-        question: 'Synthetic concurrent consent-revoke test.',
-      }, meta),
-      patientConsents.revokeConsent(record.patientId, consent.id, {
-        sub: record.patientUserId, role: 'patient',
-      }, meta),
+      collaborations.requestCollaboration(
+        requester,
+        {
+          consultation_id: record.consultationId,
+          invited_clinician_id: invitee.cpid,
+          question: "Synthetic concurrent consent-revoke test.",
+        },
+        meta,
+      ),
+      patientConsents.revokeConsent(
+        record.patientId,
+        consent.id,
+        {
+          sub: record.patientUserId,
+          role: "patient",
+        },
+        meta,
+      ),
     ]);
-    assert.equal(revokeResult.status, 'fulfilled');
+    assert.equal(revokeResult.status, "fulfilled");
 
-    if (requestResult.status === 'fulfilled') collaborationIds.push(requestResult.value.id);
-    const rows = await prisma.providerClinicalCollaboration.findMany({ where: { patientConsentId: consent.id } });
-    assert.ok(rows.every((row) => row.status === 'revoked'), 'a raced request must be absent or immediately revoked');
-    assert.equal((await prisma.patientConsent.findUniqueOrThrow({ where: { id: consent.id } })).allowed, false);
+    if (requestResult.status === "fulfilled")
+      collaborationIds.push(requestResult.value.id);
+    const rows = await prisma.providerClinicalCollaboration.findMany({
+      where: { patientConsentId: consent.id },
+    });
+    assert.ok(
+      rows.every((row) => row.status === "revoked"),
+      "a raced request must be absent or immediately revoked",
+    );
+    assert.equal(
+      (
+        await prisma.patientConsent.findUniqueOrThrow({
+          where: { id: consent.id },
+        })
+      ).allowed,
+      false,
+    );
   });
 
-  it('persists expiry and stops access when consent expires or is revoked', async () => {
-    const facility = await makeFacility('Expiry facility');
-    const requester = await makeClinician(facility.facility.id, facility.department.id);
-    const invitee = await makeClinician(facility.facility.id, facility.department.id);
+  it("persists expiry and stops access when consent expires or is revoked", async () => {
+    const facility = await makeFacility("Expiry facility");
+    const requester = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
+    const invitee = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
     const record = await makeCase(requester);
-    const consent = await grantThreadConsent(record.patientId, record.careThreadId, invitee.cpid);
-    const accepted = await requestAndAccept(requester, invitee, record.consultationId);
+    const consent = await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      invitee.cpid,
+    );
+    const accepted = await requestAndAccept(
+      requester,
+      invitee,
+      record.consultationId,
+    );
 
     await prisma.providerClinicalCollaboration.update({
-      where: { id: accepted.id }, data: { expiresAt: new Date(Date.now() - 60_000) },
+      where: { id: accepted.id },
+      data: { expiresAt: new Date(Date.now() - 60_000) },
     });
-    await assert.rejects(() => collaborations.getSharedCase(accepted.id, invitee, meta));
-    assert.equal((await prisma.providerClinicalCollaboration.findUniqueOrThrow({ where: { id: accepted.id } })).status, 'expired');
-
-    const shortConsentInvitee = await makeClinician(facility.facility.id, facility.department.id);
-    const shortConsent = await grantThreadConsent(
-      record.patientId, record.careThreadId, shortConsentInvitee.cpid, new Date(Date.now() + 86_400_000),
+    await assert.rejects(() =>
+      collaborations.getSharedCase(accepted.id, invitee, meta),
     );
-    const consentBound = await requestAndAccept(requester, shortConsentInvitee, record.consultationId);
-    await prisma.patientConsent.update({ where: { id: shortConsent.id }, data: { expiresAt: new Date(Date.now() - 60_000) } });
-    await assert.rejects(() => collaborations.getSharedCase(consentBound.id, shortConsentInvitee, meta));
-    assert.equal((await prisma.providerClinicalCollaboration.findUniqueOrThrow({ where: { id: consentBound.id } })).status, 'expired');
+    assert.equal(
+      (
+        await prisma.providerClinicalCollaboration.findUniqueOrThrow({
+          where: { id: accepted.id },
+        })
+      ).status,
+      "expired",
+    );
 
-    const second = await requestAndAccept(requester, invitee, record.consultationId);
-    await patientConsents.revokeConsent(record.patientId, consent.id,
-      { sub: record.patientUserId, role: 'patient' }, meta);
-    await assert.rejects(() => collaborations.getSharedCase(second.id, invitee, meta));
-    assert.equal((await prisma.providerClinicalCollaboration.findUniqueOrThrow({ where: { id: second.id } })).status, 'revoked');
+    const shortConsentInvitee = await makeClinician(
+      facility.facility.id,
+      facility.department.id,
+    );
+    const shortConsent = await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      shortConsentInvitee.cpid,
+      new Date(Date.now() + 86_400_000),
+    );
+    const consentBound = await requestAndAccept(
+      requester,
+      shortConsentInvitee,
+      record.consultationId,
+    );
+    await prisma.patientConsent.update({
+      where: { id: shortConsent.id },
+      data: { expiresAt: new Date(Date.now() - 60_000) },
+    });
+    await assert.rejects(() =>
+      collaborations.getSharedCase(consentBound.id, shortConsentInvitee, meta),
+    );
+    assert.equal(
+      (
+        await prisma.providerClinicalCollaboration.findUniqueOrThrow({
+          where: { id: consentBound.id },
+        })
+      ).status,
+      "expired",
+    );
+
+    const second = await requestAndAccept(
+      requester,
+      invitee,
+      record.consultationId,
+    );
+    await patientConsents.revokeConsent(
+      record.patientId,
+      consent.id,
+      { sub: record.patientUserId, role: "patient" },
+      meta,
+    );
+    await assert.rejects(() =>
+      collaborations.getSharedCase(second.id, invitee, meta),
+    );
+    assert.equal(
+      (
+        await prisma.providerClinicalCollaboration.findUniqueOrThrow({
+          where: { id: second.id },
+        })
+      ).status,
+      "revoked",
+    );
   });
+});
+
+it("deduplicates concurrent message retries and checks current consent before replay", async () => {
+  const f = await makeFacility("Retry fixture"),
+    a = await makeClinician(f.facility.id, f.department.id),
+    b = await makeClinician(f.facility.id, f.department.id),
+    record = await makeCase(a);
+  const consent = await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      b.cpid,
+    ),
+    accepted = await requestAndAccept(a, b, record.consultationId),
+    key = randomUUID();
+  const results = await Promise.all(
+    [1, 2, 3].map(() =>
+      collaborations.createCollaborationMessage(
+        accepted.id,
+        a,
+        "Synthetic durable message",
+        meta,
+        key,
+      ),
+    ),
+  );
+  assert.equal(new Set(results.map((row) => row.id)).size, 1);
+  assert.equal(
+    await prisma.providerClinicalCollaborationMessage.count({
+      where: { collaborationId: accepted.id },
+    }),
+    1,
+  );
+  await assert.rejects(
+    () =>
+      collaborations.createCollaborationMessage(
+        accepted.id,
+        a,
+        "Changed content",
+        meta,
+        key,
+      ),
+    { code: "IDEMPOTENCY_KEY_CONFLICT" },
+  );
+  await patientConsents.revokeConsent(
+    record.patientId,
+    consent.id,
+    { sub: record.patientUserId, role: "patient" },
+    meta,
+  );
+  await assert.rejects(() =>
+    collaborations.createCollaborationMessage(
+      accepted.id,
+      a,
+      "Synthetic durable message",
+      meta,
+      key,
+    ),
+  );
+  await assert.rejects(() =>
+    collaborations.assertCollaborationWriteAccess(accepted.id, a),
+  );
+  assert.equal(
+    (await collaborations.getCollaboration(accepted.id, b)).question,
+    null,
+  );
+});
+
+it("filters requests before pagination, rejects stale actions and hides closed clinical questions", async () => {
+  const f = await makeFacility("Worklist fixture"),
+    a = await makeClinician(f.facility.id, f.department.id),
+    b = await makeClinician(f.facility.id, f.department.id),
+    c = await makeClinician(f.facility.id, f.department.id),
+    record = await makeCase(a);
+  for (const person of [b, c])
+    await grantThreadConsent(
+      record.patientId,
+      record.careThreadId,
+      person.cpid,
+    );
+  const first = await collaborations.requestCollaboration(
+    a,
+    {
+      consultation_id: record.consultationId,
+      invited_clinician_id: b.cpid,
+      question: "Synthetic focused question",
+    },
+    meta,
+  );
+  collaborationIds.push(first.id);
+  const second = await collaborations.requestCollaboration(
+    a,
+    {
+      consultation_id: record.consultationId,
+      invited_clinician_id: c.cpid,
+      question: "Another synthetic question",
+    },
+    meta,
+  );
+  collaborationIds.push(second.id);
+  const incoming = await collaborations.listCollaborations(b, {
+    view: "incoming",
+    limit: 1,
+  });
+  assert.deepEqual(
+    incoming.data.map((row) => row.id),
+    [first.id],
+  );
+  assert.equal(incoming.meta.next_cursor, null);
+  const page = await collaborations.listCollaborations(a, {
+    view: "sent",
+    limit: 1,
+  });
+  assert.ok(page.meta.next_cursor);
+  const more = await collaborations.listCollaborations(a, {
+    view: "sent",
+    limit: 1,
+    cursor: page.meta.next_cursor!,
+  });
+  assert.notEqual(page.data[0].id, more.data[0].id);
+  await assert.rejects(
+    () =>
+      collaborations.acceptCollaboration(first.id, b, meta, first.version + 1),
+    { code: "VERSION_CONFLICT" },
+  );
+  const accepted = await collaborations.acceptCollaboration(
+    first.id,
+    b,
+    meta,
+    first.version,
+  );
+  assert.equal(
+    (await collaborations.listCollaborations(a, { view: "active", limit: 10 }))
+      .data[0].id,
+    first.id,
+  );
+  await assert.rejects(
+    () => collaborations.revokeCollaboration(first.id, a, meta, first.version),
+    { code: "VERSION_CONFLICT" },
+  );
+  await collaborations.revokeCollaboration(first.id, a, meta, accepted.version);
+  const closed = await collaborations.listCollaborations(a, {
+    view: "closed",
+    limit: 10,
+    q: record.consultationId,
+  });
+  assert.equal(closed.data[0].id, first.id);
+  assert.equal(closed.data[0].question, null);
+  assert.equal(
+    (
+      await collaborations.listCollaborations(b, {
+        view: "incoming",
+        limit: 10,
+      })
+    ).data.length,
+    0,
+  );
+  await prisma.user.update({ where: { id: c.sub }, data: { role: "patient" } });
+  await assert.rejects(() => collaborations.getCollaboration(second.id, c), {
+    code: "CLINICIAN_NOT_VERIFIED",
+  });
+});
+
+it("pages recent messages deterministically and rolls back a failed message audit", async () => {
+  const f = await makeFacility("Message fixture"),
+    a = await makeClinician(f.facility.id, f.department.id),
+    b = await makeClinician(f.facility.id, f.department.id),
+    record = await makeCase(a);
+  await grantThreadConsent(record.patientId, record.careThreadId, b.cpid);
+  const accepted = await requestAndAccept(a, b, record.consultationId),
+    key = randomUUID();
+  await prisma.$executeRawUnsafe(
+    `CREATE FUNCTION reject_collaboration_message_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action = 'provider_collaboration.message_recorded' THEN RAISE EXCEPTION 'synthetic message audit failure'; END IF; RETURN NEW; END $$`,
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE TRIGGER reject_collaboration_message_audit BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION reject_collaboration_message_audit()`,
+  );
+  try {
+    await assert.rejects(() =>
+      collaborations.createCollaborationMessage(
+        accepted.id,
+        a,
+        "Synthetic atomic message",
+        meta,
+        key,
+      ),
+    );
+    assert.equal(
+      await prisma.providerClinicalCollaborationMessage.count({
+        where: { collaborationId: accepted.id },
+      }),
+      0,
+    );
+  } finally {
+    await prisma.$executeRawUnsafe(
+      "DROP TRIGGER reject_collaboration_message_audit ON audit_logs",
+    );
+    await prisma.$executeRawUnsafe(
+      "DROP FUNCTION reject_collaboration_message_audit()",
+    );
+  }
+  for (let i = 0; i < 3; i++)
+    await collaborations.createCollaborationMessage(
+      accepted.id,
+      a,
+      "Synthetic atomic message " + i,
+      meta,
+      randomUUID(),
+    );
+  await prisma.providerClinicalCollaborationMessage.updateMany({
+    where: { collaborationId: accepted.id },
+    data: { createdAt: new Date("2026-11-12T08:00:00Z") },
+  });
+  const recent = await collaborations.listCollaborationMessages(
+    accepted.id,
+    b,
+    { order: "latest", limit: 2 },
+    meta,
+  );
+  assert.equal(recent.data.length, 2);
+  assert.ok(recent.meta.next_cursor);
+  const older = await collaborations.listCollaborationMessages(
+    accepted.id,
+    b,
+    { order: "latest", limit: 2, cursor: recent.meta.next_cursor! },
+    meta,
+  );
+  assert.equal(older.data.length, 1);
+  assert.equal(
+    new Set([...recent.data, ...older.data].map((row) => row.id)).size,
+    3,
+  );
 });
