@@ -120,7 +120,22 @@ jobs:
       - name: Use the pinned SDK
         working-directory: .
         run: echo "$GITHUB_WORKSPACE/.ci-flutter/bin" >> "$GITHUB_PATH"
-      - run: flutter --version
+      - name: Verify the pinned Flutter release tag
+        working-directory: .ci-flutter
+        run: |
+          git fetch --depth=1 origin refs/tags/3.47.9:refs/tags/3.47.9
+          test "$(git rev-parse refs/tags/3.47.9^{commit})" = c197ca5199e9ee5661e865596c9c07294dfab51c
+      - name: Verify Flutter reports the tested SDK version
+        run: |
+          flutter --version
+          flutter --version --machine > "$RUNNER_TEMP/ahp-flutter-version.json"
+          python3 - <<'PYCODE'
+          import json, os
+          with open(os.path.join(os.environ['RUNNER_TEMP'], 'ahp-flutter-version.json')) as stream:
+              version = json.load(stream)
+          assert version['frameworkVersion'] == '3.47.9', version
+          print('Verified Flutter 3.47.9 at the pinned revision.')
+          PYCODE
       - run: flutter pub get --enforce-lockfile
       - name: Analyze application and tests
         run: flutter analyze --no-pub --no-fatal-infos
