@@ -2,6 +2,8 @@
 
 This runbook describes a controlled release for the repository baseline `4a25d94a2075659986784e5fa3cca5106e30504e`. It is an operational procedure, not evidence that AHP has been deployed. The production database and production provider accounts were not accessed during acceptance.
 
+For the current automated checks and their limits, see [CI and release readiness](CI-RELEASE-READINESS.md). The historical acceptance evidence below does not establish production readiness for subsequent commits.
+
 ## Release prerequisites
 
 - A named release owner, a maintenance window, an approved hosting/network design, TLS certificates, and an incident contact.
@@ -17,12 +19,12 @@ Safe variable names and placeholders are in the tracked `.env.example` files. Au
 
 ## Locked dependency and build checks
 
-From ``:
+From the repository root:
 
 ```powershell
 pnpm install --frozen-lockfile
-pnpm exec prisma validate
-pnpm exec prisma generate
+pnpm --filter @a-health/database exec prisma validate
+pnpm --filter @a-health/database generate
 pnpm exec turbo run build --concurrency=2
 ```
 

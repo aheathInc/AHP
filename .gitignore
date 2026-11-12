@@ -55,3 +55,12 @@ playwright/.auth/
 **/GeneratedPluginRegistrant.swift
 **/generated_plugin_registrant.*
 **/generated_plugins.cmake
+
+# Isolated web production-build checks
+.next-ci/
+.next-readiness/
+.ci-flutter/
+
+# Python check-runner caches
+__pycache__/
+*.py[cod]

@@ -1,0 +1,182 @@
+name: AHP quality gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ahp-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-and-web:
+    name: Contract and staff web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://unused@127.0.0.1:55439/ahealth_test?schema=public
+      NEXTAUTH_URL: https://staff.ahp-ci.invalid
+      NEXT_TELEMETRY_DISABLED: '1'
+      AHP_NEXT_DIST_DIR: .next-ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/node-workspace
+      - name: Create ephemeral build credentials
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import { randomBytes } from 'node:crypto';
+          import { appendFileSync } from 'node:fs';
+          for (const key of ['JWT_SECRET','NEXTAUTH_SECRET','GATEWAY_SHARED_SECRET']) {
+            const value = randomBytes(32).toString('hex');
+            console.log(`::add-mask::${value}`);
+            appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`);
+          }
+          JS
+      - run: pnpm --filter @a-health/database exec prisma validate
+      - run: pnpm --filter @a-health/api lint
+      - run: pnpm --filter @a-health/api generate
+      - name: Generated API types are current
+        run: git diff --exit-code -- packages/api/src/generated/schema.d.ts
+      - run: pnpm --filter a-health-web type-check
+      - name: HTTP and staff workflow unit tests
+        env:
+          NODE_ENV: test
+        run: node --import tsx --test packages/http/src/tests/*.test.ts apps/staff-web/tests/unit/*.test.ts
+      - name: Build staff web for production
+        env:
+          NODE_ENV: production
+        run: node scripts/ci/check-web.mjs
+      - name: Smoke-test the built web server
+        run: node scripts/ci/smoke-web.mjs
+
+  backend:
+    name: Backend / ${{ matrix.group }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - group: identity
+            services: auth patient doctor
+          - group: clinical-workflow
+            services: appointment consultation messaging
+          - group: connected-care
+            services: network families education
+          - group: urgent-and-diagnostics
+            services: emergency diagnostics pharmacy
+          - group: continuity
+            services: followup prevention notification
+          - group: finance-and-quality
+            services: payment insurance quality
+          - group: intelligence
+            services: ai research surveillance
+          - group: infrastructure
+            services: gateway sync devices facilities
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/node-workspace
+      - name: Type-check and test with disposable PostgreSQL
+        run: python3 scripts/ci/backend-tests.py --docker --services ${{ matrix.services }}
+      - name: Preserve synthetic test evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-${{ matrix.group }}
+          path: .local/ci-evidence/backend/
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  flutter:
+    name: Patient app tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/patient-mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out the tested Flutter SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: flutter/flutter
+          ref: c197ca5199e9ee5661e865596c9c07294dfab51c # Flutter 3.47.9
+          path: .ci-flutter
+          persist-credentials: false
+      - name: Use the pinned SDK
+        working-directory: .
+        run: echo "$GITHUB_WORKSPACE/.ci-flutter/bin" >> "$GITHUB_PATH"
+      - run: flutter --version
+      - run: flutter pub get --enforce-lockfile
+      - name: Analyze application and tests
+        run: flutter analyze --no-pub --no-fatal-infos
+      - name: Run the complete unit and widget suite
+        run: flutter test --no-pub --reporter expanded
+      - name: Compile Android debug APK with the runner toolchain
+        run: |
+          export JAVA_HOME="$JAVA_HOME_21_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          flutter build apk --debug --no-pub
+      - name: Preserve the development APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: patient-android-debug
+          path: apps/patient-mobile/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
+
+  database-rehearsal:
+    name: Database migration and restore rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/node-workspace
+      - name: Rehearse only against disposable PostgreSQL
+        run: python3 scripts/ci/check-migrations.py --docker
+      - name: Preserve migration evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: database-rehearsal
+          path: .local/ci-evidence/migrations/
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  quality:
+    name: Release verification
+    if: always()
+    needs: [contract-and-web, backend, flutter, database-rehearsal]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every quality gate
+        env:
+          CHECK_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYCODE'
+          import json, os, sys
+          checks = json.loads(os.environ['CHECK_RESULTS'])
+          failed = [name for name, check in checks.items() if check['result'] != 'success']
+          if failed:
+              print('Required gates did not pass: ' + ', '.join(failed))
+              sys.exit(1)
+          print('All required CI gates passed. Deployment and device acceptance remain separate.')
+          PYCODE

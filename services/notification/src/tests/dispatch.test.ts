@@ -83,7 +83,8 @@ describe('templates', () => {
     for (const body of [adherence, screening]) {
       assert.doesNotMatch(body, /SyntheticSensitiveMedication|987mg|SyntheticSensitiveScreening/);
     }
-    assert.match(adherence, /Reply 1 if taken, 2 if not/);
+    assert.match(adherence, /Open the app or contact your care team for details/);
+    assert.doesNotMatch(adherence, /Reply [0-9]/i);
     assert.match(screening, /Open the app for details/);
   });
 

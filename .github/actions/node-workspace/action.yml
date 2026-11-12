@@ -1,0 +1,16 @@
+name: Locked Node workspace
+description: Set up Node and the repository's pinned pnpm, then generate Prisma.
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@9bbca1e9dc2902adb87e8780fe5c98796985a62d # v6.1.1
+      with:
+        version: 10.34.4
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: '22'
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+    - run: pnpm --filter @a-health/database generate
+      shell: bash

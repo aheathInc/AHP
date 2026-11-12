@@ -437,7 +437,7 @@ describe('follow-up single-writer integrity', () => {
       { responses: { synthetic_metric: 1234567 } }, meta);
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: row.id, action: 'checkin.deviation_flagged' } });
     assert.ok(JSON.stringify(response.deviation_reasons).includes('1234567'));
-    assert.deepEqual(audit.metadata, { cycleId: cycle.id, reasonCount: 1 });
+    assert.deepEqual(audit.metadata, { cycleId: cycle.id, reasonCount: 1, urgent: false });
     assert.ok(!JSON.stringify(audit.metadata).includes('1234567'));
   });
 

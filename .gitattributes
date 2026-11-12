@@ -1,2 +1,5 @@
 # Shell scripts must also work when checked out on Windows and used in Linux.
 *.sh text eol=lf
+
+# Hash-verified synthetic vocabulary fixtures require stable bytes.
+services/research/src/tests/fixtures/warehouse/vocabulary/*.csv text eol=lf

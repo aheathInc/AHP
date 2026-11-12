@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { resolveServiceUrl } from '@/lib/services';
-import { tokenFromRequest } from '@/lib/serverToken';
+import { NextRequest, NextResponse } from "next/server";
+import { resolveServiceUrl } from "@/lib/services";
+import { tokenFromRequest } from "@/lib/serverToken";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 /**
  * At /bff rather than /api on purpose: next-auth owns /api/auth/[...nextauth],
@@ -11,17 +11,25 @@ export const dynamic = 'force-dynamic';
  * instead of reaching the backend.
  */
 async function forward(req: NextRequest, path: string[]) {
-  if (!['GET', 'HEAD'].includes(req.method) && req.headers.get('origin') !== req.nextUrl.origin) {
+  if (
+    !["GET", "HEAD"].includes(req.method) &&
+    req.headers.get("origin") !== req.nextUrl.origin
+  ) {
     return NextResponse.json(
-      { error: { code: 'FORBIDDEN', message: 'A same-origin request is required.' } },
-      { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      {
+        error: {
+          code: "FORBIDDEN",
+          message: "A same-origin request is required.",
+        },
+      },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
     );
   }
-  const apiPath = '/' + path.join('/');
+  const apiPath = "/" + path.join("/");
   const base = resolveServiceUrl(apiPath);
   if (!base) {
     return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: `No service owns ${apiPath}` } },
+      { error: { code: "NOT_FOUND", message: `No service owns ${apiPath}` } },
       { status: 404 },
     );
   }
@@ -29,8 +37,13 @@ async function forward(req: NextRequest, path: string[]) {
   const auth = await tokenFromRequest(req);
   if (!auth) {
     return NextResponse.json(
-      { error: { code: 'UNAUTHENTICATED', message: 'Your session has expired. Please sign in again.' } },
-      { status: 401 },
+      {
+        error: {
+          code: "UNAUTHENTICATED",
+          message: "Your session has expired. Please sign in again.",
+        },
+      },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
     );
   }
 
@@ -38,45 +51,89 @@ async function forward(req: NextRequest, path: string[]) {
   url.search = req.nextUrl.search;
 
   const headers = new Headers({
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     Authorization: `Bearer ${auth.accessToken}`,
   });
-  const key = req.headers.get('Idempotency-Key');
-  if (key) headers.set('Idempotency-Key', key);
+  const key = req.headers.get("Idempotency-Key");
+  if (key) headers.set("Idempotency-Key", key);
 
-  const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await req.text();
+  const body =
+    req.method === "GET" || req.method === "HEAD"
+      ? undefined
+      : await req.text();
 
   try {
-    const upstream = await fetch(url, { method: req.method, headers, body, cache: 'no-store' });
-    if (apiPath === '/care-continuity/afpe/events' && upstream.ok && upstream.headers.get('Content-Type')?.startsWith('text/event-stream')) {
-      const response = new NextResponse(upstream.body, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' } });
-      if (auth.cookie) response.cookies.set(auth.cookie.name, auth.cookie.value, auth.cookie.options);
+    const upstream = await fetch(url, {
+      method: req.method,
+      headers,
+      body,
+      cache: "no-store",
+    });
+    if (
+      apiPath === "/care-continuity/afpe/events" &&
+      upstream.ok &&
+      upstream.headers.get("Content-Type")?.startsWith("text/event-stream")
+    ) {
+      const response = new NextResponse(upstream.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-store",
+          "X-Accel-Buffering": "no",
+        },
+      });
+      if (auth.cookie)
+        response.cookies.set(
+          auth.cookie.name,
+          auth.cookie.value,
+          auth.cookie.options,
+        );
       return response;
     }
     const text = await upstream.text();
     const response = new NextResponse(text || null, {
       status: upstream.status,
       headers: {
-        'Content-Type': upstream.headers.get('Content-Type') ?? 'application/json',
-        'Cache-Control': 'no-store',
-        'X-Content-Type-Options': 'nosniff',
+        "Content-Type":
+          upstream.headers.get("Content-Type") ?? "application/json",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
-    if (auth.cookie) response.cookies.set(auth.cookie.name, auth.cookie.value, auth.cookie.options);
+    if (auth.cookie)
+      response.cookies.set(
+        auth.cookie.name,
+        auth.cookie.value,
+        auth.cookie.options,
+      );
     return response;
   } catch {
     // A service being down is not the caller's mistake, and saying so stops
     // them retrying a request that cannot succeed.
     return NextResponse.json(
-      { error: { code: 'SERVICE_UNAVAILABLE', message: 'This service is temporarily unavailable.' } },
-      { status: 503 },
+      {
+        error: {
+          code: "SERVICE_UNAVAILABLE",
+          message: "This service is temporarily unavailable.",
+        },
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
 }
 
 type Ctx = { params: { path: string[] } };
-export async function GET(r: NextRequest, c: Ctx) { return forward(r, c.params.path); }
-export async function POST(r: NextRequest, c: Ctx) { return forward(r, c.params.path); }
-export async function PATCH(r: NextRequest, c: Ctx) { return forward(r, c.params.path); }
-export async function PUT(r: NextRequest, c: Ctx) { return forward(r, c.params.path); }
-export async function DELETE(r: NextRequest, c: Ctx) { return forward(r, c.params.path); }
+export async function GET(r: NextRequest, c: Ctx) {
+  return forward(r, c.params.path);
+}
+export async function POST(r: NextRequest, c: Ctx) {
+  return forward(r, c.params.path);
+}
+export async function PATCH(r: NextRequest, c: Ctx) {
+  return forward(r, c.params.path);
+}
+export async function PUT(r: NextRequest, c: Ctx) {
+  return forward(r, c.params.path);
+}
+export async function DELETE(r: NextRequest, c: Ctx) {
+  return forward(r, c.params.path);
+}
