@@ -13,3 +13,22 @@ coverage
 .env.*
 !.env.*.example
 .DS_Store
+
+# Private verification, credentials and generated mobile/build artifacts.
+.local
+**/.local
+.dev-logs
+.turbo
+**/.next-*
+.ci-flutter
+apps/patient-mobile
+**/build
+**/.dart_tool
+**/.gradle
+**/.env*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.jks
+**/*.dump
+**/database-ca.crt

@@ -1,0 +1,68 @@
+name: Hosting package
+on:
+  push:
+    branches: [main]
+    paths: ['deploy/**', '.dockerignore', '.github/workflows/hosting.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'packages/**', 'services/**', 'apps/staff-web/**', 'scripts/ci/check-web.mjs']
+  pull_request:
+    paths: ['deploy/**', '.dockerignore', '.github/workflows/hosting.yml', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'packages/**', 'services/**', 'apps/staff-web/**', 'scripts/ci/check-web.mjs']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hosting-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  packaging:
+    name: Hosting configuration and images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install configuration tooling
+        run: |
+          python3 -m venv .local/hosting-tools
+          .local/hosting-tools/bin/pip install PyYAML==6.0.2
+      - name: Check generated files and configuration policies
+        run: |
+          .local/hosting-tools/bin/python deploy/prepare.py
+          git diff --exit-code -- deploy/compose.yml deploy/Caddyfile
+          .local/hosting-tools/bin/python -m unittest discover -s deploy -p 'test_configuration.py' -v
+      - name: Test real proxy with synthetic HTTP backends
+        run: |
+          image=$(.local/hosting-tools/bin/python -c "import yaml; print(yaml.safe_load(open('deploy/compose.yml'))['services']['edge']['image'])")
+          docker pull "$image"
+          .local/hosting-tools/bin/python deploy/test_proxy.py
+      - name: Build backend workspace image
+        run: docker build --file deploy/Dockerfile --target backend --tag ahp/backend:ci .
+      - name: Verify non-root TypeScript and native bcrypt runtime
+        run: |
+          docker run --rm --network none --read-only --tmpfs /tmp:size=32m,mode=1777 \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            --workdir /repo/services/auth ahp/backend:ci \
+            node --import tsx --input-type=module -e "import bcrypt from 'bcrypt'; import { randomUUID } from 'node:crypto'; if(process.getuid()===0)throw Error('Root runtime'); const probe=randomUUID(); const hash=await bcrypt.hash(probe,4); if(!await bcrypt.compare(probe,hash))throw Error('bcrypt runtime failed'); console.log('Non-root TypeScript/native runtime passed');"
+      - name: Build staff web runtime image
+        run: docker build --file deploy/Dockerfile --target web --tag ahp/web:ci .
+      - name: Smoke-test staff web container
+        run: |
+          set -euo pipefail
+          export NEXTAUTH_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$NEXTAUTH_SECRET"
+          trap 'docker rm -f ahp-hosting-web-smoke >/dev/null 2>&1 || true' EXIT
+          docker run --detach --rm --name ahp-hosting-web-smoke \
+            --read-only --tmpfs /tmp:size=32m,mode=1777 \
+            --tmpfs /repo/apps/staff-web/.next/cache:uid=1000,gid=1000,size=128m \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            --publish 127.0.0.1::3000 --env NEXTAUTH_SECRET \
+            --env NEXTAUTH_URL=https://staff.ahp-ci.invalid ahp/web:ci
+          address=$(docker port ahp-hosting-web-smoke 3000/tcp)
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent --max-time 3 "http://$address/login" >/dev/null; then
+              echo 'Production staff web container returned login successfully.'
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs ahp-hosting-web-smoke
+          exit 1

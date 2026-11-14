@@ -1,0 +1,165 @@
+{
+  "auth": {
+    "port": 4001,
+    "paths": [
+      "/auth",
+      "/users"
+    ]
+  },
+  "patient": {
+    "port": 4002,
+    "paths": [
+      "/patient-profiles"
+    ]
+  },
+  "doctor": {
+    "port": 4003,
+    "paths": [
+      "/clinicians"
+    ]
+  },
+  "appointment": {
+    "port": 4004,
+    "paths": [
+      "/appointments"
+    ]
+  },
+  "consultation": {
+    "port": 4005,
+    "paths": [
+      "/front-desk",
+      "/consultations",
+      "/care-threads",
+      "/queue",
+      "/prescriptions"
+    ]
+  },
+  "messaging": {
+    "port": 4006,
+    "paths": [
+      "/messages",
+      "/realtime"
+    ]
+  },
+  "followup": {
+    "port": 4007,
+    "paths": [
+      "/care-continuity",
+      "/follow-up-cycles",
+      "/check-ins",
+      "/adherence-logs"
+    ]
+  },
+  "notification": {
+    "port": 4008,
+    "paths": []
+  },
+  "ai": {
+    "port": 4009,
+    "paths": [
+      "/ai"
+    ]
+  },
+  "emergency": {
+    "port": 4010,
+    "paths": [
+      "/emergency-requests"
+    ]
+  },
+  "pharmacy": {
+    "port": 4011,
+    "paths": [
+      "/pharmacies"
+    ]
+  },
+  "payment": {
+    "port": 4012,
+    "paths": [
+      "/payments"
+    ]
+  },
+  "diagnostics": {
+    "port": 4013,
+    "paths": [
+      "/diagnostics",
+      "/investigation-orders",
+      "/laboratory"
+    ]
+  },
+  "quality": {
+    "port": 4014,
+    "paths": [
+      "/incident-reports"
+    ]
+  },
+  "families": {
+    "port": 4015,
+    "paths": [
+      "/families"
+    ]
+  },
+  "education": {
+    "port": 4016,
+    "paths": [
+      "/education"
+    ]
+  },
+  "network": {
+    "port": 4017,
+    "paths": [
+      "/referrals",
+      "/interop",
+      "/patient-platform",
+      "/network"
+    ]
+  },
+  "insurance": {
+    "port": 4018,
+    "paths": [
+      "/insurance"
+    ]
+  },
+  "research": {
+    "port": 4019,
+    "paths": [
+      "/research"
+    ]
+  },
+  "surveillance": {
+    "port": 4020,
+    "paths": [
+      "/surveillance"
+    ]
+  },
+  "gateway": {
+    "port": 4021,
+    "paths": [
+      "/gateway"
+    ]
+  },
+  "sync": {
+    "port": 4022,
+    "paths": [
+      "/sync"
+    ]
+  },
+  "devices": {
+    "port": 4023,
+    "paths": [
+      "/devices"
+    ]
+  },
+  "prevention": {
+    "port": 4024,
+    "paths": [
+      "/screening-programmes",
+      "/screening-invitations"
+    ]
+  },
+  "facilities": {
+    "port": 4025,
+    "paths": [
+      "/facilities"
+    ]
+  }
+}

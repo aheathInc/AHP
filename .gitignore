@@ -64,3 +64,9 @@ playwright/.auth/
 # Python check-runner caches
 __pycache__/
 *.py[cod]
+
+# Hosting credentials and provider CA material are provisioned outside Git.
+deploy/.env.production*
+!deploy/.env.production.example
+deploy/database-ca.crt
+deploy/*.key
