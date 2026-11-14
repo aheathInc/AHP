@@ -70,7 +70,7 @@ docker compose -f docker-compose.dev.yml -f docker-compose.frontend.dev.yml down
 
 This is a development deployment. Replace the default database password, JWT secret, and NextAuth secret before exposing it beyond the local machine.
 
-## Hosted AHP preparation (no cloud payment required)
+## Hosted Aheath preparation (no cloud payment required)
 
 `deploy/compose.yml` is a separate hosting definition for the unified Staff Web,
 25 backend service definitions and a Caddy HTTPS edge. It uses an external managed
@@ -108,8 +108,13 @@ server/database. It is expected to fail until real configuration is supplied.
    and restrict SSH to the operator. Backend and PostgreSQL ports are not published.
 3. Create separate database migration-owner and runtime roles. Download the database
    provider's CA to `deploy/database-ca.crt`. Set both database URLs for the **same**
-   production database with `sslmode=verify-full`,
-   `sslrootcert=/run/config/database-ca.crt` and `schema=public`. Start runtime pools
+   production database with `sslmode=require`, `sslaccept=strict`,
+   `sslcert=/run/config/database-ca.crt`, `sslrootcert=/run/config/database-ca.crt`
+   and `schema=public`. Both certificate parameters are intentional: Prisma 6
+   uses `sslcert` for the server CA, while node-postgres uses `sslrootcert`.
+   Use the provider DNS hostname, not an IP address. The pinned driver
+   combination is tested to reject an untrusted CA and a
+   mismatched hostname. Never add `uselibpqcompat` or disable verification. Start runtime pools
    with `connection_limit=2`, allowing for all services plus messaging connections;
    monitor usage and size the database before growing pools. URL-encode credentials.
 4. Configure approved live Africa's Talking credentials and sender ID for Auth/OTP and
@@ -175,3 +180,5 @@ API hostname through `--dart-define=API_GATEWAY_URL=https://<api-host>` after it
 Reference behavior: [Caddy reverse proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy),
 [Compose environment precedence](https://docs.docker.com/compose/how-tos/environment-variables/envvars-precedence/),
 [Docker build secrets](https://docs.docker.com/build/building/secrets/).
+
+Database TLS reference: [Prisma 6 PostgreSQL connector](https://docs.prisma.io/docs/orm/v6/overview/databases/postgresql), [node-postgres SSL](https://node-postgres.com/features/ssl).

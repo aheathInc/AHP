@@ -58,9 +58,13 @@ def validate(values, profiles=()):
             assert url.port and 1 <= url.port <= 65535
             if key == 'DATABASE_URL':
                 assert url.username not in ('postgres', 'doadmin')
-            assert url.hostname not in ('localhost', '127.0.0.1', '::1') and not url.hostname.endswith('.invalid')
+            assert re.fullmatch(r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}', url.hostname)
+            assert not url.hostname.endswith(('.invalid', '.local', '.localhost'))
             assert url.path not in ('', '/', '/ahealth_dev', '/ahealth_test')
-            assert query.get('sslmode') == ['verify-full']
+            assert query.get('sslmode') == ['require']
+            assert query.get('sslaccept') == ['strict']
+            assert query.get('sslcert') == ['/run/config/database-ca.crt']
+            assert 'uselibpqcompat' not in query
             assert query.get('sslrootcert') == ['/run/config/database-ca.crt']
             assert query.get('schema') == ['public']
             if key == 'DATABASE_URL':

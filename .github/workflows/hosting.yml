@@ -42,6 +42,8 @@ jobs:
             --cap-drop ALL --security-opt no-new-privileges:true \
             --workdir /repo/services/auth ahp/backend:ci \
             node --import tsx --input-type=module -e "import bcrypt from 'bcrypt'; import { randomUUID } from 'node:crypto'; if(process.getuid()===0)throw Error('Root runtime'); const probe=randomUUID(); const hash=await bcrypt.hash(probe,4); if(!await bcrypt.compare(probe,hash))throw Error('bcrypt runtime failed'); console.log('Non-root TypeScript/native runtime passed');"
+      - name: Verify database driver TLS trust and hostname rejection
+        run: .local/hosting-tools/bin/python deploy/test_database_tls.py --image ahp/backend:ci
       - name: Build staff web runtime image
         run: docker build --file deploy/Dockerfile --target web --tag ahp/web:ci .
       - name: Smoke-test staff web container

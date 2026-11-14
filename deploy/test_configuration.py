@@ -19,7 +19,7 @@ def synthetic_values():
     values.update({'AHP_WEB_HOST': 'staff.ahp-ci.test', 'AHP_API_HOST': 'api.ahp-ci.test',
                    'ACME_EMAIL': 'hosting@ahp-ci.test', 'AT_USERNAME': 'synthetic-hosting',
                    'AT_API_KEY': secrets.token_hex(32), 'SMS_SENDER_ID': 'SYNTHETIC'})
-    suffix = '?sslmode=verify-full&sslrootcert=/run/config/database-ca.crt&schema=public&connection_limit=2'
+    suffix = '?sslmode=require&sslaccept=strict&sslcert=/run/config/database-ca.crt&sslrootcert=/run/config/database-ca.crt&schema=public&connection_limit=2'
     values['DATABASE_URL'] = 'postgresql://runtime:synthetic@db.ahp-ci.test:25060/ahp_hosting' + suffix
     values['MIGRATION_DATABASE_URL'] = 'postgresql://migrator:synthetic@db.ahp-ci.test:25060/ahp_hosting' + suffix
     return values
@@ -39,13 +39,17 @@ class HostingConfiguration(unittest.TestCase):
         self.assertNotIn(values['DATABASE_URL'], '\n'.join(errors))
 
     def test_unsafe_databases_are_rejected(self):
-        for replacement in ('sslmode=require', 'sslmode=disable', 'connection_limit=20', 'schema=private'):
+        for replacement in ('sslaccept=accept_invalid_certs', 'sslmode=prefer', 'sslmode=disable', 'connection_limit=20', 'schema=private'):
             with self.subTest(replacement=replacement):
                 values = synthetic_values()
                 key = replacement.split('=')[0]
-                current = {'sslmode': 'sslmode=verify-full', 'connection_limit': 'connection_limit=2', 'schema': 'schema=public'}[key]
+                current = {'sslaccept': 'sslaccept=strict', 'sslmode': 'sslmode=require', 'connection_limit': 'connection_limit=2', 'schema': 'schema=public'}[key]
                 values['DATABASE_URL'] = values['DATABASE_URL'].replace(current, replacement)
                 self.assertTrue(config.validate(values))
+        for parameter in ('sslcert', 'sslrootcert'):
+            values = synthetic_values()
+            values['DATABASE_URL'] = values['DATABASE_URL'].replace('&' + parameter + '=/run/config/database-ca.crt', '')
+            self.assertTrue(config.validate(values))
         values = synthetic_values()
         values['MIGRATION_DATABASE_URL'] = values['DATABASE_URL']
         self.assertTrue(config.validate(values))
