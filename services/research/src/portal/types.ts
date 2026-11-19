@@ -42,7 +42,9 @@ export interface FormResponse extends BaseRow { formId: string; subjectHash: str
 export interface AccessKey extends BaseRow { studyId: string; ownerId: string; tokenHash: string; status: string; expiresAt: Date }
 export interface CodeMapping extends BaseRow { system: string; sourceCode: string; domain: string; conceptId: number; standardConcept: boolean; vocabularyVersion: string; label: string; createdBy: string }
 export interface Throttle extends BaseRow { actorKey: string; windowStart: Date; hits: number }
+export interface SavedCohort extends BaseRow { studyId:string; ownerId:string; releaseId:string; name:string; filters:Filters; status:string }
 export interface Rows {
+  cohort: SavedCohort;
   application: Application; study: Study; evidence: Evidence; collection: Collection; source: SourceGrant;
   event: StagedEvent; release: Release; export: ExportRequest; form: Form; response: FormResponse; key: AccessKey;
   mapping: CodeMapping; throttle: Throttle; omopBatch:OmopBatch;omopBuild:OmopBuild;responseSnapshot:ResponseSnapshot;output:OutputRequest;

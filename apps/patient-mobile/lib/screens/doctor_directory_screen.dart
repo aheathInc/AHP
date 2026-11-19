@@ -1,14 +1,18 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/strings.dart';
-import '../core/theme.dart';
 import '../widgets/common.dart';
 import 'new_consultation_screen.dart';
 
 class DoctorDirectoryScreen extends StatefulWidget {
   const DoctorDirectoryScreen(
-      {super.key, required this.facilityId, required this.facilityName});
+      {super.key,
+      required this.facilityId,
+      required this.facilityName,
+      this.loadDoctors});
+  final Future<List<Map<String, dynamic>>> Function()? loadDoctors;
   final String facilityId;
   final String facilityName;
 
@@ -20,6 +24,14 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
   List<Map<String, dynamic>> _doctors = [];
   bool _loading = true;
   String? _error;
+  String _query = '';
+  String? _specialty;
+  final _search = TextEditingController();
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -29,11 +41,17 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await Api.get('/clinicians',
-          query: {'facility_id': widget.facilityId});
+      final rows = widget.loadDoctors != null
+          ? await widget.loadDoctors!()
+          : (((await Api.get('/clinicians',
+                          query: {'facility_id': widget.facilityId}))['data']
+                      as List?) ??
+                  [])
+              .cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() {
-        _doctors = ((data['data'] as List?) ?? []).cast<Map<String, dynamic>>();
+        _doctors = rows;
+        _error = null;
         _loading = false;
       });
     } catch (e) {
@@ -48,120 +66,108 @@ class _DoctorDirectoryScreenState extends State<DoctorDirectoryScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.facilityName)),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Notice(_error!))
-              : _doctors.isEmpty
-                  ? Empty(L.tr('Hakuna madaktari waliopo kwa sasa.'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _doctors.length,
-                      itemBuilder: (context, i) {
-                        final d = _doctors[i];
-                        final status = d['status'] ?? 'off_duty';
-                        final queueCount =
-                            (d['queue_count'] as num?)?.toInt() ?? 0;
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Panel(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: Navigator.canPop(context)
-                                      ? MainAxisAlignment.spaceBetween
-                                      : MainAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(d['full_name'] as String,
-                                              style: const TextStyle(
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.bold)),
-                                          Text(
-                                              d['specialty'] ??
-                                                  L.tr('Daktari wa kawaida'),
-                                              style: const TextStyle(
-                                                  color: AppColors.inkSoft)),
-                                        ],
-                                      ),
-                                    ),
-                                    _statusChip(status),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Icon(Icons.people_outline,
-                                        size: 18, color: Colors.grey.shade600),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                        L.tr("Foleni: {0} wagonjwa",
-                                            [queueCount]),
-                                        style: TextStyle(
-                                            color: Colors.grey.shade700)),
-                                  ],
-                                ),
-                                if (status != 'off_duty') ...[
-                                  const SizedBox(height: 16),
-                                  FilledButton(
-                                    onPressed: () => Navigator.of(context)
-                                        .push(MaterialPageRoute(
-                                      builder: (_) => NewConsultationScreen(
-                                        clinicianId: d['id'] as String,
-                                        clinicianName:
-                                            d['full_name'] as String?,
-                                        clinicianSpecialty:
-                                            d['specialty'] as String?,
-                                        facilityId: widget.facilityId,
-                                        facilityName: widget.facilityName,
-                                      ),
-                                    )),
-                                    child: Text(L.tr('Jiunge kwenye Foleni')),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-    );
+    final term = _query.trim().toLowerCase();
+    final specialties = _doctors
+        .map((d) => d['specialty'])
+        .whereType<String>()
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final visible = _doctors
+        .where((d) =>
+            (_specialty == null || d['specialty'] == _specialty) &&
+            (term.isEmpty ||
+                '${d['full_name']} ${d['specialty'] ?? ''}'
+                    .toLowerCase()
+                    .contains(term)))
+        .toList();
+    return PatientScaffold(
+        appBar: AppBar(title: Text(widget.facilityName)),
+        body: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
+                children: [
+                  WorkspaceIntro(
+                      title: L.tr('Chagua daktari na muda'),
+                      description: widget.facilityName),
+                  TextField(
+                      controller: _search,
+                      decoration: InputDecoration(
+                          labelText: L.tr('Search doctors or specialties'),
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: L.tr('Clear search'),
+                                  icon: const Icon(Icons.close_rounded),
+                                  onPressed: () {
+                                    _search.clear();
+                                    setState(() => _query = '');
+                                  })),
+                      onChanged: (value) => setState(() => _query = value)),
+                  if (specialties.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      ChoiceChip(
+                          label: Text(L.tr('All')),
+                          selected: _specialty == null,
+                          onSelected: (_) => setState(() => _specialty = null)),
+                      for (final specialty in specialties)
+                        ChoiceChip(
+                            label: Text(specialty),
+                            selected: _specialty == specialty,
+                            onSelected: (selected) => setState(() =>
+                                _specialty = selected ? specialty : null)),
+                    ])
+                  ],
+                  const SizedBox(height: 24),
+                  if (_loading)
+                    const LoadingContent()
+                  else if (_error != null) ...[
+                    Notice(_error!),
+                    TextButton.icon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh),
+                        label: Text(L.tr('Jaribu tena')))
+                  ] else if (visible.isEmpty)
+                    Empty(L.tr(_doctors.isEmpty
+                        ? 'Hakuna madaktari waliopo kwa sasa.'
+                        : 'No matching doctors. Try another search.'))
+                  else
+                    for (final d in visible)
+                      Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: ClinicianIdentityCard(
+                              name: d['full_name'] as String,
+                              specialty: d['specialty'] as String? ??
+                                  L.tr('Daktari wa kawaida'),
+                              status: _statusLabel(
+                                  d['status'] as String? ?? 'off_duty'),
+                              queueLabel: L.tr('Foleni: {0} wagonjwa',
+                                  [(d['queue_count'] as num?)?.toInt() ?? 0]),
+                              action: (d['status'] as String? ?? 'off_duty') ==
+                                      'off_duty'
+                                  ? null
+                                  : FilledButton(
+                                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                                          builder: (_) => NewConsultationScreen(
+                                              clinicianId: d['id'] as String,
+                                              clinicianName:
+                                                  d['full_name'] as String?,
+                                              clinicianSpecialty:
+                                                  d['specialty'] as String?,
+                                              facilityId: widget.facilityId,
+                                              facilityName: widget.facilityName))),
+                                      child: Text(L.tr('Jiunge kwenye Foleni'))))),
+                ])));
   }
 
-  Widget _statusChip(String status) {
-    Color color;
-    String label;
-    switch (status) {
-      case 'available':
-        color = Colors.green;
-        label = L.tr('Yupo');
-        break;
-      case 'busy':
-        color = Colors.orange;
-        label = L.tr('Ana mgonjwa');
-        break;
-      default:
-        color = Colors.grey;
-        label = L.tr('Hayupo');
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Text(L.tr(label),
-          style: TextStyle(
-              color: color, fontSize: 12, fontWeight: FontWeight.bold)),
-    );
-  }
+  String _statusLabel(String value) => switch (value) {
+        'available' => L.tr('Yupo'),
+        'busy' => L.tr('Ana mgonjwa'),
+        _ => L.tr('Hayupo'),
+      };
 }

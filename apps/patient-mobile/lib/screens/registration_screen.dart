@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -229,7 +230,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final pending = ['processing', 'pending', 'requires_action']
         .contains(payment?['status']);
     final simulated = _options?['environment'] == 'simulated';
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Usajili wa mgonjwa'))),
       body: SafeArea(
           child: SingleChildScrollView(

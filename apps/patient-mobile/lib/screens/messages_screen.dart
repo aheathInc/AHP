@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -180,10 +181,7 @@ class _MessagesScreenState extends State<MessagesScreen>
         button: true,
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(vertical: 10),
-          leading: CircleAvatar(
-              radius: 25,
-              backgroundColor: p.mintWash,
-              child: Icon(Icons.medical_services_outlined, color: p.petrol)),
+          leading: PatientAvatar(name: name),
           title: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
                 child: Text(name,
@@ -213,9 +211,9 @@ class _MessagesScreenState extends State<MessagesScreen>
                 style: TextStyle(color: p.inkSoft, fontSize: 14)),
             if (thread['status'] == 'closed')
               Padding(
-                  padding: EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: 4),
                   child: Text(L.tr('Yamefungwa · Kusoma tu'),
-                      style: TextStyle(fontSize: 12))),
+                      style: const TextStyle(fontSize: 12))),
           ]),
           trailing: unread > 0
               ? Semantics(
@@ -240,7 +238,7 @@ class _MessagesScreenState extends State<MessagesScreen>
                 .toLowerCase()
                 .contains(query))
         .toList();
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Ujumbe')), actions: [
         IconButton(
             tooltip: L.tr('Taarifa na ripoti'),

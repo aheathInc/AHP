@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -99,52 +100,68 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen>
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Vipimo na majibu')), actions: [
         IconButton(
             tooltip: L.tr('Sasisha'),
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh))
       ]),
-      body: RefreshIndicator(
-          onRefresh: _load,
-          child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (_loading)
-                  const Center(
-                      child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator()))
-                else if (_error != null) ...[
-                  Notice(_error!),
-                  TextButton(onPressed: _load, child: Text(L.tr('Jaribu tena')))
-                ] else if (_orders.isEmpty)
-                  Empty(L.tr('Hakuna kipimo kilichoagizwa kwenye rekodi zako.'))
-                else
-                  ..._orders.map((order) => Card(
-                      child: ListTile(
-                          contentPadding: const EdgeInsets.all(16),
-                          title: Text(order['investigation_code'] as String? ??
-                              L.tr('Kipimo')),
-                          subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(diagnosticStatus(order)),
-                                const SizedBox(height: 6),
-                                Text(order['facility_name'] as String? ??
-                                    L.tr('Kituo hakijaainishwa')),
-                                Text(diagnosticDate(order['ordered_at']))
-                              ]),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => DiagnosticDetailScreen(
-                                      orderId: order['id'] as String,
-                                      loadOrder: widget.loadOrder)))))),
-              ])));
+      body: CarePageBody(
+          child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    WorkspaceIntro(
+                        title: L.tr('Vipimo na majibu'),
+                        description: L
+                            .tr('Track lab orders and view released results.')),
+                    if (_loading)
+                      const Center(
+                          child: Padding(
+                              padding: EdgeInsets.all(32),
+                              child: CircularProgressIndicator()))
+                    else if (_error != null) ...[
+                      Notice(_error!),
+                      TextButton(
+                          onPressed: _load, child: Text(L.tr('Jaribu tena')))
+                    ] else if (_orders.isEmpty)
+                      Empty(L.tr(
+                          'Hakuna kipimo kilichoagizwa kwenye rekodi zako.'))
+                    else
+                      ..._orders.map((order) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Card(
+                              child: ListTile(
+                                  contentPadding: const EdgeInsets.all(16),
+                                  title: Text(
+                                      order['investigation_code'] as String? ??
+                                          L.tr('Kipimo')),
+                                  subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(diagnosticStatus(order)),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                            order['facility_name'] as String? ??
+                                                L.tr('Kituo hakijaainishwa')),
+                                        Text(
+                                            diagnosticDate(order['ordered_at']))
+                                      ]),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              DiagnosticDetailScreen(
+                                                  orderId:
+                                                      order['id'] as String,
+                                                  loadOrder:
+                                                      widget.loadOrder))))))),
+                  ]))));
 }
 
 class DiagnosticDetailScreen extends StatefulWidget {
@@ -231,7 +248,7 @@ class _DiagnosticDetailScreenState extends State<DiagnosticDetailScreen> {
     final order = _order;
     final finalReport =
         order != null && ['resulted', 'acknowledged'].contains(order['status']);
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Maelezo ya kipimo')), actions: [
           IconButton(
               tooltip: L.tr('Sasisha'),
@@ -251,21 +268,28 @@ class _DiagnosticDetailScreenState extends State<DiagnosticDetailScreen> {
                     TextButton(
                         onPressed: _load, child: Text(L.tr('Jaribu tena')))
                   ] else if (order != null) ...[
-                    Text(
-                        order['investigation_code'] as String? ??
-                            L.tr('Kipimo'),
-                        style: Theme.of(context).textTheme.headlineSmall),
-                    const SizedBox(height: 8),
-                    Text(diagnosticStatus(order)),
-                    const Divider(),
-                    detail('Namba ya ombi la kipimo', order['id']),
-                    detail('Maabara', order['facility_name']),
-                    detail('Namba ya sampuli', order['specimen_reference']),
-                    detail('Aina ya sampuli', order['specimen_type']),
-                    detail('Sampuli ilikusanywa',
-                        diagnosticDate(order['collected_at'])),
-                    detail('Sampuli ilipokelewa',
-                        diagnosticDate(order['received_at'])),
+                    PatientSurface(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                          Text(
+                              order['investigation_code'] as String? ??
+                                  L.tr('Kipimo'),
+                              style: Theme.of(context).textTheme.headlineSmall),
+                          const SizedBox(height: 8),
+                          PatientStatus(diagnosticStatus(order)),
+                          const Divider(),
+                          detail('Namba ya ombi la kipimo', order['id']),
+                          detail('Maabara', order['facility_name']),
+                          detail(
+                              'Namba ya sampuli', order['specimen_reference']),
+                          detail('Aina ya sampuli', order['specimen_type']),
+                          detail('Sampuli ilikusanywa',
+                              diagnosticDate(order['collected_at'])),
+                          detail('Sampuli ilipokelewa',
+                              diagnosticDate(order['received_at'])),
+                        ])),
+                    const SizedBox(height: 16),
                     if (!finalReport)
                       Notice(L.tr(
                           'Matokeo bado hayajaidhinishwa kutolewa. Rudi baadaye au wasiliana na kituo chako.'))
@@ -281,9 +305,11 @@ class _DiagnosticDetailScreenState extends State<DiagnosticDetailScreen> {
                       ...((order['values'] as List? ?? []).whereType<Map>().map(
                           (v) => Padding(
                               padding: const EdgeInsets.symmetric(vertical: 10),
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                              child: PatientSurface(
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                     Text(v['analyte']?.toString() ?? '',
                                         style: Theme.of(context)
                                             .textTheme
@@ -295,7 +321,7 @@ class _DiagnosticDetailScreenState extends State<DiagnosticDetailScreen> {
                                       v['reference_high'] ?? '—'
                                     ])),
                                     Text(flag(v['flag']?.toString() ?? ''))
-                                  ])))),
+                                  ]))))),
                       if (order['narrative'] is String)
                         detail('Maelezo ya matokeo', order['narrative']),
                       Notice(L.tr(

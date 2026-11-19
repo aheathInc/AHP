@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/l10n.dart';
 import 'common.dart';
 import 'premium.dart';
+import 'care_home.dart';
 
 typedef ServiceEntry = ({IconData icon, String label, Widget screen});
 typedef ServiceGroup = ({String title, List<ServiceEntry> items});
@@ -79,10 +80,13 @@ class _ServiceDirectoryState extends State<ServiceDirectory> {
                         children: [
                           const SizedBox(height: 20),
                           PremiumSectionHeading(section.title),
-                          ...section.items.map((entry) => PremiumLinkRow(
-                              icon: entry.icon,
-                              title: entry.label,
-                              onTap: () => widget.onOpen(entry.screen)))
+                          CareLinkGroup(
+                              children: section.items
+                                  .map((entry) => CareLink(
+                                      icon: entry.icon,
+                                      title: entry.label,
+                                      onTap: () => widget.onOpen(entry.screen)))
+                                  .toList())
                         ])))
                 .toList());
       }),

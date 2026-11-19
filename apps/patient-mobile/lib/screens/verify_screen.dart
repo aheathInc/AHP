@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -113,7 +114,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(),
       body: SafeArea(
         child: SingleChildScrollView(

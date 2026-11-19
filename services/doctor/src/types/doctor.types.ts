@@ -16,6 +16,7 @@ export const verificationStatus = z.enum(['pending', 'verified', 'rejected']);
 export const modality = z.enum(['chat', 'voice', 'video', 'async']);
 
 export const listCliniciansQuery = z.object({
+  q: z.string().trim().max(100).optional(),
   facility_id: z.string().uuid().optional(),
   verification_status: verificationStatus.optional(),
   specialty: specialty.optional(),
@@ -30,6 +31,7 @@ export const listCliniciansQuery = z.object({
 export const verificationDecisionSchema = z
   .object({
     decision: z.enum(['approve', 'reject']),
+    expected_version: z.number().int().min(1).optional(),
     reason: z.string().max(1000).optional(),
   })
   // A rejection a clinician cannot act on is a dead end, so the reason is

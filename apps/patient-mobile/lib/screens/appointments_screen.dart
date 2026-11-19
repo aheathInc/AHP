@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'appointment_reschedule_screen.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
@@ -17,13 +18,14 @@ String _appointmentDate(String? raw) {
 }
 
 class AppointmentsScreen extends StatefulWidget {
-  const AppointmentsScreen({super.key});
+  const AppointmentsScreen({super.key, this.repository});
+  final PatientCareRepository? repository;
   @override
   State<AppointmentsScreen> createState() => _AppointmentsScreenState();
 }
 
 class _AppointmentsScreenState extends State<AppointmentsScreen> {
-  final _care = PatientCareRepository();
+  late final _care = widget.repository ?? PatientCareRepository();
   List<Map<String, dynamic>> _appointments = [];
   List<Map<String, dynamic>> _clinicians = [];
   String? _error;
@@ -189,88 +191,80 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Miadi'))),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (_error != null) Notice(_error!),
-                  SectionTitle(L.tr('Miadi yangu')),
-                  if (_appointments.isEmpty)
-                    Empty(L.tr('Huna miadi iliyohifadhiwa.')),
-                  ..._appointments.map(
-                    (a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Panel(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AppointmentDetailScreen(
-                              appointmentId: a['id'] as String,
-                            ),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _date(a['starts_at'] as String?),
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              L.tr("Hali: {0} • {1}", [
-                                a['status'] ?? 'haijulikani',
-                                a['modality'] ?? ''
-                              ]),
-                            ),
-                            if (a['status'] == 'booked' &&
-                                DateTime.tryParse(
-                                            a['starts_at'] as String? ?? '')
-                                        ?.isAfter(DateTime.now()) ==
-                                    true)
-                              TextButton.icon(
-                                  onPressed:
-                                      _busy ? null : () => _reschedule(a),
-                                  icon: const Icon(Icons.edit_calendar),
-                                  label: Text(L.tr('Badilisha muda'))),
-                            if (a['status'] == 'booked')
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: _busy ? null : () => _cancel(a),
-                                  child: Text(L.tr('Ghairi miadi')),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
+      body: CarePageBody(
+          child: _loading
+              ? const SingleChildScrollView(child: LoadingContent())
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      if (_error != null) Notice(_error!),
+                      WorkspaceIntro(
+                          title: L.tr('Miadi yangu'),
+                          description:
+                              L.tr('Appointments and available clinicians.')),
+                      if (_appointments.isEmpty && _error == null)
+                        Empty(L.tr('Huna miadi iliyohifadhiwa.')),
+                      ..._appointments.map((a) {
+                        final clinician = _clinicians
+                            .where((c) => c['id'] == a['clinician_id'])
+                            .firstOrNull;
+                        return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: PatientAppointmentCard(
+                                name: clinician?['full_name'] as String? ??
+                                    L.tr('Daktari wako'),
+                                specialty: clinician?['specialty'] as String?,
+                                startsAt: a['starts_at'] as String?,
+                                modality: a['modality'] as String?,
+                                status: L.tr('Hali: {0}',
+                                    [a['status'] ?? 'haijulikani']),
+                                onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => AppointmentDetailScreen(
+                                            appointmentId: a['id'] as String))),
+                                actions: [
+                                  if (a['status'] == 'booked' &&
+                                      DateTime.tryParse(
+                                                  a['starts_at'] as String? ??
+                                                      '')
+                                              ?.isAfter(DateTime.now()) ==
+                                          true)
+                                    OutlinedButton.icon(
+                                        onPressed:
+                                            _busy ? null : () => _reschedule(a),
+                                        icon: const Icon(
+                                            Icons.edit_calendar_outlined,
+                                            size: 18),
+                                        label: Text(L.tr('Badilisha muda'))),
+                                  if (a['status'] == 'booked')
+                                    TextButton(
+                                        onPressed:
+                                            _busy ? null : () => _cancel(a),
+                                        child: Text(L.tr('Ghairi miadi'))),
+                                ]));
+                      }),
+                      const SizedBox(height: 18),
+                      SectionTitle(L.tr('Chagua daktari na muda')),
+                      if (_clinicians.isEmpty)
+                        Empty(L
+                            .tr('Hakuna madaktari waliothibitishwa kwa sasa.')),
+                      ..._clinicians.map((c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ClinicianIdentityCard(
+                              name:
+                                  c['full_name'] as String? ?? L.tr('Daktari'),
+                              specialty: c['specialty'] as String? ??
+                                  L.tr('Huduma ya jumla'),
+                              status: c['status'] as String?,
+                              onTap: _busy ? null : () => _book(c)))),
+                    ],
                   ),
-                  const SizedBox(height: 18),
-                  SectionTitle(L.tr('Chagua daktari na muda')),
-                  if (_clinicians.isEmpty)
-                    Empty(L.tr('Hakuna madaktari waliothibitishwa kwa sasa.')),
-                  ..._clinicians.map(
-                    (c) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(c['full_name'] as String? ?? L.tr('Daktari')),
-                      subtitle: Text(
-                        '${c['specialty'] ?? L.tr('Huduma ya jumla')} • ${c['status'] ?? ''}',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _busy ? null : () => _book(c),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                )),
     );
   }
 }
@@ -314,7 +308,7 @@ class _AppointmentDetailScreenState extends State<AppointmentDetailScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Maelezo ya miadi'))),
       body: _appointment == null
           ? Center(

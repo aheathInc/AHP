@@ -1,12 +1,23 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { api, errorMessage } from '@/lib/api';
-import { Button, Field, Notice, inputClass } from './ui';
+import { useState } from "react";
+import { api, errorMessage } from "@/lib/api";
+import { Button, Field, Notice, inputClass } from "./ui";
 
 export function ProfileForm({
-  initialName, initialLanguage, email, phone,
-}: { initialName: string; initialLanguage: string; email: string | null; phone: string | null }) {
+  initialName,
+  initialLanguage,
+  email,
+  phone,
+  locale = "sw",
+}: {
+  initialName: string;
+  initialLanguage: string;
+  email: string | null;
+  phone: string | null;
+  locale?: "en" | "sw";
+}) {
+  const en = locale === "en";
   const [fullName, setFullName] = useState(initialName);
   const [language, setLanguage] = useState(initialLanguage);
   const [busy, setBusy] = useState(false);
@@ -15,22 +26,48 @@ export function ProfileForm({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true); setError(null); setSaved(false);
+    setBusy(true);
+    setError(null);
+    setSaved(false);
     try {
-      await api.patch('/users/me', { full_name: fullName, preferred_language: language });
+      await api.patch("/users/me", {
+        full_name: fullName,
+        preferred_language: language,
+      });
       setSaved(true);
     } catch (e) {
-      setError(errorMessage(e, 'Mabadiliko hayakuhifadhiwa.'));
-    } finally { setBusy(false); }
+      setError(
+        errorMessage(
+          e,
+          en
+            ? "Your changes could not be saved. Try again."
+            : "Mabadiliko hayakuhifadhiwa.",
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <form onSubmit={submit} className="mt-3 flex flex-col gap-4">
-      <Field label="Jina kamili" htmlFor="fn">
-        <input id="fn" value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} />
+      <Field label={en ? "Full name" : "Jina kamili"} htmlFor="fn">
+        <input
+          id="fn"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className={inputClass}
+          maxLength={150}
+          required
+        />
       </Field>
-      <Field label="Lugha" htmlFor="lang">
-        <select id="lang" value={language} onChange={(e) => setLanguage(e.target.value)} className={inputClass}>
+      <Field label={en ? "Preferred language" : "Lugha"} htmlFor="lang">
+        <select
+          id="lang"
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className={inputClass}
+        >
           <option value="sw">Kiswahili</option>
           <option value="en">English</option>
         </select>
@@ -39,15 +76,31 @@ export function ProfileForm({
       {/* Changing these is an identity change, not a preference — it goes
           through verification rather than a settings form. */}
       <dl className="flex flex-wrap gap-x-8 gap-y-1 text-sm text-ink-soft">
-        <div><dt className="inline">Barua pepe: </dt><dd className="inline">{email ?? '—'}</dd></div>
-        <div><dt className="inline">Simu: </dt><dd className="inline">{phone ?? '—'}</dd></div>
+        <div>
+          <dt className="inline">{en ? "Email: " : "Barua pepe: "}</dt>
+          <dd className="inline">{email ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="inline">{en ? "Phone: " : "Simu: "}</dt>
+          <dd className="inline">{phone ?? "—"}</dd>
+        </div>
       </dl>
 
-      {saved && <p className="text-sm text-petrol">Imehifadhiwa.</p>}
+      {saved && (
+        <p className="text-sm text-petrol" role="status">
+          {en ? "Profile updated." : "Imehifadhiwa."}
+        </p>
+      )}
       {error && <Notice>{error}</Notice>}
 
       <Button type="submit" disabled={busy} className="self-start">
-        {busy ? 'Inahifadhi...' : 'Hifadhi'}
+        {busy
+          ? en
+            ? "Saving…"
+            : "Inahifadhi..."
+          : en
+            ? "Save profile"
+            : "Hifadhi"}
       </Button>
     </form>
   );

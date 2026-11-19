@@ -855,6 +855,10 @@ paths:
         details needed for the existing Admin workflow. Cursor paginated.
       operationId: listClinicians
       parameters:
+        - name: q
+          in: query
+          description: Search clinician name. Platform administrators may also search license numbers.
+          schema: { type: string, maxLength: 100 }
         - name: verification_status
           in: query
           schema: { $ref: '#/components/schemas/VerificationStatus' }
@@ -924,6 +928,10 @@ paths:
               type: object
               required: [decision]
               properties:
+                expected_version:
+                  type: integer
+                  minimum: 1
+                  description: Rejects stale decisions with 409 when supplied.
                 decision:
                   type: string
                   enum: [approve, reject]
@@ -5877,7 +5885,7 @@ paths:
       parameters:
         - name: status
           in: query
-          schema: { $ref: '#/components/schemas/IncidentStatus' }
+          schema: { type: string, enum: [open, reported, under_investigation, action_taken, closed] }
         - name: severity
           in: query
           schema: { $ref: '#/components/schemas/IncidentSeverity' }
@@ -5901,6 +5909,81 @@ paths:
   # ----------------------------------------------------------------------
   # Cross-cutting — offline sync
   # ----------------------------------------------------------------------
+
+  /incident-reports/{incident_id}:
+    patch:
+      tags: [quality]
+      summary: Advance or reopen an incident investigation
+      description: Platform administrators only. Requires the current version. Allowed transitions are reported to under_investigation, under_investigation to action_taken, action_taken to closed or under_investigation, and closed to under_investigation. Investigation requires notes; action and closure require a recorded outcome. Status change and audit entry commit atomically.
+      operationId: updateIncidentReport
+      parameters:
+        - name: incident_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expected_version, status]
+              properties:
+                expected_version: { type: integer, minimum: 1 }
+                status: { type: string, enum: [under_investigation, action_taken, closed] }
+                investigation_notes: { type: string, minLength: 5, maxLength: 4000 }
+                action_taken: { type: string, minLength: 5, maxLength: 4000 }
+      responses:
+        '200':
+          description: Incident updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IncidentReport' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { description: Invalid status or required investigation evidence missing }
+
+  /surveillance/operations-overview:
+    get:
+      tags: [surveillance]
+      summary: Platform operations totals and oldest outstanding work
+      description: Platform administrators only. Transactionally consistent totals across all records, without patient identifiers or clinical text. Responses must not be cached. Failed payment attempts are counted by creation time in the preceding 24 hours, including test and live records.
+      operationId: getOperationsOverview
+      responses:
+        '200':
+          description: Current platform snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [generated_at, scope, environment, counts, oldest]
+                properties:
+                  generated_at: { type: string, format: date-time }
+                  scope: { type: string, const: platform }
+                  environment: { type: string, enum: [production, development] }
+                  counts:
+                    type: object
+                    required: [open_emergencies, unacknowledged_emergencies, pending_verifications, open_incidents, escalated_incidents, facilities, active_devices, failed_payments_24h]
+                    properties:
+                      open_emergencies: { type: integer, minimum: 0 }
+                      unacknowledged_emergencies: { type: integer, minimum: 0 }
+                      pending_verifications: { type: integer, minimum: 0 }
+                      open_incidents: { type: integer, minimum: 0 }
+                      escalated_incidents: { type: integer, minimum: 0 }
+                      facilities: { type: integer, minimum: 0 }
+                      active_devices: { type: integer, minimum: 0 }
+                      failed_payments_24h: { type: integer, minimum: 0 }
+                  oldest:
+                    type: object
+                    required: [unacknowledged_emergency_at, pending_verification_at, escalated_incident_at]
+                    properties:
+                      unacknowledged_emergency_at: { type: [string, 'null'], format: date-time }
+                      pending_verification_at: { type: [string, 'null'], format: date-time }
+                      escalated_incident_at: { type: [string, 'null'], format: date-time }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /sync/changes:
     get:
@@ -8366,6 +8449,21 @@ paths:
 
   /research/portal/releases/{id}/review:
     $ref: './research-portal-v1.yaml#/paths/~1research~1portal~1releases~1{id}~1review'
+
+  /research/portal/studies/{id}/workspace:
+    $ref: './research-portal-v1.yaml#/paths/~1research~1portal~1studies~1{id}~1workspace'
+
+  /research/portal/cohorts:
+    $ref: './research-portal-v1.yaml#/paths/~1research~1portal~1cohorts'
+
+  /research/portal/cohorts/{id}:
+    $ref: './research-portal-v1.yaml#/paths/~1research~1portal~1cohorts~1{id}'
+
+  /research/portal/cohorts/{id}/run:
+    $ref: './research-portal-v1.yaml#/paths/~1research~1portal~1cohorts~1{id}~1run'
+
+  /research/portal/cohorts/{id}/archive:
+    $ref: './research-portal-v1.yaml#/paths/~1research~1portal~1cohorts~1{id}~1archive'
 
   /research/portal/query:
     $ref: './research-portal-v1.yaml#/paths/~1research~1portal~1query'
@@ -10929,6 +11027,23 @@ components:
           $ref: '#/components/schemas/VerificationStatus'
         facility_id: { type: [string, 'null'], format: uuid }
         is_available: { type: boolean }
+        email:
+          type: [string, 'null']
+          description: Returned to platform_admin only.
+        account_status:
+          type: string
+          description: Returned to platform_admin only.
+        version:
+          type: integer
+          minimum: 1
+          description: Current review version; returned to platform_admin only.
+        updated_at:
+          type: string
+          format: date-time
+          description: Returned to platform_admin only.
+        rejection_reason:
+          type: [string, 'null']
+          description: Returned to platform_admin only.
 
     CareThread:
       type: object
@@ -12930,7 +13045,7 @@ components:
 
     IncidentReport:
       type: object
-      required: [id, category, severity, status, reported_at]
+      required: [id, category, severity, status, reported_at, updated_at, version]
       properties:
         id: { type: string, format: uuid }
         category: { $ref: '#/components/schemas/IncidentCategory' }
@@ -12948,7 +13063,10 @@ components:
             governance leadership rather than a customer-service queue.
         reported_at: { type: string, format: date-time }
         closed_at: { type: [string, 'null'], format: date-time }
-        version: { type: integer }
+        investigation_notes: { type: [string, 'null'] }
+        action_taken: { type: [string, 'null'] }
+        updated_at: { type: string, format: date-time }
+        version: { type: integer, minimum: 1 }
     PaymentMethod:
       type: string
       enum: [mobile_money, card, cash, insurance]

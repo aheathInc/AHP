@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import '../core/api.dart';
@@ -85,7 +86,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(
           title: Text(L.tr('Usalama wa account')),
           automaticallyImplyLeading: !widget.registration),
@@ -237,7 +238,7 @@ class _BiometricLockScreenState extends State<BiometricLockScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
         body: SafeArea(
             child: Center(
                 child: SingleChildScrollView(

@@ -1,62 +1,205 @@
-import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { serverGet } from '@/lib/serverToken';
-import type { IncidentReport, Page } from '@/lib/api';
-import { Badge, Card, Empty, PageHeader, PageShell } from '@/components/ui';
-import { dateTime } from '@/lib/format';
+import Link from "next/link";
+import { serverGet } from "@/lib/serverToken";
+import type { IncidentReport, Page } from "@/lib/api";
+import { Badge, Button, PageHeader, PageShell } from "@/components/ui";
+import { adminDateTime as dateTime } from "@/components/admin/operationsTypes";
+import { requireRole } from "@/lib/roles";
+import {
+  AdminSourceError,
+  WorkspaceRefresh,
+} from "@/components/admin/WorkspaceRefresh";
+import { IncidentActions } from "@/components/admin/IncidentActions";
+import { adminLabel } from "@/components/admin/operationsTypes";
+import styles from "@/components/admin/operations.module.css";
 
-const SEVERITY_LABEL: Record<string, string> = {
-  low: 'Low', moderate: 'Moderate', serious: 'Serious', catastrophic: 'Catastrophic',
-};
-
-export default async function IncidentsPage() {
-  const session = await getServerSession(authOptions);
-  if (!session) redirect('/login');
-
-  const page = await serverGet<Page<IncidentReport>>('/incident-reports?limit=50');
-  const items = page?.data ?? [];
-
+export default async function IncidentsPage({
+  searchParams,
+}: {
+  searchParams: { status?: string; severity?: string; cursor?: string };
+}) {
+  await requireRole(["platform_admin"]);
+  const statuses = [
+    "open",
+    "reported",
+    "under_investigation",
+    "action_taken",
+    "closed",
+    "all",
+  ];
+  const severities = ["all", "low", "moderate", "serious", "catastrophic"];
+  const status = statuses.includes(searchParams.status ?? "")
+    ? searchParams.status!
+    : "open";
+  const severity = severities.includes(searchParams.severity ?? "")
+    ? searchParams.severity!
+    : "all";
+  const query = new URLSearchParams({ limit: "25" });
+  if (status !== "all") query.set("status", status);
+  if (severity !== "all") query.set("severity", severity);
+  if (typeof searchParams.cursor === "string")
+    query.set("cursor", searchParams.cursor);
+  const result = await serverGet<Page<IncidentReport>>(
+    `/incident-reports?${query}`,
+  );
+  function link(cursor?: string) {
+    const p = new URLSearchParams({ status, severity });
+    if (cursor) p.set("cursor", cursor);
+    return `/admin/incidents?${p}`;
+  }
   return (
-    <PageShell>
+    <PageShell className={styles.workspace}>
       <PageHeader
-        title="Incident reports"
-        lede="Governance-escalated reports are visible for operational follow-up. Anonymous reports remain anonymous."
+        title="Incident management"
+        lede="Investigate reports, record corrective action and close cases with a clear governance history."
+        action={<WorkspaceRefresh />}
       />
-
-      {items.length === 0 ? (
-        <Empty>No incident reports have been submitted.</Empty>
-      ) : (
-        <ul className="mt-6 flex flex-col gap-3">
-          {items.map((r) => (
-            <li key={r.id}>
-              <Card accent={
-                r.severity === 'catastrophic' || r.severity === 'serious'
-                  ? 'border-l-4 border-clay'
-                  : r.severity === 'moderate' ? 'border-l-4 border-amber' : 'border border-line'
-              }>
-                <div className="flex flex-wrap items-baseline justify-between gap-3">
-                  <span className="font-medium">{r.category.replace(/_/g, ' ')}</span>
-                  <Badge tone={r.severity === 'catastrophic' || r.severity === 'serious' ? 'problem' : r.severity === 'moderate' ? 'attention' : 'neutral'}>
-                    {SEVERITY_LABEL[r.severity] ?? r.severity}
-                  </Badge>
-                </div>
-                <p className="mt-2 whitespace-pre-wrap text-[0.95rem]">{r.description}</p>
-                <p className="mt-2 text-sm text-ink-soft">
-                  {dateTime(r.reported_at)} · {r.status}
-                  {/*
-                    Anonymity is real, not a display setting: the reporter's id
-                    was never written to the row at all, including in the audit
-                    trail. Saying so here keeps anyone from going looking.
-                  */}
-                  {r.anonymous ? ' · anonymous report' : ''}
-                  {r.escalated_to_governance ? ' · escalated to governance' : ''}
+      <section className={styles.panel}>
+        <form action="/admin/incidents" method="get" className={styles.filters}>
+          <div>
+            <label htmlFor="incident-status-filter">Case status</label>
+            <select
+              id="incident-status-filter"
+              name="status"
+              defaultValue={status}
+            >
+              {statuses.map((value) => (
+                <option key={value} value={value}>
+                  {value === "open"
+                    ? "All open incidents"
+                    : value === "all"
+                      ? "All statuses"
+                      : adminLabel(value)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="incident-severity-filter">Severity</label>
+            <select
+              id="incident-severity-filter"
+              name="severity"
+              defaultValue={severity}
+            >
+              {severities.map((value) => (
+                <option key={value} value={value}>
+                  {value === "all" ? "All severities" : adminLabel(value)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="submit">Apply filters</Button>
+        </form>
+        {!result ? (
+          <div className="px-6">
+            <AdminSourceError title="Incident reports could not be loaded" />
+          </div>
+        ) : (
+          <>
+            <div className={styles.listHeading}>
+              <span>
+                {result.data.length}{" "}
+                {result.data.length === 1 ? "incident" : "incidents"} on this
+                page
+              </span>
+              <span>Anonymous reporters remain unidentified</span>
+            </div>
+            {!result.data.length && (
+              <div className={styles.empty}>
+                <h2>No incidents in this view</h2>
+                <p>
+                  There are no reports matching these filters. New reports will
+                  appear when submitted.
                 </p>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+                <Link href="/admin/incidents?status=all">
+                  View all statuses →
+                </Link>
+              </div>
+            )}
+            {result.data.map((r) => (
+              <article
+                key={`${r.id}-${r.version}`}
+                className={styles.record}
+                id={`incident-${r.id}`}
+              >
+                <div className={styles.recordHead}>
+                  <div>
+                    <h2>{adminLabel(r.category)}</h2>
+                    <p>
+                      Case {r.id.slice(0, 8).toUpperCase()} · Reported{" "}
+                      {dateTime(r.reported_at)}
+                    </p>
+                  </div>
+                  <div className={styles.badges}>
+                    <Badge
+                      tone={
+                        ["serious", "catastrophic"].includes(r.severity)
+                          ? "problem"
+                          : r.severity === "moderate"
+                            ? "attention"
+                            : "neutral"
+                      }
+                    >
+                      {adminLabel(r.severity)}
+                    </Badge>
+                    <Badge tone={r.status === "closed" ? "good" : "info"}>
+                      {adminLabel(r.status)}
+                    </Badge>
+                    {r.escalated_to_governance && (
+                      <Badge tone="attention">Escalated</Badge>
+                    )}
+                  </div>
+                </div>
+                <details className={styles.details}>
+                  <summary>Review case and next step</summary>
+                  <dl className={styles.facts}>
+                    <div>
+                      <dt>Reporter</dt>
+                      <dd>{r.anonymous ? "Anonymous" : "Identified report"}</dd>
+                    </div>
+                    <div>
+                      <dt>Last updated</dt>
+                      <dd>{dateTime(r.updated_at)}</dd>
+                    </div>
+                    <div>
+                      <dt>Closed</dt>
+                      <dd>{dateTime(r.closed_at)}</dd>
+                    </div>
+                  </dl>
+                  <h3>Reported concern</h3>
+                  <p className={styles.description}>{r.description}</p>
+                  {r.investigation_notes && (
+                    <div className={styles.history}>
+                      <h3>Investigation notes</h3>
+                      <p>{r.investigation_notes}</p>
+                    </div>
+                  )}
+                  {r.action_taken && (
+                    <div className={styles.history}>
+                      <h3>Recorded action</h3>
+                      <p>{r.action_taken}</p>
+                    </div>
+                  )}
+                  <IncidentActions key={`${r.id}-${r.version}`} incident={r} />
+                </details>
+              </article>
+            ))}
+            <nav
+              className={styles.pagination}
+              aria-label="Incident report pages"
+            >
+              <Link href={link()}>First page</Link>
+              <span>
+                {result.meta?.has_more
+                  ? "More incident reports available"
+                  : "End of results"}
+              </span>
+              {result.meta?.has_more && result.meta.next_cursor && (
+                <Link href={link(result.meta.next_cursor)}>Next page →</Link>
+              )}
+            </nav>
+          </>
+        )}
+      </section>
     </PageShell>
   );
 }

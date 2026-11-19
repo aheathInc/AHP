@@ -228,6 +228,10 @@ export interface Device {
 }
 
 export interface IncidentReport {
+  version: number;
+  investigation_notes: string | null;
+  action_taken: string | null;
+  updated_at: string;
   id: string;
   category: string;
   severity: 'low' | 'moderate' | 'serious' | 'catastrophic';
@@ -389,6 +393,11 @@ export interface ReferralAuthorization {
 }
 
 export interface ClinicianDirectoryEntry {
+  email?: string | null;
+  account_status?: string;
+  version?: number;
+  updated_at?: string;
+  rejection_reason?: string | null;
   id: string;
   full_name: string | null;
   specialty: string;

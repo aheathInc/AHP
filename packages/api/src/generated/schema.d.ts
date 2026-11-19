@@ -3710,6 +3710,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/incident-reports/{incident_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Advance or reopen an incident investigation
+         * @description Platform administrators only. Requires the current version. Allowed transitions are reported to under_investigation, under_investigation to action_taken, action_taken to closed or under_investigation, and closed to under_investigation. Investigation requires notes; action and closure require a recorded outcome. Status change and audit entry commit atomically.
+         */
+        patch: operations["updateIncidentReport"];
+        trace?: never;
+    };
+    "/surveillance/operations-overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Platform operations totals and oldest outstanding work
+         * @description Platform administrators only. Transactionally consistent totals across all records, without patient identifiers or clinical text. Responses must not be cached. Failed payment attempts are counted by creation time in the preceding 24 hours, including test and live records.
+         */
+        get: operations["getOperationsOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sync/changes": {
         parameters: {
             query?: never;
@@ -5368,6 +5408,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/research/portal/studies/{id}/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read authorized release filters and owned saved cohorts
+         * @description Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+         */
+        get: operations["researchPortalGetCohortWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/research/portal/cohorts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a release-pinned aggregate cohort definition
+         * @description Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+         */
+        post: operations["researchPortalSaveCohort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/research/portal/cohorts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update an owned saved cohort using its current version
+         * @description Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+         */
+        put: operations["researchPortalUpdateCohort"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/research/portal/cohorts/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rerun an owned saved cohort under current live authorization
+         * @description Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+         */
+        post: operations["researchPortalRunCohort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/research/portal/cohorts/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive an owned cohort definition without returning data
+         * @description Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+         */
+        post: operations["researchPortalArchiveCohort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/research/portal/query": {
         parameters: {
             query?: never;
@@ -6667,6 +6807,19 @@ export interface components {
             /** Format: uuid */
             facility_id?: string | null;
             is_available?: boolean;
+            /** @description Returned to platform_admin only. */
+            email?: string | null;
+            /** @description Returned to platform_admin only. */
+            account_status?: string;
+            /** @description Current review version; returned to platform_admin only. */
+            version?: number;
+            /**
+             * Format: date-time
+             * @description Returned to platform_admin only.
+             */
+            updated_at?: string;
+            /** @description Returned to platform_admin only. */
+            rejection_reason?: string | null;
         };
         CareThread: {
             /** Format: uuid */
@@ -8420,7 +8573,11 @@ export interface components {
             reported_at: string;
             /** Format: date-time */
             closed_at?: string | null;
-            version?: number;
+            investigation_notes?: string | null;
+            action_taken?: string | null;
+            /** Format: date-time */
+            updated_at: string;
+            version: number;
         };
         /** @enum {string} */
         PaymentMethod: "mobile_money" | "card" | "cash" | "insurance";
@@ -9481,6 +9638,114 @@ export interface components {
             provenance_checked?: boolean;
             note: string;
         };
+        CohortFilters: {
+            age_band?: string;
+            sex?: string;
+            region?: string;
+            period?: string;
+            domain?: string;
+            code?: string;
+        };
+        SavedCohort: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            studyId: string;
+            /** Format: uuid */
+            ownerId: string;
+            /** Format: uuid */
+            releaseId: string;
+            name: string;
+            filters: components["schemas"]["CohortFilters"];
+            /** @enum {string} */
+            status: "active" | "archived";
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CohortWorkspaceEnvelope: {
+            data: {
+                /** Format: uuid */
+                study_id: string;
+                /** Format: uuid */
+                release_id: string;
+                release_hash: string;
+                release_version: number;
+                minimum_cell_size: number;
+                synthetic: boolean;
+                published_cells: number;
+                /** Format: date-time */
+                access_expires_at: string;
+                /** Format: date-time */
+                ethics_expires_at: string;
+                allow_export: boolean;
+                saved_cohorts: components["schemas"]["SavedCohort"][];
+                facets: {
+                    [key: string]: string[];
+                };
+                limits: {
+                    /** @constant */
+                    active_cohorts?: 50;
+                    /** @constant */
+                    total_cohorts?: 100;
+                };
+            };
+        };
+        SavedCohortInput: {
+            /** Format: uuid */
+            study_id: string;
+            /** Format: uuid */
+            release_id: string;
+            name: string;
+            filters?: components["schemas"]["CohortFilters"];
+        };
+        SavedCohortEnvelope: {
+            data: components["schemas"]["SavedCohort"];
+        };
+        SavedCohortUpdate: {
+            base_version: number;
+            name: string;
+            filters?: components["schemas"]["CohortFilters"];
+        };
+        CohortVersionInput: {
+            base_version: number;
+        };
+        CohortResultEnvelope: {
+            data: {
+                /** Format: uuid */
+                study_id: string;
+                /** Format: uuid */
+                release_id: string;
+                release_hash: string;
+                release_version: number;
+                /** Format: date-time */
+                queried_at: string;
+                filters: components["schemas"]["CohortFilters"];
+                returned_cells: number;
+                minimum_cell_size: number;
+                synthetic: boolean;
+                disclosure_notice: string;
+                saved_cohort?: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    version: number;
+                };
+                cells: {
+                    age_band: string;
+                    sex: string;
+                    region: string;
+                    period: string;
+                    domain: string;
+                    code_system: string;
+                    code: string;
+                    label: string;
+                    participants: number;
+                }[];
+            };
+        };
         QueryInput: {
             /** Format: uuid */
             study_id: string;
@@ -9506,6 +9771,13 @@ export interface components {
                 domain?: string;
                 code?: string;
             };
+            /**
+             * Format: uuid
+             * @description Optional displayed-result release check; mismatch returns 409.
+             */
+            release_id?: string;
+            /** @description Optional displayed-result content check; mismatch returns 409. */
+            release_hash?: string;
         };
         ExportReview: {
             base_version: number;
@@ -10444,6 +10716,8 @@ export interface operations {
     listClinicians: {
         parameters: {
             query?: {
+                /** @description Search clinician name. Platform administrators may also search license numbers. */
+                q?: string;
                 verification_status?: components["schemas"]["VerificationStatus"];
                 specialty?: components["schemas"]["Specialty"];
                 is_available?: boolean;
@@ -10516,6 +10790,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description Rejects stale decisions with 409 when supplied. */
+                    expected_version?: number;
                     /** @enum {string} */
                     decision: "approve" | "reject";
                     /** @description Required when decision is `reject`. */
@@ -16121,7 +16397,7 @@ export interface operations {
     listIncidentReports: {
         parameters: {
             query?: {
-                status?: components["schemas"]["IncidentStatus"];
+                status?: "open" | "reported" | "under_investigation" | "action_taken" | "closed";
                 severity?: components["schemas"]["IncidentSeverity"];
                 /** @description Opaque cursor from the previous page's `meta.next_cursor`. */
                 cursor?: components["parameters"]["Cursor"];
@@ -16189,6 +16465,101 @@ export interface operations {
                     "application/json": components["schemas"]["IncidentReport"];
                 };
             };
+        };
+    };
+    updateIncidentReport: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUID, created at the moment the user acted. Reused
+                 *     unchanged across every retry of the same intent. The server replays the
+                 *     original response for 24 hours.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    expected_version: number;
+                    /** @enum {string} */
+                    status: "under_investigation" | "action_taken" | "closed";
+                    investigation_notes?: string;
+                    action_taken?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Incident updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentReport"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Invalid status or required investigation evidence missing */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getOperationsOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current platform snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        generated_at: string;
+                        /** @constant */
+                        scope: "platform";
+                        /** @enum {string} */
+                        environment: "production" | "development";
+                        counts: {
+                            open_emergencies: number;
+                            unacknowledged_emergencies: number;
+                            pending_verifications: number;
+                            open_incidents: number;
+                            escalated_incidents: number;
+                            facilities: number;
+                            active_devices: number;
+                            failed_payments_24h: number;
+                        };
+                        oldest: {
+                            /** Format: date-time */
+                            unacknowledged_emergency_at: string | null;
+                            /** Format: date-time */
+                            pending_verification_at: string | null;
+                            /** Format: date-time */
+                            escalated_incident_at: string | null;
+                        };
+                    };
+                };
+            };
+            403: components["responses"]["Forbidden"];
         };
     };
     getSyncChanges: {
@@ -21671,6 +22042,340 @@ export interface operations {
             };
         };
     };
+    researchPortalGetCohortWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized cohort operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CohortWorkspaceEnvelope"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Role, ownership or live authorization denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource missing */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stale version, changed release, archived definition or duplicate name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields or saved definition capacity exceeded */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    researchPortalSaveCohort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedCohortInput"];
+            };
+        };
+        responses: {
+            /** @description Authorized cohort operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedCohortEnvelope"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Role, ownership or live authorization denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource missing */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stale version, changed release, archived definition or duplicate name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields or saved definition capacity exceeded */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    researchPortalUpdateCohort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedCohortUpdate"];
+            };
+        };
+        responses: {
+            /** @description Authorized cohort operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedCohortEnvelope"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Role, ownership or live authorization denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource missing */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stale version, changed release, archived definition or duplicate name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields or saved definition capacity exceeded */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    researchPortalRunCohort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CohortVersionInput"];
+            };
+        };
+        responses: {
+            /** @description Authorized cohort operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CohortResultEnvelope"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Role, ownership or live authorization denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource missing */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stale version, changed release, archived definition or duplicate name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields or saved definition capacity exceeded */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    researchPortalArchiveCohort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CohortVersionInput"];
+            };
+        };
+        responses: {
+            /** @description Authorized cohort operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedCohortEnvelope"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Role, ownership or live authorization denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Resource missing */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Stale version, changed release, archived definition or duplicate name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid fields or saved definition capacity exceeded */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     researchPortalPostQuery: {
         parameters: {
             query?: never;
@@ -21690,7 +22395,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope"];
+                    "application/json": components["schemas"]["CohortResultEnvelope"];
                 };
             };
             /** @description Invalid authentication */

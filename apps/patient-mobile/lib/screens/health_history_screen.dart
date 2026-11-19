@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -85,7 +87,7 @@ class _HealthHistoryScreenState extends State<HealthHistoryScreen> {
     Localizations.localeOf(context);
     final ownerMatches = _ownerId != null;
     final palette = AppPalette.of(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(
         title: Text(L.tr('Historia Yangu ya Afya')),
         actions: [
@@ -103,33 +105,45 @@ class _HealthHistoryScreenState extends State<HealthHistoryScreen> {
             Text(L.tr('My Health History'),
                 style: TextStyle(fontSize: 14, color: palette.inkSoft)),
             const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                  child: DropdownButtonFormField<String>(
-                initialValue: _category,
-                decoration: InputDecoration(labelText: L.tr('Aina ya rekodi')),
-                items: healthHistoryCategories.entries
-                    .map((item) => DropdownMenuItem(
-                        value: item.key, child: Text(item.value)))
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => _category = value ?? 'all'),
-              )),
-              const SizedBox(width: 12),
-              Expanded(
-                  child: DropdownButtonFormField<String>(
-                initialValue: _source,
-                decoration: InputDecoration(labelText: L.tr('Chanzo')),
-                items: [
-                  DropdownMenuItem(
-                      value: 'all', child: Text(L.tr('Vyanzo vyote'))),
-                  DropdownMenuItem(value: 'ahp', child: Text('AHP')),
-                  DropdownMenuItem(
-                      value: 'external', child: Text(L.tr('Zilizoingizwa'))),
-                ],
-                onChanged: (value) => setState(() => _source = value ?? 'all'),
-              )),
-            ]),
+            LayoutBuilder(builder: (context, size) {
+              final width = size.maxWidth < 560
+                  ? size.maxWidth
+                  : (size.maxWidth - 12) / 2;
+              return Wrap(spacing: 12, runSpacing: 12, children: [
+                SizedBox(
+                    width: width,
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: _category,
+                      decoration:
+                          InputDecoration(labelText: L.tr('Aina ya rekodi')),
+                      items: healthHistoryCategories.entries
+                          .map((item) => DropdownMenuItem(
+                              value: item.key, child: Text(L.tr(item.value))))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _category = value ?? 'all'),
+                    )),
+                SizedBox(
+                    width: width,
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: _source,
+                      decoration: InputDecoration(labelText: L.tr('Chanzo')),
+                      items: [
+                        DropdownMenuItem(
+                            value: 'all', child: Text(L.tr('Vyanzo vyote'))),
+                        const DropdownMenuItem(
+                            value: 'ahp', child: const Text('AHP')),
+                        DropdownMenuItem(
+                            value: 'external',
+                            child: Text(L.tr('Zilizoingizwa'))),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _source = value ?? 'all'),
+                    )),
+              ]);
+            }),
             const SizedBox(height: 16),
             if (_loading)
               const Padding(
@@ -141,7 +155,7 @@ class _HealthHistoryScreenState extends State<HealthHistoryScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Text(L.tr('Historia haikupatikana'),
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     Text(L.tr(_error!),
                         style: TextStyle(color: palette.inkSoft)),
@@ -185,9 +199,13 @@ class _HealthHistoryScreenState extends State<HealthHistoryScreen> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                   [
-                    healthHistoryCategories[entry['category']] ??
+                    (healthHistoryCategories[entry['category']] == null
+                            ? null
+                            : L.tr(
+                                healthHistoryCategories[entry['category']]!)) ??
                         (entry['category'] as String? ?? L.tr('Rekodi')),
-                    if (event != null) '${event.toLocal()}'.split('.').first,
+                    if (event != null)
+                      '${DateFormat('d MMM y · HH:mm', Localizations.localeOf(context).languageCode).format(event.toLocal())} ${event.toLocal().timeZoneName}',
                     '${entry['status'] ?? 'imeandikwa'}',
                     '${source['name'] ?? 'A-health'}${facility == null ? '' : ' · $facility'}',
                   ].join(' · '),

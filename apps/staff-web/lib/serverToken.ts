@@ -144,6 +144,7 @@ export async function serverGet<T>(path: string): Promise<T | null> {
     const res = await fetch(base + path, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return null;
     return (await res.json()) as T;

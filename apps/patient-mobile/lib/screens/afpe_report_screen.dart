@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/api.dart';
@@ -72,7 +73,7 @@ class _AfpeReportScreenState extends State<AfpeReportScreen> {
       _ => Theme.of(context).colorScheme.onSurface
     };
     final language = AppPreferences.instance.language == 'sw' ? 'sw' : 'en';
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Mwenendo wa afya yangu'))),
         body: ListView(padding: const EdgeInsets.all(20), children: [
           if (_error != null) ...[

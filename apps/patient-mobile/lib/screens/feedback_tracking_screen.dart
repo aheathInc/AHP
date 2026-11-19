@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import '../core/api.dart';
@@ -72,7 +73,7 @@ class _FeedbackTrackingScreenState extends State<FeedbackTrackingScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Fuatilia maoni na malalamiko'))),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -145,7 +146,7 @@ class _FeedbackTrackingScreenState extends State<FeedbackTrackingScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   if (_tickets.isEmpty)
                     Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                         child: Text(L.tr(
                             'Feedback utakazotuma zitaonekana hapa pamoja na maendeleo yake.'))),
                   for (final t in _tickets)

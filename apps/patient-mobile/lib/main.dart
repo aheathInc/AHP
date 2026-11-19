@@ -1,3 +1,4 @@
+import 'core/desktop_database.dart';
 import 'package:flutter/material.dart';
 import 'core/api.dart';
 import 'core/config.dart';
@@ -20,6 +21,7 @@ final navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Config.validateForCurrentBuild();
+  await initializeDesktopDatabase();
   await AppPreferences.instance.load();
   await L.load();
   await Session.restoreLock();
@@ -82,7 +84,9 @@ class _AHealthAppState extends State<AHealthApp> with WidgetsBindingObserver {
     if (_medicationOpen ||
         Session.locked.value ||
         !await Session.authenticated ||
-        !mounted) return;
+        !mounted) {
+      return;
+    }
     if (navigatorKey.currentState == null) return;
     _medicationOpen = true;
     await navigatorKey.currentState!.push(
@@ -105,6 +109,15 @@ class _AHealthAppState extends State<AHealthApp> with WidgetsBindingObserver {
               title: S.appName,
               theme: buildTheme(),
               darkTheme: buildDarkTheme(),
+              highContrastTheme:
+                  buildTheme(vision: ColorVisionMode.highContrast),
+              highContrastDarkTheme:
+                  buildDarkTheme(vision: ColorVisionMode.highContrast),
+              themeAnimationDuration: AppPreferences.instance.reduceMotion ||
+                      WidgetsBinding.instance.platformDispatcher
+                          .accessibilityFeatures.disableAnimations
+                  ? Duration.zero
+                  : const Duration(milliseconds: 200),
               themeMode: AppPreferences.instance.themeMode,
               locale: AppPreferences.instance.locale,
               supportedLocales: const [
@@ -115,13 +128,26 @@ class _AHealthAppState extends State<AHealthApp> with WidgetsBindingObserver {
               localizationsDelegates: GlobalMaterialLocalizations.delegates,
               navigatorKey: navigatorKey,
               debugShowCheckedModeBanner: false,
-              builder: (context, child) => ValueListenableBuilder<bool>(
-                  valueListenable: Session.locked,
-                  builder: (context, locked, _) => Stack(children: [
-                        Offstage(
-                            offstage: locked, child: child ?? const SizedBox()),
-                        if (locked) const BiometricLockScreen()
-                      ])),
+              builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    disableAnimations:
+                        MediaQuery.of(context).disableAnimations ||
+                            AppPreferences.instance.reduceMotion,
+                    accessibleNavigation:
+                        MediaQuery.of(context).accessibleNavigation ||
+                            AppPreferences.instance.reduceMotion,
+                    highContrast: MediaQuery.of(context).highContrast ||
+                        AppPreferences.instance.colorVision ==
+                            ColorVisionMode.highContrast,
+                  ),
+                  child: ValueListenableBuilder<bool>(
+                      valueListenable: Session.locked,
+                      builder: (context, locked, _) => Stack(children: [
+                            Offstage(
+                                offstage: locked,
+                                child: child ?? const SizedBox()),
+                            if (locked) const BiometricLockScreen()
+                          ]))),
               home: FutureBuilder<String?>(
                 future: _accessFuture,
                 builder: (context, snap) {

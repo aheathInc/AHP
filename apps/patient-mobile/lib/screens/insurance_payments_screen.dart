@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'payment_bills_screen.dart';
@@ -76,7 +77,7 @@ class _InsurancePaymentsScreenState extends State<InsurancePaymentsScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Bima na malipo'))),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -198,8 +199,8 @@ class _InsurancePaymentsScreenState extends State<InsurancePaymentsScreen> {
         padding: const EdgeInsets.only(bottom: 10),
         child: Panel(
           accent: payment['status'] == 'succeeded'
-              ? AppColors.petrol
-              : AppColors.amber,
+              ? AppPalette.of(context).petrol
+              : AppPalette.of(context).amber,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

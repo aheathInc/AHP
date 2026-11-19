@@ -5553,5 +5553,219 @@
     "Temporarily unavailable",
     "Temporairement indisponible",
     "Hapatikani kwa sasa"
+  ],
+  "Ufikivu": [
+    "Accessibility",
+    "Accessibilité"
+  ],
+  "Punguza mwendo": [
+    "Reduce motion",
+    "Réduire les animations"
+  ],
+  "Zima uhuishaji usio wa lazima. Chaguo la simu linaheshimiwa pia.": [
+    "Turn off nonessential animations. Your device setting is also respected.",
+    "Désactivez les animations non essentielles. Le réglage de votre appareil est également respecté."
+  ],
+  "Nyuso zisizo na uwazi": [
+    "Solid surfaces",
+    "Surfaces opaques"
+  ],
+  "Punguza uwazi na ukungu wa mandharinyuma.": [
+    "Reduce transparency and background blur.",
+    "Réduisez la transparence et le flou d’arrière-plan."
+  ],
+  "Mwonekano wa rangi": [
+    "Colour accessibility",
+    "Accessibilité des couleurs"
+  ],
+  "Lebo na alama zinaendelea kueleza hali. Picha na nyaraka za kitabibu hazibadilishwi.": [
+    "Labels and icons retain their meaning. Images and clinical documents are unchanged.",
+    "Les libellés et icônes conservent leur sens. Les images et documents cliniques ne sont pas modifiés."
+  ],
+  "Rangi za kawaida": [
+    "Human Care standard",
+    "Human Care standard"
+  ],
+  "Rafiki kwa wekundu na kijani": [
+    "Red–green friendly",
+    "Adapté au rouge–vert"
+  ],
+  "Rafiki kwa bluu na manjano": [
+    "Blue–yellow friendly",
+    "Adapté au bleu–jaune"
+  ],
+  "Utofauti mkubwa wa rangi": [
+    "High contrast",
+    "Contraste élevé"
+  ],
+  "Your care, in one place.": [
+    "Your care, in one place.",
+    "Vos soins, au même endroit.",
+    "Huduma zako za afya, pamoja."
+  ],
+  "Continue your care": [
+    "Continue your care",
+    "Poursuivez vos soins",
+    "Endelea na matibabu"
+  ],
+  "Choose a service below to continue your care.": [
+    "Choose a service below to continue your care.",
+    "Choisissez un service ci-dessous pour poursuivre vos soins.",
+    "Chagua huduma hapa chini kuendelea na matibabu."
+  ],
+  "Settings": [
+    "Settings",
+    "Paramètres",
+    "Mipangilio"
+  ],
+  "Appointments and available clinicians.": [
+    "Appointments and available clinicians.",
+    "Rendez-vous et praticiens disponibles.",
+    "Miadi yako na madaktari wanaopatikana."
+  ],
+  "Your prescriptions, dose schedule and follow-up.": [
+    "Your prescriptions, dose schedule and follow-up.",
+    "Vos ordonnances, prises et suivi.",
+    "Dawa ulizoandikiwa, ratiba na ufuatiliaji."
+  ],
+  "Track lab orders and view released results.": [
+    "Track lab orders and view released results.",
+    "Suivez vos examens et consultez les résultats publiés.",
+    "Fuatilia vipimo na uone majibu yaliyotolewa."
+  ],
+  "Search facilities": [
+    "Search facilities",
+    "Rechercher un établissement",
+    "Tafuta kituo"
+  ],
+  "No facilities are available.": [
+    "No facilities are available.",
+    "Aucun établissement disponible.",
+    "Hakuna kituo kinachopatikana."
+  ],
+  "No matching facilities. Try another name or location.": [
+    "No matching facilities. Try another name or location.",
+    "Aucun résultat. Essayez un autre nom ou lieu.",
+    "Hakuna kituo kinacholingana. Jaribu jina au eneo lingine."
+  ],
+  "Facilities ({0})": [
+    "Facilities ({0})",
+    "Établissements ({0})",
+    "Vituo ({0})"
+  ],
+  "Select a facility to view its clinicians.": [
+    "Select a facility to view its clinicians.",
+    "Sélectionnez un établissement pour voir ses praticiens.",
+    "Chagua kituo kuona madaktari wake."
+  ],
+  "Search doctors or specialties": [
+    "Search doctors or specialties",
+    "Rechercher un médecin ou une spécialité",
+    "Tafuta daktari au taaluma"
+  ],
+  "No matching doctors. Try another search.": [
+    "No matching doctors. Try another search.",
+    "Aucun médecin trouvé. Essayez une autre recherche.",
+    "Hakuna daktari anayelingana. Jaribu kutafuta tena."
+  ],
+  "All": [
+    "All",
+    "Tous",
+    "Wote"
+  ],
+  "Date": [
+    "Date",
+    "Date",
+    "Tarehe"
+  ],
+  "Time": [
+    "Time",
+    "Heure",
+    "Muda"
+  ],
+  "Consultation": [
+    "Consultation",
+    "Consultation",
+    "Aina ya huduma"
+  ],
+  "Doctor": [
+    "Doctor",
+    "Médecin",
+    "Daktari"
+  ],
+  "Healthcare facility": [
+    "Healthcare facility",
+    "Établissement de santé",
+    "Kituo cha afya"
+  ],
+  "Researcher": [
+    "Researcher",
+    "Chercheur",
+    "Mtafiti"
+  ],
+  "Emergency responder": [
+    "Emergency responder",
+    "Intervenant d’urgence",
+    "Mhudumu wa dharura"
+  ],
+  "Full health history": [
+    "Full health history",
+    "Historique médical complet",
+    "Historia yote ya afya"
+  ],
+  "This care conversation only": [
+    "This care conversation only",
+    "Cette conversation de soins uniquement",
+    "Mazungumzo haya ya huduma pekee"
+  ],
+  "Medicines only": [
+    "Medicines only",
+    "Médicaments uniquement",
+    "Dawa pekee"
+  ],
+  "Tests and results only": [
+    "Tests and results only",
+    "Examens et résultats uniquement",
+    "Vipimo na majibu pekee"
+  ],
+  "Essential emergency information": [
+    "Essential emergency information",
+    "Informations essentielles d’urgence",
+    "Taarifa muhimu za dharura"
+  ],
+  "Clinical care": [
+    "Clinical care",
+    "Soins cliniques",
+    "Huduma za matibabu"
+  ],
+  "Staff conduct": [
+    "Staff conduct",
+    "Conduite du personnel",
+    "Mwenendo wa watumishi"
+  ],
+  "Medication error": [
+    "Medication error",
+    "Erreur médicamenteuse",
+    "Hitilafu ya dawa"
+  ],
+  "Delayed response": [
+    "Delayed response",
+    "Retard de réponse",
+    "Kuchelewa kwa huduma"
+  ],
+  "Data privacy": [
+    "Data privacy",
+    "Confidentialité des données",
+    "Faragha ya taarifa"
+  ],
+  "AI assistant error": [
+    "AI assistant error",
+    "Erreur de l’assistant IA",
+    "Hitilafu ya msaidizi wa AI"
+  ],
+  "Other": [
+    "Other",
+    "Autre",
+    "Nyingine"
   ]
 }

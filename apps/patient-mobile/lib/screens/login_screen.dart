@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -154,7 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     if (_loadingAccount) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const PatientScaffold(
+          body: Center(child: CircularProgressIndicator()));
     }
     final needsLink = _remembered == null && !widget.phoneSetup;
     return LoginShell(

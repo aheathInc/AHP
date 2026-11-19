@@ -1,10 +1,11 @@
+import 'brand_logo.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/theme.dart';
 import '../screens/app_settings_screen.dart';
 
-/// Reference-inspired composition using the existing A-Health palette.
+/// Patient sign-in with Human Care branding and accessible controls.
 class LoginShell extends StatelessWidget {
   const LoginShell(
       {super.key,
@@ -22,10 +23,8 @@ class LoginShell extends StatelessWidget {
     Localizations.localeOf(context);
     final palette = AppPalette.of(context);
     final base = Theme.of(context);
-    final shape =
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10));
     final border = OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(20),
         borderSide: BorderSide(color: palette.line));
     final theme = base.copyWith(
       colorScheme: base.colorScheme.copyWith(
@@ -47,8 +46,8 @@ class LoginShell extends StatelessWidget {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: palette.surface,
-        labelStyle: TextStyle(color: palette.inkSoft),
-        hintStyle: TextStyle(color: palette.inkSoft),
+        labelStyle: TextStyle(fontFamily: 'OpenSans', color: palette.inkSoft),
+        hintStyle: TextStyle(fontFamily: 'OpenSans', color: palette.inkSoft),
         prefixIconColor: palette.petrol,
         suffixIconColor: palette.petrol,
         contentPadding:
@@ -63,14 +62,16 @@ class LoginShell extends StatelessWidget {
         backgroundColor: palette.action,
         foregroundColor: palette.onAction,
         minimumSize: const Size.fromHeight(52),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        shape: shape,
+        textStyle: const TextStyle(
+            fontFamily: 'OpenSans', fontSize: 16, fontWeight: FontWeight.w700),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       )),
       textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
         foregroundColor: palette.petrol,
         minimumSize: const Size(48, 48),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        textStyle: const TextStyle(
+            fontFamily: 'OpenSans', fontSize: 15, fontWeight: FontWeight.w600),
       )),
     );
     return Theme(
@@ -117,27 +118,9 @@ class LoginShell extends StatelessWidget {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.stretch,
                                             children: [
-                                              Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                        Icons
-                                                            .health_and_safety_outlined,
-                                                        color: palette.petrol,
-                                                        size: 36),
-                                                    const SizedBox(width: 8),
-                                                    Flexible(
-                                                        child: Text('A-Health',
-                                                            style: TextStyle(
-                                                                fontSize: 26,
-                                                                height: 1.2,
-                                                                color: palette
-                                                                    .petrol,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w800))),
-                                                  ]),
+                                              const Center(
+                                                  child: BrandLogo(
+                                                      width: 190, height: 54)),
                                               const SizedBox(height: 28),
                                               contentBuilder(context),
                                               const SizedBox(height: 24),
@@ -149,6 +132,7 @@ class LoginShell extends StatelessWidget {
                                               Text('A-Health',
                                                   textAlign: TextAlign.center,
                                                   style: TextStyle(
+                                                      fontFamily: 'OpenSans',
                                                       color: palette.inkSoft,
                                                       fontSize: 13,
                                                       fontWeight:
@@ -161,77 +145,52 @@ class LoginShell extends StatelessWidget {
   }
 
   Widget _header(BuildContext context, AppPalette palette) => DecoratedBox(
-        decoration: BoxDecoration(
-            gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [palette.heroMiddle, palette.heroStart])),
-        child: CustomPaint(
-            painter: _HeaderWave(),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(showBack ? 12 : 26, 14, 26, 28),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      if (showBack)
-                        BackButton(
-                            color: Colors.white,
-                            onPressed: () => Navigator.of(context).maybePop()),
-                      const Icon(Icons.health_and_safety_outlined,
-                          color: Colors.white, size: 22),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                          child: Text('A-Health',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700))),
-                      IconButton(
-                          tooltip: L.tr('Lugha na mwonekano'),
-                          color: Colors.white,
-                          icon: const Icon(Icons.language_rounded),
-                          onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                  builder: (_) => const AppSettingsScreen()))),
-                      const Icon(Icons.lock_outline_rounded,
-                          color: Colors.white, size: 20),
-                    ]),
-                    const SizedBox(height: 26),
-                    Padding(
-                        padding: EdgeInsets.only(left: showBack ? 14 : 0),
-                        child: Text(L.tr(title),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                height: 1.2,
-                                fontWeight: FontWeight.w700))),
-                    const SizedBox(height: 10),
-                    Container(
-                        margin: EdgeInsets.only(left: showBack ? 14 : 0),
-                        width: 38,
-                        height: 3,
-                        decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(2))),
-                  ]),
-            )),
+        decoration: BoxDecoration(color: palette.deepOcean),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(showBack ? 12 : 26, 14, 26, 28),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              if (showBack)
+                BackButton(
+                    color: Colors.white,
+                    onPressed: () => Navigator.of(context).maybePop()),
+              const Expanded(
+                  child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: BrandLogo(
+                          white: true,
+                          symbolOnly: true,
+                          width: 40,
+                          height: 40))),
+              IconButton(
+                  tooltip: L.tr('Lugha na mwonekano'),
+                  color: Colors.white,
+                  icon: const Icon(Icons.language_rounded),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const AppSettingsScreen()))),
+              const Icon(Icons.lock_outline_rounded,
+                  color: Colors.white, size: 20),
+            ]),
+            const SizedBox(height: 26),
+            Padding(
+                padding: EdgeInsets.only(left: showBack ? 14 : 0),
+                child: Text(L.tr(title),
+                    style: const TextStyle(
+                        fontFamily: 'OpenSans',
+                        color: Colors.white,
+                        fontSize: 28,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700))),
+            const SizedBox(height: 10),
+            Container(
+                margin: EdgeInsets.only(left: showBack ? 14 : 0),
+                width: 38,
+                height: 3,
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(2))),
+          ]),
+        ),
       );
-}
-
-class _HeaderWave extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width * .55, 0)
-      ..cubicTo(size.width * .82, size.height * .16, size.width * .6,
-          size.height * .82, size.width, size.height * .7)
-      ..lineTo(size.width, 0)
-      ..close();
-    canvas.drawPath(
-        path, Paint()..color = Colors.white.withValues(alpha: .045));
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeaderWave oldDelegate) => false;
 }

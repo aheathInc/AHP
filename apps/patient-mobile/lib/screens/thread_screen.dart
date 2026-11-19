@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'patient_community_screen.dart' show emergency;
 import 'dart:async';
@@ -182,7 +183,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(
         title: Text(L.tr(widget.title),
             maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -251,7 +252,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                         ? L.tr('Live chat imeunganishwa')
                         : L.tr(
                             'Inaunganisha live chat. Ujumbe unasasishwa kiotomatiki.'),
-                    style: const TextStyle(color: AppColors.inkSoft))),
+                    style: TextStyle(color: AppPalette.of(context).inkSoft))),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(12),
@@ -281,15 +282,18 @@ class _ThreadScreenState extends State<ThreadScreen> {
                               horizontal: 14,
                               vertical: 10,
                             ),
-                            color:
-                                mine ? AppColors.petrol : AppColors.paperSunk,
+                            color: mine
+                                ? AppPalette.of(context).petrol
+                                : AppPalette.of(context).paperSunk,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   (m['body'] as String?) ?? '',
                                   style: TextStyle(
-                                    color: mine ? Colors.white : AppColors.ink,
+                                    color: mine
+                                        ? Colors.white
+                                        : AppPalette.of(context).ink,
                                     fontSize: 16,
                                   ),
                                 ),
@@ -301,7 +305,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                       fontSize: 12,
                                       color: mine
                                           ? const Color(0xCCFFFFFF)
-                                          : AppColors.inkSoft,
+                                          : AppPalette.of(context).inkSoft,
                                     ),
                                   ),
                                 ],
@@ -314,8 +318,9 @@ class _ThreadScreenState extends State<ThreadScreen> {
             ),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: AppColors.line)),
+              decoration: BoxDecoration(
+                border:
+                    Border(top: BorderSide(color: AppPalette.of(context).line)),
               ),
               child: Row(
                 children: [

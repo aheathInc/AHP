@@ -1,3 +1,5 @@
+import '../core/patient_labels.dart';
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -231,7 +233,7 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Faragha na ruhusa'))),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -266,11 +268,13 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
             const SizedBox(height: 24),
             SectionTitle(L.tr('Toa ruhusa mpya')),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _grantee,
               decoration: InputDecoration(labelText: L.tr('Aina ya mpokeaji')),
               items: [
                 for (final item in _granteeTypes)
-                  DropdownMenuItem(value: item, child: Text(item)),
+                  DropdownMenuItem(
+                      value: item, child: Text(patientOptionLabel(item))),
               ],
               onChanged: _busy
                   ? null
@@ -282,6 +286,7 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
                   _scope == 'current_thread' &&
                   _facilities.isNotEmpty)
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   initialValue:
                       _facilities.any((row) => row['id'] == _recipientId.text)
                           ? _recipientId.text
@@ -310,13 +315,15 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
             ],
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _scope,
               decoration: InputDecoration(
                 labelText: L.tr('Wigo unaoungwa mkono'),
               ),
               items: [
                 for (final item in _consentScopes)
-                  DropdownMenuItem(value: item, child: Text(item)),
+                  DropdownMenuItem(
+                      value: item, child: Text(patientOptionLabel(item))),
               ],
               onChanged: _busy
                   ? null
@@ -325,6 +332,7 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
             const SizedBox(height: 10),
             if (_scope == 'current_thread' && _patientConsultations.isNotEmpty)
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _threadOptions
                         .any((row) => row['care_thread_id'] == _threadId.text)
                     ? _threadId.text
@@ -411,8 +419,7 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
     final status = row['status'] as String? ?? 'unknown';
     final recipient = row['grantee_clinician_id'] ??
         row['grantee_facility_id'] ??
-        row['grantee_type'] ??
-        '—';
+        patientOptionLabel(row['grantee_type'] as String? ?? '—');
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Panel(
@@ -420,7 +427,8 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(L.tr("Mpokeaji: {0}", [recipient])),
-            Text(L.tr("Wigo: {0}", [row['scope']])),
+            Text(L.tr("Wigo: {0}",
+                [patientOptionLabel(row['scope'] as String? ?? '—')])),
             Text(L.tr("Sababu: {0}", [row['reason'] ?? 'haikutajwa'])),
             Text(L.tr("Hali: {0}", [status])),
             Text(L.tr("Ilitolewa: {0}", [_date(row['granted_at'])])),
@@ -458,7 +466,9 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
           children: [
             Text(L.tr(title), style: Theme.of(context).textTheme.titleSmall),
             Text(L.tr("Muda: {0}", [_date(row['occurred_at'])])),
-            if (row['scope'] is String) Text(L.tr("Wigo: {0}", [row['scope']])),
+            if (row['scope'] is String)
+              Text(L.tr("Wigo: {0}",
+                  [patientOptionLabel(row['scope'] as String? ?? '—')])),
             if (row['grantee_type'] is String)
               Text(L.tr("Aina ya mpokeaji: {0}", [row['grantee_type']])),
           ],

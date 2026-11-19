@@ -1,3 +1,5 @@
+import '../core/theme.dart';
+import '../widgets/patient_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/api.dart';
@@ -241,7 +243,7 @@ class _AppointmentRescheduleScreenState
   @override
   Widget build(BuildContext context) => PopScope(
       canPop: !_busy,
-      child: Scaffold(
+      child: PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Badilisha muda wa miadi'))),
         body: ListView(padding: const EdgeInsets.all(20), children: [
           if (_error != null) ...[Notice(_error!), const SizedBox(height: 12)],
@@ -269,6 +271,14 @@ class _AppointmentRescheduleScreenState
               checked: selected,
               inMutuallyExclusiveGroup: true,
               child: ListTile(
+                tileColor: AppPalette.of(context).surface,
+                selectedTileColor: AppPalette.of(context).mintWash,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                        color: selected
+                            ? AppPalette.of(context).petrol
+                            : AppPalette.of(context).line)),
                 selected: selected,
                 enabled: enabled,
                 leading: Icon(selected

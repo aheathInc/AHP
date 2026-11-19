@@ -269,8 +269,9 @@ class _ConsultationCallScreenState extends State<ConsultationCallScreen>
               onPressed: action,
               style: IconButton.styleFrom(
                   minimumSize: const Size(52, 52),
-                  backgroundColor:
-                      danger ? AppColors.clay : AppPalette.dark.paperSunk,
+                  backgroundColor: danger
+                      ? AppPalette.of(context).clay
+                      : AppPalette.dark.paperSunk,
                   foregroundColor: Colors.white),
               icon: Icon(icon)),
           const SizedBox(height: 4),

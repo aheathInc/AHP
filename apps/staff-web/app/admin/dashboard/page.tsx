@@ -1,68 +1,283 @@
-import Link from 'next/link';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { PageHeader, Card, PageShell } from '@/components/ui';
-import { MetricBars } from '@/components/premium/MetricBars';
-import { Icon } from '@/components/premium/Icon';
-import { serverGet } from '@/lib/serverToken';
-import type { ClinicianDirectoryEntry, Device, EmergencyRequest, Facility, IncidentReport, Page, Payment } from '@/lib/api';
-import { RegionalInsights } from '@/components/admin/RegionalInsights';
-import { requireRole } from '@/lib/roles';
-
-function Stat({ label, value, href }: { label: string; value: number | string; href: string }) {
-  return (
-    <Link href={href} className="ahp-stat">
-      <span className="ahp-stat-label">{label}</span>
-      <strong className="ahp-stat-value">{value}</strong><small className="ahp-stat-note">{value==='Unavailable'?'Source did not respond':'Within returned records'}</small>
-    </Link>
-  );
-}
+import Link from "next/link";
+import { PageHeader, PageShell, Badge } from "@/components/ui";
+import { Icon } from "@/components/premium/Icon";
+import { serverGet } from "@/lib/serverToken";
+import { requireRole } from "@/lib/roles";
+import {
+  AdminSourceError,
+  WorkspaceRefresh,
+} from "@/components/admin/WorkspaceRefresh";
+import {
+  adminNumber,
+  waitingSince,
+  type OperationsOverview,
+} from "@/components/admin/operationsTypes";
+import styles from "@/components/admin/operations.module.css";
 
 export default async function AdminDashboard() {
-  await requireRole(['platform_admin']);
-  const [emergencies, verifications, payments, devices, facilities, incidents, session] = await Promise.all([
-    serverGet<Page<EmergencyRequest>>('/emergency-requests?limit=20'),
-    serverGet<Page<ClinicianDirectoryEntry>>('/clinicians?verification_status=pending&limit=20'),
-    serverGet<Page<Payment>>('/payments?limit=20'),
-    serverGet<{ data: Device[] }>('/devices'),
-    serverGet<Page<Facility>>('/facilities?limit=20'),
-    serverGet<Page<IncidentReport>>('/incident-reports?limit=20'),
-    getServerSession(authOptions),
-  ]);
-
-  const openEmergencies = emergencies?.data?.filter((e) => e.status !== 'resolved' && e.status !== 'cancelled').length ?? 0;
-  const pendingVerifications = verifications?.data?.filter((v) => v.verification_status === 'pending').length ?? 0;
-  const activeDevices = devices?.data?.filter((d) => d.status !== 'revoked').length ?? 0;
-  const openIncidents = incidents?.data?.filter((i) => i.status !== 'closed').length ?? 0;
-
+  await requireRole(["platform_admin"]);
+  const report = await serverGet<OperationsOverview>(
+    "/surveillance/operations-overview",
+  );
+  const counts = report?.counts;
+  const queues = report
+    ? [
+        {
+          title: "Emergency acknowledgement",
+          detail: "Requests awaiting a dispatcher acknowledgement",
+          count: report.counts.unacknowledged_emergencies,
+          oldest: report.oldest.unacknowledged_emergency_at,
+          href: "/admin/emergency",
+          action: "Open dispatch",
+          icon: "activity",
+          critical: true,
+        },
+        {
+          title: "Escalated incidents",
+          detail: "Governance reports requiring investigation or follow-up",
+          count: report.counts.escalated_incidents,
+          oldest: report.oldest.escalated_incident_at,
+          href: "/admin/incidents?status=open",
+          action: "Review incidents",
+          icon: "alert",
+          critical: true,
+        },
+        {
+          title: "Clinician applications",
+          detail: "Credentials awaiting an administrator decision",
+          count: report.counts.pending_verifications,
+          oldest: report.oldest.pending_verification_at,
+          href: "/admin/verification",
+          action: "Review credentials",
+          icon: "shield",
+          critical: false,
+        },
+      ]
+    : [];
   return (
-    <PageShell>
-      <PageHeader title="Health & Regional Insights" lede="Explore diseases, reported cases and monthly trends in each recorded region and district." />
-
-      <RegionalInsights />
-
-      <section className="ahp-stat-grid">
-        <Stat label="Open emergencies" value={emergencies ? openEmergencies : 'Unavailable'} href="/admin/emergency" />
-        <Stat label="Pending verifications" value={verifications ? pendingVerifications : 'Unavailable'} href="/admin/verification" />
-        <Stat label="Active devices" value={devices ? activeDevices : 'Unavailable'} href="/admin/devices" />
-        <Stat label="Open incidents" value={incidents ? openIncidents : 'Unavailable'} href="/admin/incidents" />
+    <PageShell className={styles.workspace}>
+      <PageHeader
+        title="Platform overview"
+        lede="Prioritize care operations, review credentials and follow through on governance work."
+        action={<WorkspaceRefresh automatic />}
+      />
+      {report ? (
+        <div className={styles.snapshot}>
+          <p>Platform-wide operational records</p>
+          <p>
+            <Badge
+              tone={
+                report.environment === "production" ? "neutral" : "attention"
+              }
+            >
+              {report.environment === "production"
+                ? "Production"
+                : "Development environment"}
+            </Badge>{" "}
+            · Updated{" "}
+            <time dateTime={report.generated_at}>
+              {new Intl.DateTimeFormat("en-GB", {
+                timeZone: "Africa/Dar_es_Salaam",
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(report.generated_at))}
+            </time>{" "}
+            EAT
+          </p>
+        </div>
+      ) : (
+        <AdminSourceError title="Operational overview is unavailable">
+          The operational records service could not be reached. Refresh this
+          view or open the relevant workspace below.
+        </AdminSourceError>
+      )}
+      <section
+        className={styles.prioritySection}
+        aria-labelledby="priority-queues"
+      >
+        <div className={styles.panelHeading}>
+          <div>
+            <h2 id="priority-queues">Priority queues</h2>
+            <p>
+              Open the relevant workspace to review the record and take action.
+            </p>
+          </div>
+          <Link href="/admin/incidents">All incident reports →</Link>
+        </div>
+        {report && (
+          <>
+            <div className={styles.queueGrid}>
+              {queues.map((q) => (
+                <article className={styles.queueCard} key={q.href}>
+                  <div className={styles.queueTitle}>
+                    <span className={styles.queueIcon}>
+                      <Icon name={q.icon} size={23} />
+                    </span>
+                    <h3>{q.title}</h3>
+                  </div>
+                  <p>{q.detail}</p>
+                  <div className={styles.queueCount}>
+                    <strong>{adminNumber(q.count)}</strong>
+                    <span>awaiting action</span>
+                    {q.count > 0 && (
+                      <Badge tone={q.critical ? "problem" : "attention"}>
+                        Needs review
+                      </Badge>
+                    )}
+                  </div>
+                  <div className={styles.queueWait}>
+                    <span>Oldest waiting</span>
+                    <strong>
+                      {q.count
+                        ? waitingSince(q.oldest, report.generated_at)
+                        : "No waiting records"}
+                    </strong>
+                  </div>
+                  <Link href={q.href}>
+                    {q.action}
+                    <Icon name="chevron" size={18} />
+                  </Link>
+                </article>
+              ))}
+            </div>
+            <p className={styles.queueScope}>
+              Counts cover all matching platform records. Waiting time is
+              measured from the oldest open record.
+            </p>
+          </>
+        )}
+        {!report && (
+          <ul className={styles.links}>
+            {[
+              { href: "/admin/emergency", label: "Emergency dispatch" },
+              { href: "/admin/incidents", label: "Incident reports" },
+              { href: "/admin/verification", label: "Clinician verification" },
+            ].map((x) => (
+              <li key={x.href}>
+                <Link href={x.href}>
+                  <span>{x.label}</span>
+                  <Icon name="chevron" size={16} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
-
-      <section className="ahp-bento">
-        <Card><div className="ahp-section-heading"><h2>Care operations</h2><span className="ahp-caption">Choose your next action</span></div>
-          {[
-            {href:'/admin/verification',icon:'shield',title:'Clinician verification',description:verifications ? `${pendingVerifications} pending in returned records`:'Verification service unavailable'},
-            {href:'/admin/facilities',icon:'building',title:'Healthcare facilities',description:facilities ? `${facilities.data.length} facilities in the current page`:'Facilities service unavailable'},
-            {href:'/admin/payments',icon:'credit',title:'Payment records',description:payments ? `${payments.data.length} recent records · not a settlement total`:'Payment service unavailable'},
-          ].map(x=><Link key={x.href} href={x.href} className="ahp-resource-link"><span><Icon name={x.icon}/></span><div><strong>{x.title}</strong><small>{x.description}</small></div><Icon name="chevron" size={16}/></Link>)}
-        </Card>
-        <Card><div className="ahp-section-heading"><h2>Connected & accountable</h2></div>
-          {session?.user?.role === 'platform_admin' && <Link className="ahp-resource-link" href="/admin/interoperability"><span><Icon name="network"/></span><div><strong>External health systems</strong><small>Registry and identity review</small></div><Icon name="chevron" size={16}/></Link>}
-          <Link className="ahp-resource-link" href="/admin/audit-ledger"><span><Icon name="history"/></span><div><strong>Audit ledger</strong><small>Inspect events and verify integrity</small></div><Icon name="chevron" size={16}/></Link>
-          <div className="ahp-section-heading ahp-mt"><h2>Queues requiring attention</h2></div><MetricBars rows={[{label:'Emergency requests',value:emergencies?openEmergencies:null},{label:'Clinician verification',value:verifications?pendingVerifications:null},{label:'Open incidents',value:incidents?openIncidents:null}]} caption="Counts within returned records; not facility-wide totals."/>
-          <p className="ahp-caption">Metrics reflect the records returned by each service, not hospital-wide totals. Unavailable sources are never shown as zero.</p>
-        </Card>
-      </section>
+      <div className={styles.lower}>
+        <section className={styles.panel} aria-labelledby="service-coverage">
+          <div className={styles.panelHeading}>
+            <div>
+              <h2 id="service-coverage">Service coverage</h2>
+              <p>Recorded capacity and activity across the platform.</p>
+            </div>
+          </div>
+          <dl className={styles.coverage}>
+            {[
+              {
+                label: "Registered facilities",
+                value: counts?.facilities,
+                href: "/admin/facilities",
+              },
+              {
+                label: "Active devices",
+                value: counts?.active_devices,
+                href: "/admin/devices",
+              },
+              {
+                label: "Open emergency requests",
+                value: counts?.open_emergencies,
+                href: "/admin/emergency",
+              },
+              {
+                label: "Open incident reports",
+                value: counts?.open_incidents,
+                href: "/admin/incidents?status=open",
+              },
+            ].map((x) => (
+              <div key={x.label}>
+                <dt>{x.label}</dt>
+                <dd>
+                  <Link
+                    href={x.href}
+                    aria-label={`${x.label}: ${x.value === undefined ? "unavailable" : adminNumber(x.value)}`}
+                  >
+                    {x.value === undefined
+                      ? "Unavailable"
+                      : adminNumber(x.value)}
+                  </Link>
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <div className={styles.listHeading}>
+            <span>Failed payment attempts · last 24 hours</span>
+            <Link href="/admin/payments">
+              {counts ? adminNumber(counts.failed_payments_24h) : "Unavailable"}{" "}
+              · Review →
+            </Link>
+          </div>
+          <p className="px-6 pb-4 text-sm">
+            Payment attempts include recorded test and live environments. This
+            is not a settlement balance.
+          </p>
+        </section>
+        <section className={styles.panel} aria-labelledby="governance-tools">
+          <div className={styles.panelHeading}>
+            <div>
+              <h2 id="governance-tools">Governance & administration</h2>
+              <p>
+                Review accountability, connected systems and platform
+                performance.
+              </p>
+            </div>
+          </div>
+          <ul className={styles.links}>
+            {[
+              {
+                href: "/admin/audit-ledger",
+                title: "Audit ledger",
+                detail: "Review recorded actions and verify ledger integrity",
+                icon: "history",
+              },
+              {
+                href: "/admin/professional-network",
+                title: "Professional network moderation",
+                detail: "Review reports and community governance decisions",
+                icon: "shield",
+              },
+              {
+                href: "/admin/interoperability",
+                title: "Connected health systems",
+                detail: "Review integration registry and identity exceptions",
+                icon: "network",
+              },
+              {
+                href: "/admin/insights",
+                title: "Health & regional insights",
+                detail: "Explore published aggregates and disease trends",
+                icon: "chart",
+              },
+              {
+                href: "/admin/settings",
+                title: "Account settings",
+                detail: "Manage your profile and account preferences",
+                icon: "settings",
+              },
+            ].map((x) => (
+              <li key={x.href}>
+                <Link href={x.href}>
+                  <Icon name={x.icon} size={20} />
+                  <span>
+                    <strong>{x.title}</strong>
+                    <small>{x.detail}</small>
+                  </span>
+                  <Icon name="chevron" size={16} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
     </PageShell>
   );
 }

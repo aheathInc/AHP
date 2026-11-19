@@ -298,6 +298,7 @@ enum NotificationStatus {
 // ---------------------------------------------------------------------------
 
 model User {
+  researchSavedCohorts ResearchSavedCohort[]
   onboardingRequired Boolean @default(false) @map("onboarding_required")
   enrollment PatientEnrollment?
   careChatConsents       CareChatConsent[]     @relation("ChatConsentActor")
@@ -3673,6 +3674,7 @@ model ResearcherApplication {
 }
 
 model ResearchStudy {
+  savedCohorts ResearchSavedCohort[]
   relatedResearchOutputRequest_studyId ResearchOutputRequest[] @relation("ResearchOutputRequest_studyId")
   relatedResearchResponseSnapshot_studyId ResearchResponseSnapshot[] @relation("ResearchResponseSnapshot_studyId")
   relatedResearchEvidence_studyId ResearchEvidence[] @relation("ResearchEvidence_studyId")
@@ -3791,6 +3793,7 @@ model ResearchStagedEvent {
 }
 
 model ResearchRelease {
+  savedCohorts ResearchSavedCohort[]
   relatedResearchOmopBuild_releaseId ResearchOmopBuild[] @relation("ResearchOmopBuild_releaseId")
   relatedResearchStudy_releaseId ResearchStudy[] @relation("ResearchStudy_releaseId")
   relatedResearchExportRequest_releaseId ResearchExportRequest[] @relation("ResearchExportRequest_releaseId")
@@ -4301,4 +4304,24 @@ model AfpeDelivery {
   createdAt DateTime @default(now()) @map("created_at")
   @@index([status, nextAttemptAt])
   @@map("afpe_deliveries")
+}
+
+/// Saved definitions contain approved aggregate filters, never query results or patient rows.
+model ResearchSavedCohort {
+  id String @id @default(uuid()) @db.Uuid
+  studyId String @map("study_id") @db.Uuid
+  ownerId String @map("owner_id") @db.Uuid
+  releaseId String @map("release_id") @db.Uuid
+  name String @db.VarChar(120)
+  filters Json
+  status String @default("active") @db.VarChar(20)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Restrict)
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  release ResearchRelease @relation(fields: [releaseId], references: [id], onDelete: Restrict)
+  @@unique([studyId, name])
+  @@index([ownerId, studyId, status])
+  @@map("research_saved_cohorts")
 }

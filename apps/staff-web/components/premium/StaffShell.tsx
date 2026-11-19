@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Keyb
 import { activeHref, navigationFor, roleLabel, type NavigationGroup } from '@/lib/premium/navigation';
 import { DisplayPreferences } from './DisplayPreferences';
 import { Icon } from './Icon';
-import { BrandMark } from './BrandMark';
+import { BrandLogo } from './BrandLogo';
 
 // Native modal semantics provide background inertness; wrap boundary tab stops
 // explicitly so keyboard focus does not move to browser chrome in Chromium.
@@ -20,7 +20,7 @@ function modalKeys(event: ReactKeyboardEvent<HTMLDialogElement>, close: () => vo
  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
 
-function Brand() { return <Link href="/" className="ahp-brand" aria-label="A-Health home"><span className="ahp-brand-mark"><BrandMark/></span><span className="ahp-brand-name">A-Health</span></Link>; }
+function Brand() { return <Link href="/" className="ahp-brand" aria-label="A-Health home"><BrandLogo/></Link>; }
 function Navigation({groups,path,collapsed,onNavigate}:{groups:NavigationGroup[];path:string;collapsed:boolean;onNavigate?:()=>void}) {
  return <nav aria-label="Staff navigation" className="ahp-nav">{groups.map((group,i)=>
   <details className="ahp-nav-group" key={group.label} open={i===0||group.items.some(x=>activeHref(path,x.href))||collapsed}>
@@ -48,8 +48,8 @@ export function StaffShell({children}:{children:ReactNode}) {
   <div className="ahp-main-column"><header className="ahp-topbar">
    <button type="button" ref={menuTrigger} disabled={!hydrated} className="ahp-icon-button ahp-mobile-trigger" aria-label="Open navigation" aria-haspopup="dialog" aria-controls="ahp-mobile-navigation" onClick={()=>{drawer.current?.showModal();closeButton.current?.focus();}}><Icon name="menu"/></button>
    <button type="button" ref={searchTrigger} disabled={!hydrated} className="ahp-search-trigger" aria-haspopup="dialog" onClick={()=>{setQuery('');search.current?.showModal();searchInput.current?.focus();}}><Icon name="search" size={18}/><span>Search workspaces…</span><kbd>Ctrl K</kbd></button>
-   <div className="ahp-topbar-right"><DisplayPreferences/><span className="ahp-user-role">{roleLabel(role)}</span><div className="ahp-user" title={session?.user?.email??roleLabel(role)}><span className="ahp-user-avatar" aria-hidden="true">{(session?.user?.name??session?.user?.email??'A').trim().slice(0,2).toUpperCase()}</span><span className="ahp-user-name">{session?.user?.name??'Your workspace'}</span></div></div>
-  </header><main tabIndex={-1} id="main-content" className="ahp-main">{children}</main><footer className="ahp-page-footer"><span>A-Health <span aria-hidden="true">·</span> Connected care</span><span>People. Care. Connect.</span></footer></div>
+   <div className="ahp-topbar-right"><DisplayPreferences/><span className="ahp-user-role">{roleLabel(role)}</span><div className="ahp-user" title={session?.user?.email??roleLabel(role)}><span className="ahp-user-avatar" aria-hidden="true">{(session?.user?.name??session?.user?.email??'A').trim().slice(0,2).toUpperCase()}</span><span className="ahp-user-name">{session?.user?.name??session?.user?.email?.split('@')[0]??'Your workspace'}</span></div></div>
+  </header><main tabIndex={-1} id="main-content" className="ahp-main">{children}</main><footer className="ahp-page-footer"><span>A-Health <span aria-hidden="true">·</span> Connected care</span><span>Connecting Healthcare. Empowering Lives.</span></footer></div>
   <dialog ref={drawer} id="ahp-mobile-navigation" className="ahp-mobile-drawer" aria-label="Staff navigation" onCancel={event=>{event.preventDefault();closeDrawer();}} onKeyDown={event=>modalKeys(event,closeDrawer)} onClose={()=>menuTrigger.current?.focus()} onClick={e=>{if(e.target===e.currentTarget){const b=e.currentTarget.getBoundingClientRect();if(e.clientX<b.left||e.clientX>b.right||e.clientY<b.top||e.clientY>b.bottom)closeDrawer();}}}>
    <div className="ahp-sidebar-brand"><Brand/><button ref={closeButton} type="button" className="ahp-icon-button" onClick={closeDrawer} aria-label="Close navigation"><Icon name="close"/></button></div><p className="ahp-role-label">{roleLabel(role)}</p><Navigation groups={groups} path={pathname} collapsed={false} onNavigate={closeDrawer}/><button className="ahp-mobile-logout" type="button" disabled={busy} onClick={()=>void logout()}><Icon name="logout" size={18}/>Sign out</button>{error&&<p role="alert">{error}</p>}
   </dialog>

@@ -52,6 +52,7 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   if (
     PUBLIC.some((prefix) => path.startsWith(prefix)) ||
+    ["/brand", "/fonts", "/design"].some((root) => within(path, root)) ||
     path.startsWith("/_next")
   )
     return NextResponse.next();

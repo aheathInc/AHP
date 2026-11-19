@@ -1,4 +1,4 @@
-import { prisma } from '@a-health/database';
+import { prisma } from "@a-health/database";
 import {
   appendAudit,
   conflict,
@@ -7,7 +7,7 @@ import {
   forbidden,
   notFound,
   unprocessable,
-} from '@a-health/http';
+} from "@a-health/http";
 
 export interface RequestMeta {
   ip?: string | null;
@@ -29,7 +29,11 @@ function serialise(c: {
   ratingAvg: unknown;
   version: number;
   updatedAt: Date;
-  user?: { fullName: string | null; email: string | null; status: string } | null;
+  user?: {
+    fullName: string | null;
+    email: string | null;
+    status: string;
+  } | null;
   departmentId?: string | null;
   department?: { name: string } | null;
 }) {
@@ -51,7 +55,11 @@ function serialise(c: {
     version: c.version,
     updated_at: c.updatedAt.toISOString(),
     ...(c.user
-      ? { full_name: c.user.fullName, email: c.user.email, account_status: c.user.status }
+      ? {
+          full_name: c.user.fullName,
+          email: c.user.email,
+          account_status: c.user.status,
+        }
       : {}),
   };
 }
@@ -62,61 +70,107 @@ function serialise(c: {
  * The contract described how to approve a licence but gave no way to find the
  * ones waiting, which made the approval endpoint unusable in practice.
  */
-export async function listClinicians(query: {
-  facility_id?: string;
-  verification_status?: string;
-  specialty?: string;
-  is_available?: boolean;
-  cursor?: string;
-  limit: number;
-}, caller: { role: string }) {
-  const isAdmin = caller.role === 'platform_admin';
+export async function listClinicians(
+  query: {
+    q?: string;
+    facility_id?: string;
+    verification_status?: string;
+    specialty?: string;
+    is_available?: boolean;
+    cursor?: string;
+    limit: number;
+  },
+  caller: { role: string },
+) {
+  const isAdmin = caller.role === "platform_admin";
   const rows = await prisma.clinicianProfile.findMany({
     where: {
-      ...(!isAdmin ? { verificationStatus: 'verified', user: { status: 'active' } } : {}),
+      ...(!isAdmin
+        ? { verificationStatus: "verified", user: { status: "active" } }
+        : {}),
+      ...(query.q
+        ? {
+            OR: [
+              ...(isAdmin
+                ? [
+                    {
+                      licenseNumber: {
+                        contains: query.q,
+                        mode: "insensitive" as const,
+                      },
+                    },
+                  ]
+                : []),
+              {
+                user: {
+                  fullName: { contains: query.q, mode: "insensitive" as const },
+                },
+              },
+            ],
+          }
+        : {}),
       ...(query.facility_id ? { facilityId: query.facility_id } : {}),
-      ...(query.verification_status
+      ...(isAdmin && query.verification_status
         ? { verificationStatus: query.verification_status as never }
         : {}),
       ...(query.specialty ? { specialty: query.specialty as never } : {}),
-      ...(query.is_available !== undefined ? { isAvailable: query.is_available } : {}),
+      ...(query.is_available !== undefined
+        ? { isAvailable: query.is_available }
+        : {}),
     },
-    include: { user: { select: { fullName: true, email: true, status: true } } },
-    orderBy: { createdAt: 'asc' },
+    include: {
+      user: { select: { fullName: true, email: true, status: true } },
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     ...cursorArgs(query.cursor, query.limit),
   });
   const hasMore = rows.length > query.limit;
   const pageRows = hasMore ? rows.slice(0, query.limit) : rows;
-  const data = await Promise.all(pageRows.map(async (row) => {
-    const [assigned, offered] = await Promise.all([
-      prisma.consultationRequest.count({
-        where: { assignedClinicianId: row.id, status: { in: ['matched', 'in_progress'] } },
-      }),
-      prisma.consultationOffer.count({
-        where: { clinicianId: row.id, status: 'offered', expiresAt: { gt: new Date() } },
-      }),
-    ]);
-    const status = row.user.status !== 'active' || row.verificationStatus !== 'verified'
-      ? 'off_duty'
-      : row.isAvailable && row.currentLoad < 5
-        ? 'available'
-        : 'busy';
-    return {
-      id: row.id,
-      full_name: row.user.fullName,
-      specialty: row.specialty,
-      status,
-      queue_count: assigned + offered,
-      ...(isAdmin
-        ? {
-            license_number: row.licenseNumber,
-            verification_status: row.verificationStatus,
-            facility_id: row.facilityId,
-            is_available: row.isAvailable,
-          }
-        : {}),
-    };
-  }));
+  const data = await Promise.all(
+    pageRows.map(async (row) => {
+      const [assigned, offered] = await Promise.all([
+        prisma.consultationRequest.count({
+          where: {
+            assignedClinicianId: row.id,
+            status: { in: ["matched", "in_progress"] },
+          },
+        }),
+        prisma.consultationOffer.count({
+          where: {
+            clinicianId: row.id,
+            status: "offered",
+            expiresAt: { gt: new Date() },
+          },
+        }),
+      ]);
+      const status =
+        row.user.status !== "active" || row.verificationStatus !== "verified"
+          ? "off_duty"
+          : row.isAvailable && row.currentLoad < 5
+            ? "available"
+            : "busy";
+      return {
+        id: row.id,
+        full_name: row.user.fullName,
+        specialty: row.specialty,
+        status,
+        queue_count: assigned + offered,
+        ...(isAdmin
+          ? {
+              email: row.user.email,
+              account_status: row.user.status,
+              version: row.version,
+              updated_at: row.updatedAt.toISOString(),
+              rejection_reason: row.rejectionReason,
+              license_number: row.licenseNumber,
+              verification_status: row.verificationStatus,
+              facility_id: row.facilityId,
+              is_available: row.isAvailable,
+            }
+          : {}),
+      };
+    }),
+  );
   const last = pageRows[pageRows.length - 1];
   return {
     data,
@@ -127,7 +181,10 @@ export async function listClinicians(query: {
   };
 }
 
-export async function getClinician(clinicianId: string, caller: { sub: string; role: string }) {
+export async function getClinician(
+  clinicianId: string,
+  caller: { sub: string; role: string },
+) {
   const clinician = await prisma.clinicianProfile.findUnique({
     where: { id: clinicianId },
     include: {
@@ -135,11 +192,14 @@ export async function getClinician(clinicianId: string, caller: { sub: string; r
       department: { select: { name: true } },
     },
   });
-  if (!clinician) throw notFound('Clinician not found');
+  if (!clinician) throw notFound("Clinician not found");
 
   // A clinician may read their own record; anyone else needs an admin role.
-  if (caller.role !== 'platform_admin' && clinician.userId !== caller.sub) {
-    throw forbidden('NOT_RESOURCE_OWNER', 'You cannot view another clinician’s record');
+  if (caller.role !== "platform_admin" && clinician.userId !== caller.sub) {
+    throw forbidden(
+      "NOT_RESOURCE_OWNER",
+      "You cannot view another clinician’s record",
+    );
   }
   return serialise(clinician);
 }
@@ -151,20 +211,36 @@ export async function setClinicianAssignment(
   adminUserId: string,
   meta: RequestMeta,
 ) {
-  const clinician = await prisma.clinicianProfile.findUnique({ where: { id: clinicianId } });
-  if (!clinician) throw notFound('Clinician not found');
+  const clinician = await prisma.clinicianProfile.findUnique({
+    where: { id: clinicianId },
+  });
+  if (!clinician) throw notFound("Clinician not found");
 
   if (input.facility_id) {
-    const facility = await prisma.facility.findUnique({ where: { id: input.facility_id } });
+    const facility = await prisma.facility.findUnique({
+      where: { id: input.facility_id },
+    });
     if (!facility || !facility.isActive) {
-      throw unprocessable('An active facility assignment is required', 'facility_id');
+      throw unprocessable(
+        "An active facility assignment is required",
+        "facility_id",
+      );
     }
   }
 
   if (input.department_id) {
-    const department = await prisma.department.findUnique({ where: { id: input.department_id } });
-    if (!department || !department.isActive || department.facilityId !== input.facility_id) {
-      throw unprocessable('The department must be active and belong to the selected facility', 'department_id');
+    const department = await prisma.department.findUnique({
+      where: { id: input.department_id },
+    });
+    if (
+      !department ||
+      !department.isActive ||
+      department.facilityId !== input.facility_id
+    ) {
+      throw unprocessable(
+        "The department must be active and belong to the selected facility",
+        "department_id",
+      );
     }
   }
 
@@ -181,15 +257,21 @@ export async function setClinicianAssignment(
         department: { select: { name: true } },
       },
     });
-    await appendAudit({
-      actorUserId: adminUserId,
-      action: 'clinician.assignment_updated',
-      entityType: 'clinician_profiles',
-      entityId: clinicianId,
-      metadata: { hasFacility: Boolean(input.facility_id), hasDepartment: Boolean(input.department_id) },
-      ipAddress: meta.ip,
-      requestId: meta.requestId,
-    }, tx);
+    await appendAudit(
+      {
+        actorUserId: adminUserId,
+        action: "clinician.assignment_updated",
+        entityType: "clinician_profiles",
+        entityId: clinicianId,
+        metadata: {
+          hasFacility: Boolean(input.facility_id),
+          hasDepartment: Boolean(input.department_id),
+        },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
     return profile;
   });
 
@@ -205,52 +287,83 @@ export async function setClinicianAssignment(
 export async function decideVerification(
   clinicianId: string,
   adminUserId: string,
-  decision: 'approve' | 'reject',
+  decision: "approve" | "reject",
   reason: string | undefined,
   meta: RequestMeta,
+  expectedVersion?: number,
 ) {
   const clinician = await prisma.clinicianProfile.findUnique({
     where: { id: clinicianId },
-    include: { user: { select: { id: true, status: true, fullName: true, email: true } } },
+    include: {
+      user: { select: { id: true, status: true, fullName: true, email: true } },
+    },
   });
-  if (!clinician) throw notFound('Clinician not found');
+  if (!clinician) throw notFound("Clinician not found");
+  if (expectedVersion !== undefined && clinician.version !== expectedVersion)
+    throw conflict(
+      "VERSION_CONFLICT",
+      "This application changed. Refresh it before recording a decision.",
+    );
 
-  if (clinician.verificationStatus === 'verified' && decision === 'approve') {
-    throw conflict('STATE_TRANSITION_INVALID', 'This clinician is already verified');
+  if (clinician.verificationStatus === "verified" && decision === "approve") {
+    throw conflict(
+      "STATE_TRANSITION_INVALID",
+      "This clinician is already verified",
+    );
   }
 
   return prisma.$transaction(async (tx) => {
-    const profile = await tx.clinicianProfile.update({
-      where: { id: clinicianId },
+    const changed = await tx.clinicianProfile.updateMany({
+      where: { id: clinicianId, version: expectedVersion ?? clinician.version },
       data: {
-        verificationStatus: decision === 'approve' ? 'verified' : 'rejected',
-        rejectionReason: decision === 'reject' ? (reason ?? null) : null,
+        verificationStatus: decision === "approve" ? "verified" : "rejected",
+        rejectionReason: decision === "reject" ? (reason ?? null) : null,
         // A rejected clinician must not stay on duty against a licence that is
         // no longer accepted.
-        ...(decision === 'reject' ? { isAvailable: false } : {}),
+        ...(decision === "reject" ? { isAvailable: false } : {}),
         version: { increment: 1 },
       },
-      include: { user: { select: { fullName: true, email: true, status: true } } },
     });
+    if (!changed.count)
+      throw conflict(
+        "VERSION_CONFLICT",
+        "Another administrator already updated this application. Refresh it before continuing.",
+      );
 
-    if (decision === 'approve' && clinician.user.status === 'pending_verification') {
+    if (
+      decision === "approve" &&
+      clinician.user.status === "pending_verification"
+    ) {
       await tx.user.update({
         where: { id: clinician.userId },
-        data: { status: 'active', version: { increment: 1 } },
+        data: { status: "active", version: { increment: 1 } },
       });
     }
 
-    await appendAudit({
-      actorUserId: adminUserId,
-      action: decision === 'approve' ? 'clinician.verified' : 'clinician.rejected',
-      entityType: 'clinician_profiles',
-      entityId: clinicianId,
-      metadata: { verificationStatus: decision === 'approve' ? 'verified' : 'rejected' },
-      ipAddress: meta.ip,
-      requestId: meta.requestId,
-    }, tx);
+    await appendAudit(
+      {
+        actorUserId: adminUserId,
+        action:
+          decision === "approve" ? "clinician.verified" : "clinician.rejected",
+        entityType: "clinician_profiles",
+        entityId: clinicianId,
+        metadata: {
+          verificationStatus: decision === "approve" ? "verified" : "rejected",
+        },
+        ipAddress: meta.ip,
+        requestId: meta.requestId,
+      },
+      tx,
+    );
 
-    return serialise(profile);
+    return serialise(
+      await tx.clinicianProfile.findUniqueOrThrow({
+        where: { id: clinicianId },
+        include: {
+          user: { select: { fullName: true, email: true, status: true } },
+        },
+      }),
+    );
   });
 }
 
@@ -269,9 +382,12 @@ export async function setAvailability(
   const clinician = await prisma.clinicianProfile.findUnique({
     where: { id: clinicianProfileId },
   });
-  if (!clinician) throw notFound('Clinician profile not found');
-  if (clinician.verificationStatus !== 'verified') {
-    throw forbidden('CLINICIAN_NOT_VERIFIED', 'Your licence has not been verified');
+  if (!clinician) throw notFound("Clinician profile not found");
+  if (clinician.verificationStatus !== "verified") {
+    throw forbidden(
+      "CLINICIAN_NOT_VERIFIED",
+      "Your licence has not been verified",
+    );
   }
 
   const updated = await prisma.clinicianProfile.update({
@@ -281,13 +397,15 @@ export async function setAvailability(
       availableUntil: until ? new Date(until) : null,
       version: { increment: 1 },
     },
-    include: { user: { select: { fullName: true, email: true, status: true } } },
+    include: {
+      user: { select: { fullName: true, email: true, status: true } },
+    },
   });
 
   await appendAudit({
     actorUserId: clinician.userId,
-    action: isAvailable ? 'clinician.on_duty' : 'clinician.off_duty',
-    entityType: 'clinician_profiles',
+    action: isAvailable ? "clinician.on_duty" : "clinician.off_duty",
+    entityType: "clinician_profiles",
     entityId: clinicianProfileId,
     ipAddress: meta.ip,
     requestId: meta.requestId,

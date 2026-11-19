@@ -1,9 +1,10 @@
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
+import '../core/design_tokens.dart';
+import 'patient_ui.dart';
 
-/// The only widget that carries amber or clay. If a screen shows one, it is
-/// telling the reader that something needs them.
+/// Shared live notice for actionable clinical, account or synchronization feedback.
 class Notice extends StatelessWidget {
   const Notice(this.text, {super.key, this.tone = NoticeTone.problem});
   final String text;
@@ -60,7 +61,10 @@ class SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Text(
         L.tr(text),
-        style: Theme.of(context).textTheme.titleMedium,
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -75,25 +79,13 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    final palette = AppPalette.of(context);
-    final padding = Padding(padding: const EdgeInsets.all(16), child: child);
     return SizedBox(
         width: double.infinity,
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: Ink(
-            decoration: BoxDecoration(
-                color: palette.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: accent != null
-                    ? Border(left: BorderSide(color: accent!, width: 4))
-                    : Border.all(color: palette.line)),
-            child:
-                onTap == null ? padding : InkWell(onTap: onTap, child: padding),
-          ),
-        ));
+        child: PatientSurface(
+            onTap: onTap,
+            outline: accent,
+            padding: const EdgeInsets.all(CareSpace.lg),
+            child: child));
   }
 }
 
@@ -106,14 +98,19 @@ class Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
+    final p = AppPalette.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Text(
-        L.tr(text),
-        textAlign: TextAlign.center,
-        style: TextStyle(color: AppPalette.of(context).inkSoft, fontSize: 16),
-      ),
-    );
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.inbox_outlined, color: p.inkSoft, size: 32),
+          const SizedBox(height: 12),
+          Text(L.tr(text),
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: p.inkSoft)),
+        ]));
   }
 }
 
@@ -193,4 +190,14 @@ class LoadingContent extends StatelessWidget {
                                     height: 12,
                                     color: AppPalette.of(context).paperSunk)
                               ])))))));
+}
+
+/// Keep clinical lists readable on desktop while filling compact screens.
+class CarePageBody extends StatelessWidget {
+  const CarePageBody({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => Center(
+      child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960), child: child));
 }

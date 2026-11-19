@@ -1,8 +1,9 @@
+import { z } from 'zod';
 import type { NextFunction, Request, Response } from 'express';
 import { pathParam } from '@a-health/http';
 import * as ratings from '../services/rating.service.js';
 import * as incidents from '../services/incident.service.js';
-import { createIncidentSchema, listIncidentsQuery, rateConsultationSchema } from '../types/quality.types.js';
+import { createIncidentSchema, listIncidentsQuery, rateConsultationSchema, updateIncidentSchema } from '../types/quality.types.js';
 
 const caller = (req: Request) => ({ sub: req.auth!.sub, role: req.auth!.role, ppid: req.auth!.ppid });
 const meta = (req: Request, res: Response) => ({
@@ -26,3 +27,5 @@ export const createIncident = handle(
 );
 
 export const listIncidents = handle((req) => incidents.listIncidentReports(caller(req), listIncidentsQuery.parse(req.query)));
+
+export const updateIncident = handle((req, res) => incidents.updateIncidentReport(caller(req), z.string().uuid().parse(pathParam(req, 'incident_id')), updateIncidentSchema.parse(req.body), meta(req, res)));

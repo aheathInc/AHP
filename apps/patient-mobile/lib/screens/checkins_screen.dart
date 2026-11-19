@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import '../core/app_preferences.dart';
 import 'package:flutter/material.dart';
@@ -105,7 +106,7 @@ class _CheckInsScreenState extends State<CheckInsScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(S.checkIns)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -153,7 +154,7 @@ class _CheckInsScreenState extends State<CheckInsScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Panel(
-                        accent: AppColors.amber,
+                        accent: AppPalette.of(context).amber,
                         onTap: c['_local_sync_status'] == 'queued' ||
                                 c['_local_sync_status'] == 'sending'
                             ? null
@@ -163,7 +164,7 @@ class _CheckInsScreenState extends State<CheckInsScreen> {
                           children: [
                             Text(
                               L.tr('Daktari anataka kujua hali yako'),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -183,8 +184,8 @@ class _CheckInsScreenState extends State<CheckInsScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 DateFormat('d MMM, HH:mm').format(at.toLocal()),
-                                style: const TextStyle(
-                                  color: AppColors.inkSoft,
+                                style: TextStyle(
+                                  color: AppPalette.of(context).inkSoft,
                                 ),
                               ),
                             ],
@@ -386,7 +387,7 @@ class _CheckInFormState extends State<_CheckInForm> {
       'Vizuri',
       'Vizuri sana',
     ];
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Hali yako'))),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -417,7 +418,7 @@ class _CheckInFormState extends State<_CheckInForm> {
           ] else ...[
             Text(
               L.tr('Unajisikiaje leo?'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 16),
             ...List.generate(5, (i) {
@@ -433,16 +434,22 @@ class _CheckInFormState extends State<_CheckInForm> {
                       vertical: 16,
                     ),
                     decoration: BoxDecoration(
-                      color: selected ? AppColors.petrol : Colors.white,
+                      color: selected
+                          ? AppPalette.of(context).petrol
+                          : Colors.white,
                       border: Border.all(
-                        color: selected ? AppColors.petrol : AppColors.line,
+                        color: selected
+                            ? AppPalette.of(context).petrol
+                            : AppPalette.of(context).line,
                       ),
                     ),
                     child: Text(
                       labels[i],
                       style: TextStyle(
                         fontSize: 17,
-                        color: selected ? Colors.white : AppColors.ink,
+                        color: selected
+                            ? Colors.white
+                            : AppPalette.of(context).ink,
                       ),
                     ),
                   ),
@@ -456,7 +463,7 @@ class _CheckInFormState extends State<_CheckInForm> {
             Text(
                 L.tr(
                     'Chagua Ndiyo au Hapana kwa kila swali. Jibu la Ndiyo litawekewa alama kwa mapitio ya kliniki.'),
-                style: const TextStyle(color: AppColors.inkSoft)),
+                style: TextStyle(color: AppPalette.of(context).inkSoft)),
             _redFlagQuestion(L.tr('Una maumivu ya kifua?'), _chestPain,
                 (v) => setState(() => _chestPain = v)),
             _redFlagQuestion(L.tr('Una damu nyingi au kutokwa damu sana?'),
@@ -511,7 +518,7 @@ class _CheckInFormState extends State<_CheckInForm> {
             ],
             Text(
               L.tr('Kuna kitu kingine unataka daktari ajue?'),
-              style: TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
             TextField(controller: _note, maxLines: 3),

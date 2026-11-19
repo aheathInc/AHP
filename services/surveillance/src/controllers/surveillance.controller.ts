@@ -39,3 +39,9 @@ export const getRegionalInsights = handle((req,res) => {
 export const getReportingAreas = handle(() => insights.listAreas());
 export const importReportingAreas = handle(req => insights.importAreas(insightCaller(req), insights.importAreasSchema.parse(req.body)));
 export const publishRegionalMonth = handle(req => insights.publishMonth(insightCaller(req), z.object({period:z.string()}).strict().parse(req.body).period));
+
+export const getOperationsOverview = handle(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const { getOperationsOverview } = await import('../services/operations-overview.service.js');
+  return getOperationsOverview(req.auth!.role);
+});

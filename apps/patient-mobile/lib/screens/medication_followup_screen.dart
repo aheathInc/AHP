@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/api.dart';
@@ -577,7 +578,7 @@ class _MedicationFollowupScreenState extends State<MedicationFollowupScreen>
       return at.isAfter(DateTime.now().subtract(const Duration(days: 1))) &&
           at.isBefore(DateTime.now().add(const Duration(days: 1)));
     }).toList();
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Dawa na ufuatiliaji')), actions: [
           IconButton(
               tooltip: L.tr('Sasisha'),
@@ -596,6 +597,10 @@ class _MedicationFollowupScreenState extends State<MedicationFollowupScreen>
                           child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
+                                WorkspaceIntro(
+                                    title: L.tr('Dawa na ufuatiliaji'),
+                                    description: L.tr(
+                                        'Your prescriptions, dose schedule and follow-up.')),
                                 if (profiles.length > 1)
                                   DropdownButtonFormField<String>(
                                       key: ValueKey(_data?['patient']['id']),

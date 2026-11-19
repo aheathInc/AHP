@@ -1,0 +1,412 @@
+/* A-HEALTH Human Care — supplied brand guide, 17 November 2026.
+   Clinical warning/success colours retain their operational meaning. */
+@font-face {
+  font-family: "Open Sans";
+  src: url("/fonts/open-sans/OpenSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Open Sans";
+  src: url("/fonts/open-sans/OpenSans-Semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Open Sans";
+  src: url("/fonts/open-sans/OpenSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --font-open-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-plex-sans: var(--font-open-sans);
+  --ahp-ink: #172b3f;
+  --ahp-muted: #526577;
+  --ahp-paper: #f5f7fa;
+  --ahp-surface: #fff;
+  --ahp-surface-soft: #f0f5f9;
+  --ahp-line: #d9e2ea;
+  --ahp-brand: #123b64;
+  --ahp-brand-lift: #1b517e;
+  --ahp-teal: #12a99a;
+  --ahp-mint: #e3f5f1;
+  --ahp-blue: #245f96;
+  --ahp-glass: #ffffff;
+  --ahp-sidebar: 264px;
+  --ahp-shadow: 0 4px 16px #123b6409;
+}
+:root[data-theme="dark"] {
+  --ahp-ink: #ecf2fa;
+  --ahp-muted: #b6c6d8;
+  --ahp-paper: #0b1724;
+  --ahp-surface: #12263a;
+  --ahp-surface-soft: #193249;
+  --ahp-line: #344e65;
+  --ahp-brand: #a5c9ef;
+  --ahp-brand-lift: #c2dcf6;
+  --ahp-mint: #153e43;
+  --ahp-blue: #98c6f4;
+  --ahp-glass: #12263a;
+  --ahp-danger: #ffb9ae;
+}
+html,
+body {
+  font-family: var(--font-open-sans);
+  background: var(--ahp-paper);
+  color: var(--ahp-ink);
+}
+::selection {
+  background: #b9e8e1;
+  color: #123b64;
+}
+.ahp-shell {
+  background: var(--ahp-paper);
+}
+.ahp-sidebar,
+.ahp-mobile-drawer {
+  background: #123b64;
+  color: #f4f8fc;
+}
+.ahp-sidebar::after {
+  display: none;
+}
+.ahp-sidebar-brand {
+  padding: 18px 16px;
+  gap: 6px;
+}
+.ahp-brand {
+  gap: 0;
+  min-width: 0;
+}
+.ahp-brand-logo {
+  display: block;
+  width: 180px;
+  height: 50px;
+  flex-shrink: 0;
+}
+.ahp-brand-logo img {
+  object-fit: contain;
+  object-position: left center;
+  max-width: 100%;
+  height: 100%;
+}
+.ahp-logo-white,
+.ahp-logo-symbol {
+  display: none;
+}
+.ahp-logo-colour {
+  display: block;
+}
+html[data-theme="dark"] .ahp-logo-colour,
+.ahp-sidebar .ahp-logo-colour,
+.ahp-mobile-drawer .ahp-logo-colour,
+.ahp-login-story .ahp-logo-colour {
+  display: none;
+}
+html[data-theme="dark"] .ahp-logo-white,
+.ahp-sidebar .ahp-logo-white,
+.ahp-mobile-drawer .ahp-logo-white,
+.ahp-login-story .ahp-logo-white {
+  display: block;
+}
+.ahp-brand-logo .ahp-logo-symbol {
+  display: none !important;
+}
+.ahp-shell--compact .ahp-brand-logo {
+  width: 40px;
+  height: 40px;
+}
+.ahp-shell--compact .ahp-brand-logo .ahp-logo-horizontal {
+  display: none;
+}
+.ahp-shell--compact .ahp-brand-logo .ahp-logo-symbol {
+  display: block !important;
+}
+.ahp-nav-link {
+  min-height: 44px;
+  font-size: 13px;
+  line-height: 1.45;
+  border-radius: 8px;
+}
+.ahp-nav-link[aria-current="page"] {
+  background: #ffffff14;
+  border-color: #65cabc;
+  color: #fff;
+  box-shadow: inset 3px 0 #65cabc;
+}
+.ahp-nav-link:hover {
+  background: #ffffff12;
+}
+.ahp-nav-group > summary {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #c3d4e7;
+  min-height: 44px;
+}
+.ahp-nav-group > summary:hover {
+  color: white;
+}
+.ahp-topbar {
+  background: var(--ahp-surface);
+  backdrop-filter: none;
+  gap: 14px;
+}
+.ahp-icon-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.ahp-search-trigger {
+  min-height: 44px;
+  background: var(--ahp-surface-soft);
+}
+.ahp-search-trigger > span {
+  font-size: 13px;
+}
+.ahp-pref-control select {
+  min-height: 44px;
+}
+.ahp-user-name {
+  font-size: 12px;
+  max-width: 180px;
+}
+.ahp-page {
+  padding-top: 26px;
+}
+.ahp-page-header,
+.ahp-hero {
+  border-radius: 12px;
+}
+.ahp-hero h1,
+.ahp-page-header h1 {
+  letter-spacing: -0.025em;
+}
+.ahp-hero p {
+  max-width: 72ch;
+}
+.ahp-page-footer {
+  font-size: 11px;
+  line-height: 1.6;
+  flex-wrap: wrap;
+}
+.ahp-button,
+.care-button,
+.rp-button {
+  min-height: 44px;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  letter-spacing: 0;
+}
+.ahp-button--primary,
+.care-button:not(.care-secondary) {
+  background: #123b64 !important;
+  border-color: #123b64 !important;
+  color: white !important;
+}
+.ahp-button--primary:hover:not(:disabled),
+.care-button:not(.care-secondary):hover {
+  background: #1b517e !important;
+  border-color: #1b517e !important;
+}
+.ahp-card {
+  box-shadow: none;
+}
+.ahp-main input::placeholder,
+.ahp-main textarea::placeholder {
+  color: var(--ahp-muted);
+  opacity: 1;
+}
+.ahp-main
+  :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+  font-size: 14px;
+  min-height: 44px;
+}
+.ahp-main :is(input, textarea, select) {
+  caret-color: var(--ahp-brand);
+}
+.ahp-notice {
+  border: 1px solid currentColor !important;
+  border-radius: 8px;
+  padding: 14px 16px !important;
+  box-shadow: none;
+}
+.ahp-notice--problem {
+  color: var(--ahp-danger);
+}
+.rp-root {
+  --rp-ink: var(--ahp-ink);
+  --rp-soft: var(--ahp-muted);
+  --rp-paper: var(--ahp-surface);
+  --rp-border: var(--ahp-line);
+  --rp-petrol: #123b64;
+  --rp-mint: var(--ahp-mint);
+  --rp-bg: var(--ahp-surface-soft);
+}
+html[data-theme="dark"] .rp-root {
+  --rp-ink: var(--ahp-ink);
+  --rp-soft: var(--ahp-muted);
+  --rp-paper: var(--ahp-surface);
+  --rp-border: var(--ahp-line);
+  --rp-petrol: #a5c9ef;
+  --rp-mint: var(--ahp-mint);
+  --rp-bg: var(--ahp-surface-soft);
+}
+.rp-hero,
+html[data-theme="dark"] .rp-hero {
+  background: var(--ahp-surface-soft);
+  border-color: var(--ahp-line);
+}
+.rp-hero h1 {
+  font-size: 34px;
+  letter-spacing: -0.025em;
+  animation: none;
+}
+.rp-hero p {
+  color: var(--ahp-muted);
+}
+.rp-panel {
+  border-radius: 12px;
+}
+.rp-button:not(.rp-button--secondary) {
+  background: #123b64;
+  color: white;
+}
+.rp-button:hover:not(:disabled) {
+  background: #1b517e;
+  color: white;
+}
+.rp-button--secondary:hover:not(:disabled) {
+  background: var(--ahp-surface-soft);
+  color: var(--ahp-ink);
+}
+.ahp-login-story {
+  background: #123b64;
+}
+.ahp-login-story .ahp-brand-logo {
+  width: 210px;
+  height: 59px;
+}
+.ahp-login-story::before,
+.ahp-login-story::after {
+  display: none;
+}
+.ahp-login-intro h1 {
+  font-size: 40px;
+  letter-spacing: -0.025em;
+}
+.ahp-login-form-area {
+  background: var(--ahp-surface);
+}
+.ahp-login-form {
+  max-width: 420px;
+}
+.ahp-login-form h2 {
+  font-size: 28px;
+  letter-spacing: -0.025em;
+}
+.ahp-login-form > p {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.ahp-login-form label {
+  font-size: 14px !important;
+}
+.ahp-password-toggle {
+  align-self: flex-end;
+  min-height: 44px;
+  padding: 8px 0;
+  background: none;
+  border: 0;
+  color: var(--ahp-brand);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ahp-password-toggle:hover {
+  text-decoration: underline;
+}
+@media (max-width: 760px) {
+  .ahp-page {
+    padding-top: 18px;
+  }
+  .ahp-topbar {
+    padding-inline: 14px;
+  }
+  .ahp-main
+    :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+    font-size: 16px;
+  }
+  .ahp-login-intro h1 {
+    font-size: 30px;
+  }
+  .ahp-login-story .ahp-brand-logo {
+    width: 180px;
+    height: 50px;
+  }
+  .ahp-mobile-drawer {
+    width: min(320px, 90vw);
+  }
+  .rp-hero h1 {
+    font-size: 28px;
+  }
+  .ahp-page-footer span:last-child {
+    max-width: 30ch;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* Legible clinical list metadata, without changing queue behaviour. */
+.care-patient-copy strong {
+  font-size: 14px;
+}
+.care-patient-copy small {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.care-patient {
+  min-height: 74px;
+}
+.ahp-workspace-header h1 {
+  letter-spacing: -0.025em;
+}
+.ahp-workspace-header p {
+  max-width: 72ch;
+}
+.ahp-login-intro h1 {
+  max-width: 16ch;
+}
+.ahp-login-intro > p:first-child {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: #d0dfef;
+}
+.ahp-login-story .ahp-brand-logo {
+  max-width: 100%;
+}
+.ahp-login-story .ahp-brand-logo img {
+  width: 100%;
+}
+.ahp-main .bg-petrol {
+  background-color: #123b64;
+}
+.ahp-main .border-petrol {
+  border-color: var(--ahp-brand);
+}
+.ahp-main label:not(.ahp-pref-control) {
+  font-size: 13px;
+}
+.ahp-nav-link[aria-current="page"] {
+  box-shadow: inset 3px 0 #12a99a;
+}

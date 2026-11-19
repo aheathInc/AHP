@@ -1295,7 +1295,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Envelope'
+                $ref: '#/components/schemas/CohortResultEnvelope'
         '401':
           description: Invalid authentication
           content:
@@ -3300,6 +3300,146 @@ paths:
         in: path
         required: true
         schema: *id002
+  /research/portal/studies/{id}/workspace:
+    get:
+      operationId: researchPortalGetCohortWorkspace
+      tags: [Research portal]
+      summary: Read authorized release filters and owned saved cohorts
+      description: Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Authorized cohort operation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CohortWorkspaceEnvelope' }
+        '401': { description: Authentication required }
+        '403': { description: 'Role, ownership or live authorization denied' }
+        '404': { description: Resource missing }
+        '409': { description: 'Stale version, changed release, archived definition or duplicate name' }
+        '422': { description: Invalid fields or saved definition capacity exceeded }
+        '429': { description: Rate limit exceeded }
+  /research/portal/cohorts:
+    post:
+      operationId: researchPortalSaveCohort
+      tags: [Research portal]
+      summary: Save a release-pinned aggregate cohort definition
+      description: Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SavedCohortInput' }
+      responses:
+        '200':
+          description: Authorized cohort operation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SavedCohortEnvelope' }
+        '401': { description: Authentication required }
+        '403': { description: 'Role, ownership or live authorization denied' }
+        '404': { description: Resource missing }
+        '409': { description: 'Stale version, changed release, archived definition or duplicate name' }
+        '422': { description: Invalid fields or saved definition capacity exceeded }
+        '429': { description: Rate limit exceeded }
+  /research/portal/cohorts/{id}:
+    put:
+      operationId: researchPortalUpdateCohort
+      tags: [Research portal]
+      summary: Update an owned saved cohort using its current version
+      description: Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SavedCohortUpdate' }
+      responses:
+        '200':
+          description: Authorized cohort operation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SavedCohortEnvelope' }
+        '401': { description: Authentication required }
+        '403': { description: 'Role, ownership or live authorization denied' }
+        '404': { description: Resource missing }
+        '409': { description: 'Stale version, changed release, archived definition or duplicate name' }
+        '422': { description: Invalid fields or saved definition capacity exceeded }
+        '429': { description: Rate limit exceeded }
+  /research/portal/cohorts/{id}/run:
+    post:
+      operationId: researchPortalRunCohort
+      tags: [Research portal]
+      summary: Rerun an owned saved cohort under current live authorization
+      description: Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CohortVersionInput' }
+      responses:
+        '200':
+          description: Authorized cohort operation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CohortResultEnvelope' }
+        '401': { description: Authentication required }
+        '403': { description: 'Role, ownership or live authorization denied' }
+        '404': { description: Resource missing }
+        '409': { description: 'Stale version, changed release, archived definition or duplicate name' }
+        '422': { description: Invalid fields or saved definition capacity exceeded }
+        '429': { description: Rate limit exceeded }
+  /research/portal/cohorts/{id}/archive:
+    post:
+      operationId: researchPortalArchiveCohort
+      tags: [Research portal]
+      summary: Archive an owned cohort definition without returning data
+      description: Researcher owner only. Rechecks live identity, project, source and release permissions. Archived definitions cannot run. Saves contain filters and release references, never result cells. Maximum 50 active and 100 total definitions per project. Owners may archive after project expiry. Responses are no-store.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CohortVersionInput' }
+      responses:
+        '200':
+          description: Authorized cohort operation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SavedCohortEnvelope' }
+        '401': { description: Authentication required }
+        '403': { description: 'Role, ownership or live authorization denied' }
+        '404': { description: Resource missing }
+        '409': { description: 'Stale version, changed release, archived definition or duplicate name' }
+        '422': { description: Invalid fields or saved definition capacity exceeded }
+        '429': { description: Rate limit exceeded }
 components:
   securitySchemes:
     bearerAuth:
@@ -3562,6 +3702,14 @@ components:
           - json
           - xml
         filters: *id006
+        release_id:
+          type: string
+          format: uuid
+          description: Optional displayed-result release check; mismatch returns 409.
+        release_hash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: Optional displayed-result content check; mismatch returns 409.
       required:
       - study_id
       - format
@@ -5951,3 +6099,127 @@ components:
       - cells
       - notice
       - fee_tzs
+
+    CohortFilters:
+      type: object
+      additionalProperties: false
+      properties:
+        age_band: { type: string, minLength: 1, maxLength: 40 }
+        sex: { type: string, minLength: 1, maxLength: 40 }
+        region: { type: string, minLength: 1, maxLength: 40 }
+        period: { type: string, minLength: 1, maxLength: 40 }
+        domain: { type: string, minLength: 1, maxLength: 40 }
+        code: { type: string, minLength: 1, maxLength: 40 }
+    SavedCohortInput:
+      type: object
+      additionalProperties: false
+      required: [study_id, release_id, name]
+      properties:
+        study_id: { type: string, format: uuid }
+        release_id: { type: string, format: uuid }
+        name: { type: string, minLength: 3, maxLength: 120 }
+        filters: { $ref: '#/components/schemas/CohortFilters' }
+    SavedCohortUpdate:
+      type: object
+      additionalProperties: false
+      required: [base_version, name]
+      properties:
+        base_version: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 3, maxLength: 120 }
+        filters: { $ref: '#/components/schemas/CohortFilters' }
+    CohortVersionInput:
+      type: object
+      additionalProperties: false
+      required: [base_version]
+      properties:
+        base_version: { type: integer, minimum: 1 }
+    SavedCohort:
+      type: object
+      required: [id, studyId, ownerId, releaseId, name, filters, status, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        studyId: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid }
+        releaseId: { type: string, format: uuid }
+        name: { type: string }
+        filters: { $ref: '#/components/schemas/CohortFilters' }
+        status: { type: string, enum: [active, archived] }
+        version: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SavedCohortEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SavedCohort' }
+    CohortWorkspaceEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [study_id, release_id, release_hash, release_version, minimum_cell_size, synthetic, published_cells, facets, access_expires_at, ethics_expires_at, allow_export, saved_cohorts, limits]
+          properties:
+            study_id: { type: string, format: uuid }
+            release_id: { type: string, format: uuid }
+            release_hash: { type: string }
+            release_version: { type: integer }
+            minimum_cell_size: { type: integer, minimum: 10 }
+            synthetic: { type: boolean }
+            published_cells: { type: integer, minimum: 0 }
+            access_expires_at: { type: string, format: date-time }
+            ethics_expires_at: { type: string, format: date-time }
+            allow_export: { type: boolean }
+            saved_cohorts:
+              type: array
+              items: { $ref: '#/components/schemas/SavedCohort' }
+            facets:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }
+            limits:
+              type: object
+              properties:
+                active_cohorts: { type: integer, const: 50 }
+                total_cohorts: { type: integer, const: 100 }
+    CohortResultEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [study_id, release_id, release_hash, release_version, queried_at, filters, returned_cells, minimum_cell_size, synthetic, cells, disclosure_notice]
+          properties:
+            study_id: { type: string, format: uuid }
+            release_id: { type: string, format: uuid }
+            release_hash: { type: string }
+            release_version: { type: integer }
+            queried_at: { type: string, format: date-time }
+            filters: { $ref: '#/components/schemas/CohortFilters' }
+            returned_cells: { type: integer, minimum: 0 }
+            minimum_cell_size: { type: integer, minimum: 10 }
+            synthetic: { type: boolean }
+            disclosure_notice: { type: string }
+            saved_cohort:
+              type: object
+              required: [id, name, version]
+              properties:
+                id: { type: string, format: uuid }
+                name: { type: string }
+                version: { type: integer }
+            cells:
+              type: array
+              items:
+                type: object
+                required: [age_band, sex, region, period, domain, code_system, code, label, participants]
+                properties:
+                  age_band: { type: string }
+                  sex: { type: string }
+                  region: { type: string }
+                  period: { type: string }
+                  domain: { type: string }
+                  code_system: { type: string }
+                  code: { type: string }
+                  label: { type: string }
+                  participants: { type: integer, minimum: 10 }

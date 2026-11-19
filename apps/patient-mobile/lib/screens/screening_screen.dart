@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -108,13 +109,13 @@ class _ScreeningScreenState extends State<ScreeningScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               // The reason is what tells the programme whether uptake is
               // limited by distance, cost, fear, or simply not knowing what
               // the test is for. Without it a decline teaches nobody anything.
               child: Text(
                 L.tr('Kwa nini huwezi kwenda?'),
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
               ),
             ),
             ...reasons.map(
@@ -133,7 +134,7 @@ class _ScreeningScreenState extends State<ScreeningScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(S.screening)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -154,7 +155,7 @@ class _ScreeningScreenState extends State<ScreeningScreen> {
                       (i) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Panel(
-                          accent: AppColors.amber,
+                          accent: AppPalette.of(context).amber,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -244,7 +245,8 @@ class _ScreeningScreenState extends State<ScreeningScreen> {
             const SizedBox(height: 4),
             Text(
               L.tr("Alama ya huduma: {0}  |  Kiwango: {1}", [s['score'], band]),
-              style: const TextStyle(color: AppColors.inkSoft, fontSize: 15),
+              style: TextStyle(
+                  color: AppPalette.of(context).inkSoft, fontSize: 15),
             ),
             if (s['model_version'] != null)
               Text(L.tr("Toleo la modeli: {0}", [s['model_version']])),

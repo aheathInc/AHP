@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -153,7 +154,7 @@ class _ConsultationDetailScreenState extends State<ConsultationDetailScreen> {
     final hospital = _consultation.data['consultation_mode'] == 'hospital';
     final modality = _consultation.data['modality'];
     final fee = _consultation.data['consultation_fee_amount'];
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Ombi la matibabu'))),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -165,17 +166,18 @@ class _ConsultationDetailScreenState extends State<ConsultationDetailScreen> {
               const SizedBox(height: 12),
             ],
             Panel(
-              accent:
-                  status == 'completed' ? AppColors.petrol : AppColors.amber,
+              accent: status == 'completed'
+                  ? AppPalette.of(context).petrol
+                  : AppPalette.of(context).amber,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(L.tr('Hali ya ombi'),
-                      style: TextStyle(color: AppColors.inkSoft)),
+                      style: TextStyle(color: AppPalette.of(context).inkSoft)),
                   const SizedBox(height: 6),
                   Text(L.tr(consultationStatusLabel(status)),
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w600)),
+                      style:
+                          const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   if (assignedName != null) ...[
                     const SizedBox(height: 10),
                     Text(L.tr("Daktari: {0}", [assignedName])),
@@ -263,7 +265,7 @@ class _ConsultationDetailScreenState extends State<ConsultationDetailScreen> {
               ),
               if (_thread?['status'] == 'closed')
                 Padding(
-                  padding: EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Text(L.tr(
                       'Mazungumzo yamefungwa; ujumbe wa awali unaweza kusomwa.')),
                 ),
@@ -366,17 +368,17 @@ class SignedConsultationNoteCard extends StatelessWidget {
           Text(
               L.tr("Imesainiwa {0}",
                   [DateFormat('d MMM y, HH:mm').format(signedAt.toLocal())]),
-              style: const TextStyle(color: AppColors.inkSoft)),
+              style: TextStyle(color: AppPalette.of(context).inkSoft)),
         const SizedBox(height: 8),
-        Text(L.tr('Utambuzi'), style: TextStyle(fontWeight: FontWeight.w600)),
+        Text(L.tr('Utambuzi'), style: const TextStyle(fontWeight: FontWeight.w600)),
         Text((note['diagnosis_text'] as String?) ?? ''),
         const SizedBox(height: 10),
-        Text(L.tr('Ushauri'), style: TextStyle(fontWeight: FontWeight.w600)),
+        Text(L.tr('Ushauri'), style: const TextStyle(fontWeight: FontWeight.w600)),
         Text((note['advice_text'] as String?) ?? ''),
         if (flags.isNotEmpty) ...[
           const SizedBox(height: 10),
           Text(L.tr('Dalili za kuangalia'),
-              style: TextStyle(fontWeight: FontWeight.w600)),
+              style: const TextStyle(fontWeight: FontWeight.w600)),
           ...flags.map((flag) => Text('• $flag')),
         ],
       ]),

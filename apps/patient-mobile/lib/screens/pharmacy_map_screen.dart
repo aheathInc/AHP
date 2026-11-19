@@ -279,7 +279,7 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
                         children: [
                           if (_rows.isEmpty && !_busy)
                             Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24),
+                                padding: const EdgeInsets.symmetric(vertical: 24),
                                 child: Text(L.tr(
                                     'Hakuna pharmacy yenye taarifa zinazolingana na utafutaji huu. Jaribu eneo au dawa nyingine.'))),
                           for (final row in _rows) _details(row)

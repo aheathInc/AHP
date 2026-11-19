@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -479,7 +480,7 @@ class _PatientCareMedicinesScreenState
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Dawa na maduka ya dawa')), actions: [
         IconButton(
             tooltip: L.tr('Dawa na ufuatiliaji'),
@@ -796,7 +797,7 @@ class MedicationPrescriptionCards extends StatelessWidget {
                 if (history.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(L.tr('Historia ya utoaji'),
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                   ...history.map((event) {
                     final pharmacy = event['pharmacy'] as Map? ?? {};
                     final eventItems =
@@ -817,7 +818,7 @@ class MedicationPrescriptionCards extends StatelessWidget {
                   Text(
                       L.tr(
                           'Reference ya mkononi — ionyeshe mfamasia aliyeidhinishwa pekee. Haitoi ruhusa bila akaunti na uanachama wa pharmacy.'),
-                      style: TextStyle(fontSize: 12)),
+                      style: const TextStyle(fontSize: 12)),
                   SelectableText(reference,
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, letterSpacing: 1.1)),

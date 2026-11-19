@@ -61,7 +61,7 @@ export function navigationFor(role?: string): NavigationGroup[] {
     ];
   const admin = [
     item("Family services & packages", "/admin/families", "users"),
-    item("Overview", "/admin/dashboard", "home"),
+    item("Platform overview", "/admin/dashboard", "home"),
     item("Digital front desk", "/admin/front-desk", "building"),
     item("Emergency", "/admin/emergency", "activity"),
     item("Devices", "/admin/devices", "radio"),
@@ -69,7 +69,7 @@ export function navigationFor(role?: string): NavigationGroup[] {
     item("Facilities", "/admin/facilities", "building"),
     item("Network moderation", "/admin/professional-network", "shield"),
     item("Patient community & feedback", "/admin/patient-platform", "users"),
-    item("Incidents", "/admin/incidents", "alert"),
+    item("Incident management", "/admin/incidents", "alert"),
     item("Payments", "/admin/payments", "credit"),
     item("Interoperability", "/admin/interoperability", "network"),
     item("Audit ledger", "/admin/audit-ledger", "history"),
@@ -97,14 +97,14 @@ export function navigationFor(role?: string): NavigationGroup[] {
         "/admin/emergency",
         "/admin/devices",
       ]),
-      group("Care services", [
+      group("Care administration", [
         "/admin/families",
         "/admin/verification",
         "/admin/facilities",
         "/admin/patient-platform",
         "/admin/professional-network",
       ]),
-      group("Governance & billing", [
+      group("Governance & finance", [
         "/admin/payments",
         "/admin/incidents",
         "/admin/interoperability",
@@ -139,7 +139,6 @@ export function navigationFor(role?: string): NavigationGroup[] {
         items: admin.filter((x) =>
           [
             "/admin/facilities",
-            "/admin/incidents",
             "/admin/settings",
             "/admin/research",
           ].includes(x.href),

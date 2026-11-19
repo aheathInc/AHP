@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -399,12 +400,12 @@ class _FrontDeskScreenState extends State<FrontDeskScreen>
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final locked = _busy || _pendingRequest != null;
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Huduma hospitalini'))),
         body: _sessionChanged
             ? Center(
                 child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
                     child: Text(L.tr(
                         'Kikao kimebadilika. Rudi Home na ufungue huduma hii tena.'))))
             : RefreshIndicator(
@@ -591,7 +592,7 @@ class _FrontDeskScreenState extends State<FrontDeskScreen>
                             : L.tr('Jaribu ombi lilelile tena'))),
                     if (_pendingRequest != null)
                       Padding(
-                          padding: EdgeInsets.only(top: 12),
+                          padding: const EdgeInsets.only(top: 12),
                           child: Text(L.tr(
                               'Ombi limefungwa kwa retry salama. Angalia Ziara zangu kujua kama lilihifadhiwa. Halikuwekwa offline.'))),
                   ] else ...[

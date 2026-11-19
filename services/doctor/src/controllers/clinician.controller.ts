@@ -72,6 +72,7 @@ export async function decideVerification(req: Request, res: Response, next: Next
           input.decision,
           input.reason,
           meta(req, res),
+          input.expected_version,
         ),
       );
   } catch (err) {

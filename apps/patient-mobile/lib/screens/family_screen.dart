@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'family_packages_screen.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/patient_experience.dart';
 import '../core/phone.dart';
-import '../core/theme.dart';
 import '../widgets/common.dart';
 
 class FamilyScreen extends StatefulWidget {
@@ -199,7 +199,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Familia na wategemezi'))),
       body: _loading
           ? const SingleChildScrollView(child: LoadingContent())
@@ -332,7 +332,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
           ),
           child: Row(
             children: [
-              Icon(Icons.person_outline, color: AppPalette.of(context).petrol),
+              PatientAvatar(name: member['full_name'] as String),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -486,7 +486,7 @@ class DependantSummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Muhtasari wa mwanafamilia'))),
       body: ListView(
         padding: const EdgeInsets.all(20),

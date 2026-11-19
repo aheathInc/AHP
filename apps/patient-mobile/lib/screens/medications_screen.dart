@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -143,7 +144,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     final done =
         _rows.where((r) => r['reported_status'] != 'unreported').toList();
 
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(S.medications)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -192,7 +193,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Panel(
-        accent: AppColors.amber,
+        accent: AppPalette.of(context).amber,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -203,7 +204,7 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
             if (at != null)
               Text(
                 DateFormat('d MMM, HH:mm').format(at.toLocal()),
-                style: const TextStyle(color: AppColors.inkSoft),
+                style: TextStyle(color: AppPalette.of(context).inkSoft),
               ),
             const SizedBox(height: 14),
             Row(
@@ -220,10 +221,11 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
                     onPressed: () => _report(r['id'] as String, 'missed'),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
-                      shape: const RoundedRectangleBorder(),
-                      side: const BorderSide(color: AppColors.line),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28)),
+                      side: BorderSide(color: AppPalette.of(context).line),
                     ),
-                    child: Text(S.missed, style: TextStyle(fontSize: 16)),
+                    child: Text(S.missed, style: const TextStyle(fontSize: 16)),
                   ),
                 ),
               ],
@@ -245,7 +247,9 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           Icon(
             taken ? Icons.check : Icons.close,
             size: 18,
-            color: taken ? AppColors.petrol : AppColors.inkSoft,
+            color: taken
+                ? AppPalette.of(context).petrol
+                : AppPalette.of(context).inkSoft,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -257,12 +261,14 @@ class _MedicationsScreenState extends State<MedicationsScreen> {
           if (syncStatus == 'queued')
             Text(
               L.tr('Pending sync — haijathibitishwa'),
-              style: TextStyle(fontSize: 12, color: AppColors.amber),
+              style:
+                  TextStyle(fontSize: 12, color: AppPalette.of(context).amber),
             ),
           if (syncStatus == 'failed')
             Text(
               L.tr('Inahitaji kuangaliwa mtandaoni'),
-              style: TextStyle(fontSize: 12, color: AppColors.clay),
+              style:
+                  TextStyle(fontSize: 12, color: AppPalette.of(context).clay),
             ),
         ],
       ),

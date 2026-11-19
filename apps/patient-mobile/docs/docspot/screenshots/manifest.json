@@ -1,0 +1,343 @@
+[
+  {
+    "screen": "appointments",
+    "variant": "dark-large",
+    "width": 390,
+    "height": 844,
+    "file": "appointments-dark-large.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "appointments",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "appointments-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "appointments",
+    "variant": "wide",
+    "width": 1280,
+    "height": 844,
+    "file": "appointments-wide.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "bills",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "bills-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "checkins",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "checkins-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "clinicians",
+    "variant": "dark-large",
+    "width": 390,
+    "height": 844,
+    "file": "clinicians-dark-large.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "clinicians",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "clinicians-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "clinicians",
+    "variant": "wide",
+    "width": 1280,
+    "height": 844,
+    "file": "clinicians-wide.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "consultation",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "consultation-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "diagnostics-empty",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "diagnostics-empty-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "diagnostics-error",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "diagnostics-error-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "diagnostics",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "diagnostics-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "education",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "education-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "emergency",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "emergency-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "facilities",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "facilities-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "family",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "family-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "home",
+    "variant": "dark-large",
+    "width": 390,
+    "height": 844,
+    "file": "home-dark-large.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "home",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "home-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "home",
+    "variant": "wide",
+    "width": 1280,
+    "height": 844,
+    "file": "home-wide.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "insurance",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "insurance-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "lab-report",
+    "variant": "dark-large",
+    "width": 390,
+    "height": 844,
+    "file": "lab-report-dark-large.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "lab-report",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "lab-report-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "lab-report",
+    "variant": "wide",
+    "width": 1280,
+    "height": 844,
+    "file": "lab-report-wide.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "login",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "login-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "medicines",
+    "variant": "dark-large",
+    "width": 390,
+    "height": 844,
+    "file": "medicines-dark-large.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "medicines",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "medicines-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "medicines",
+    "variant": "wide",
+    "width": 1280,
+    "height": 844,
+    "file": "medicines-wide.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "messages",
+    "variant": "dark-large",
+    "width": 390,
+    "height": 844,
+    "file": "messages-dark-large.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "messages",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "messages-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "messages",
+    "variant": "wide",
+    "width": 1280,
+    "height": 844,
+    "file": "messages-wide.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "profile",
+    "variant": "dark-large",
+    "width": 390,
+    "height": 844,
+    "file": "profile-dark-large.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "profile",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "profile-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "profile",
+    "variant": "wide",
+    "width": 1280,
+    "height": 844,
+    "file": "profile-wide.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "referrals",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "referrals-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "reschedule",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "reschedule-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "screening",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "screening-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "settings",
+    "variant": "dark-large",
+    "width": 390,
+    "height": 844,
+    "file": "settings-dark-large.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "settings",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "settings-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "settings",
+    "variant": "wide",
+    "width": 1280,
+    "height": 844,
+    "file": "settings-wide.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "vaccinations",
+    "variant": "phone",
+    "width": 390,
+    "height": 844,
+    "file": "vaccinations-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "privacy",
+    "variant": "phone",
+    "width": 390.0,
+    "file": "privacy-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "history",
+    "variant": "phone",
+    "width": 390.0,
+    "file": "history-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  },
+  {
+    "screen": "feedback",
+    "variant": "phone",
+    "width": 390.0,
+    "file": "feedback-phone.png",
+    "source": "Flutter native widget renderer, synthetic fixtures"
+  }
+]

@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -187,7 +188,7 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(
           title: Text(widget.medical
               ? L.tr('Taarifa za afya')

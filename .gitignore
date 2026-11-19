@@ -36,6 +36,8 @@ coverage/
 .local/
 test-results/
 apps/*/artifacts/
+# Local UI review captures may contain signed-in users or clinical details.
+apps/patient-mobile/.impeccable/review/
 playwright-report/
 .playwright/
 playwright/.auth/

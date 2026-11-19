@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import '../core/profile_repository.dart';
@@ -195,84 +196,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _identityCard() {
+    final p = AppPalette.of(context);
     final name = (_account?['full_name'] as String? ?? '').trim();
-    final parts =
-        name.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
-    final initials = parts.isEmpty
-        ? ''
-        : [parts.first, if (parts.length > 1) parts.last]
-            .map((part) => part.characters.first)
-            .join()
-            .toUpperCase();
     final phone = _account?['phone_number'] as String?;
     final residence = _profile?['residence'] as String?;
     return ProfileCard(
-        emphasis: true,
-        padding: const EdgeInsets.all(22),
         child:
             Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.white.withValues(alpha: .14),
-                child: initials.isEmpty
-                    ? const Icon(Icons.person_outline_rounded,
-                        color: Colors.white, size: 30)
-                    : Text(initials,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700))),
-            const SizedBox(width: 16),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(name.isEmpty ? L.tr('Account yako') : name,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          height: 1.25,
-                          fontWeight: FontWeight.w700)),
-                  if (phone != null && phone.isNotEmpty) ...[
-                    const SizedBox(height: 7),
-                    Text(phone,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 15))
-                  ],
-                  if (_ageAndSex != null) ...[
-                    const SizedBox(height: 7),
-                    Text(_ageAndSex!,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 14))
-                  ],
-                ])),
-          ]),
-          if (residence != null && residence.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.location_on_outlined,
-                  color: Colors.white, size: 18),
-              const SizedBox(width: 7),
-              Expanded(
-                  child: Text(residence,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(color: Colors.white, fontSize: 14)))
-            ])
-          ],
-          const SizedBox(height: 18),
-          OutlinedButton.icon(
-              onPressed: _canEdit ? () => _edit() : null,
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              label: Text(L.tr('Hariri taarifa')),
-              style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  disabledForegroundColor: Colors.white.withValues(alpha: .55),
-                  side: BorderSide(color: Colors.white.withValues(alpha: .5)),
-                  minimumSize: const Size.fromHeight(48))),
-        ]));
+      Center(child: PatientAvatar(name: name, size: 72)),
+      const SizedBox(height: 16),
+      Text(name.isEmpty ? L.tr('Account yako') : name,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleLarge),
+      if (phone?.isNotEmpty == true) ...[
+        const SizedBox(height: 6),
+        Text(phone!,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall)
+      ],
+      if (_ageAndSex != null) ...[
+        const SizedBox(height: 6),
+        Text(_ageAndSex!,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall)
+      ],
+      if (residence?.isNotEmpty == true) ...[
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.location_on_outlined, color: p.petrol, size: 18),
+          const SizedBox(width: 6),
+          Flexible(
+              child: Text(residence!,
+                  style: Theme.of(context).textTheme.bodySmall)),
+        ])
+      ],
+      const SizedBox(height: 20),
+      OutlinedButton.icon(
+          onPressed: _canEdit ? () => _edit() : null,
+          icon: const Icon(Icons.edit_outlined, size: 18),
+          label: Text(L.tr('Hariri taarifa'))),
+    ]));
   }
 
   Widget _action(
@@ -377,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(S.profile), actions: [
         IconButton(
             tooltip: L.tr('Pakia wasifu upya'),
@@ -385,7 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: const Icon(Icons.refresh_rounded))
       ]),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SingleChildScrollView(child: LoadingContent())
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(

@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'package:flutter/material.dart';
 import '../core/app_preferences.dart';
 import '../core/l10n.dart';
@@ -36,7 +37,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     final prefs = AppPreferences.instance;
     return ListenableBuilder(
         listenable: prefs,
-        builder: (context, _) => Scaffold(
+        builder: (context, _) => PatientScaffold(
               appBar: AppBar(title: Text(L.tr('Lugha na mwonekano'))),
               body: ListView(padding: const EdgeInsets.all(20), children: [
                 Center(
@@ -109,6 +110,71 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                                             secondary: const Icon(
                                                 Icons.dark_mode_outlined),
                                             enabled: !_saving),
+                                      ]))),
+                              const SizedBox(height: 28),
+                              Text(L.tr('Ufikivu'),
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
+                              const SizedBox(height: 12),
+                              ProfileCard(
+                                  padding: EdgeInsets.zero,
+                                  child: Column(children: [
+                                    SwitchListTile.adaptive(
+                                        title: Text(L.tr('Punguza mwendo')),
+                                        subtitle: Text(L.tr(
+                                            'Zima uhuishaji usio wa lazima. Chaguo la simu linaheshimiwa pia.')),
+                                        value: prefs.reduceMotion,
+                                        onChanged: _saving
+                                            ? null
+                                            : (value) => _save(() =>
+                                                prefs.setReduceMotion(value))),
+                                    SwitchListTile.adaptive(
+                                        title:
+                                            Text(L.tr('Nyuso zisizo na uwazi')),
+                                        subtitle: Text(L.tr(
+                                            'Punguza uwazi na ukungu wa mandharinyuma.')),
+                                        value: prefs.solidSurfaces,
+                                        onChanged: _saving
+                                            ? null
+                                            : (value) => _save(() =>
+                                                prefs.setSolidSurfaces(value))),
+                                  ])),
+                              const SizedBox(height: 20),
+                              Text(L.tr('Mwonekano wa rangi'),
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
+                              const SizedBox(height: 8),
+                              Text(
+                                  L.tr(
+                                      'Lebo na alama zinaendelea kueleza hali. Picha na nyaraka za kitabibu hazibadilishwi.'),
+                                  style: TextStyle(
+                                      color: AppPalette.of(context).inkSoft)),
+                              const SizedBox(height: 12),
+                              ProfileCard(
+                                  padding: EdgeInsets.zero,
+                                  child: RadioGroup<ColorVisionMode>(
+                                      groupValue: prefs.colorVision,
+                                      onChanged: (value) {
+                                        if (!_saving && value != null) {
+                                          _save(() =>
+                                              prefs.setColorVision(value));
+                                        }
+                                      },
+                                      child: Column(children: [
+                                        for (final entry in const {
+                                          ColorVisionMode.standard:
+                                              'Rangi za kawaida',
+                                          ColorVisionMode.redGreen:
+                                              'Rafiki kwa wekundu na kijani',
+                                          ColorVisionMode.blueYellow:
+                                              'Rafiki kwa bluu na manjano',
+                                          ColorVisionMode.highContrast:
+                                              'Utofauti mkubwa wa rangi',
+                                        }.entries)
+                                          RadioListTile<ColorVisionMode>(
+                                              value: entry.key,
+                                              title: Text(L.tr(entry.value)),
+                                              enabled: !_saving),
                                       ]))),
                               const SizedBox(height: 20),
                               Text(

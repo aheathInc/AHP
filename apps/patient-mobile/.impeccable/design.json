@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-17T14:28:10.123020+00:00",
+  "title": "Design System: Human Care Patient",
+  "extensions": {
+    "colorMeta": {
+      "medical-blue": {
+        "role": "primary",
+        "displayName": "Medical Blue",
+        "tonalRamp": [
+          "oklch(15% 0.08471 251.677)",
+          "oklch(25% 0.08471 251.677)",
+          "oklch(35% 0.08471 251.677)",
+          "oklch(45% 0.08471 251.677)",
+          "oklch(60% 0.08471 251.677)",
+          "oklch(75% 0.08471 251.677)",
+          "oklch(87% 0.08471 251.677)",
+          "oklch(95% 0.08471 251.677)"
+        ]
+      },
+      "teal-green": {
+        "role": "secondary",
+        "displayName": "Teal Green",
+        "tonalRamp": [
+          "oklch(15% 0.11476 183.653)",
+          "oklch(25% 0.11476 183.653)",
+          "oklch(35% 0.11476 183.653)",
+          "oklch(45% 0.11476 183.653)",
+          "oklch(60% 0.11476 183.653)",
+          "oklch(75% 0.11476 183.653)",
+          "oklch(87% 0.11476 183.653)",
+          "oklch(95% 0.11476 183.653)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15% 0.04532 249.708)",
+          "oklch(25% 0.04532 249.708)",
+          "oklch(35% 0.04532 249.708)",
+          "oklch(45% 0.04532 249.708)",
+          "oklch(60% 0.04532 249.708)",
+          "oklch(75% 0.04532 249.708)",
+          "oklch(87% 0.04532 249.708)",
+          "oklch(95% 0.04532 249.708)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Ink Soft",
+        "tonalRamp": [
+          "oklch(15% 0.03694 247.157)",
+          "oklch(25% 0.03694 247.157)",
+          "oklch(35% 0.03694 247.157)",
+          "oklch(45% 0.03694 247.157)",
+          "oklch(60% 0.03694 247.157)",
+          "oklch(75% 0.03694 247.157)",
+          "oklch(87% 0.03694 247.157)",
+          "oklch(95% 0.03694 247.157)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "tonalRamp": [
+          "oklch(15% 0.00253 228.784)",
+          "oklch(25% 0.00253 228.784)",
+          "oklch(35% 0.00253 228.784)",
+          "oklch(45% 0.00253 228.784)",
+          "oklch(60% 0.00253 228.784)",
+          "oklch(75% 0.00253 228.784)",
+          "oklch(87% 0.00253 228.784)",
+          "oklch(95% 0.00253 228.784)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15% 0.00000 89.876)",
+          "oklch(25% 0.00000 89.876)",
+          "oklch(35% 0.00000 89.876)",
+          "oklch(45% 0.00000 89.876)",
+          "oklch(60% 0.00000 89.876)",
+          "oklch(75% 0.00000 89.876)",
+          "oklch(87% 0.00000 89.876)",
+          "oklch(95% 0.00000 89.876)"
+        ]
+      },
+      "paper-sunk": {
+        "role": "neutral",
+        "displayName": "Paper Sunk",
+        "tonalRamp": [
+          "oklch(15% 0.00759 241.664)",
+          "oklch(25% 0.00759 241.664)",
+          "oklch(35% 0.00759 241.664)",
+          "oklch(45% 0.00759 241.664)",
+          "oklch(60% 0.00759 241.664)",
+          "oklch(75% 0.00759 241.664)",
+          "oklch(87% 0.00759 241.664)",
+          "oklch(95% 0.00759 241.664)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "tonalRamp": [
+          "oklch(15% 0.00766 241.670)",
+          "oklch(25% 0.00766 241.670)",
+          "oklch(35% 0.00766 241.670)",
+          "oklch(45% 0.00766 241.670)",
+          "oklch(60% 0.00766 241.670)",
+          "oklch(75% 0.00766 241.670)",
+          "oklch(87% 0.00766 241.670)",
+          "oklch(95% 0.00766 241.670)"
+        ]
+      },
+      "deep-ocean": {
+        "role": "neutral",
+        "displayName": "Deep Ocean",
+        "tonalRamp": [
+          "oklch(15% 0.06538 251.012)",
+          "oklch(25% 0.06538 251.012)",
+          "oklch(35% 0.06538 251.012)",
+          "oklch(45% 0.06538 251.012)",
+          "oklch(60% 0.06538 251.012)",
+          "oklch(75% 0.06538 251.012)",
+          "oklch(87% 0.06538 251.012)",
+          "oklch(95% 0.06538 251.012)"
+        ]
+      },
+      "mint-wash": {
+        "role": "neutral",
+        "displayName": "Mint Wash",
+        "tonalRamp": [
+          "oklch(15% 0.01966 181.114)",
+          "oklch(25% 0.01966 181.114)",
+          "oklch(35% 0.01966 181.114)",
+          "oklch(45% 0.01966 181.114)",
+          "oklch(60% 0.01966 181.114)",
+          "oklch(75% 0.01966 181.114)",
+          "oklch(87% 0.01966 181.114)",
+          "oklch(95% 0.01966 181.114)"
+        ]
+      },
+      "amber": {
+        "role": "neutral",
+        "displayName": "Amber",
+        "tonalRamp": [
+          "oklch(15% 0.10268 70.193)",
+          "oklch(25% 0.10268 70.193)",
+          "oklch(35% 0.10268 70.193)",
+          "oklch(45% 0.10268 70.193)",
+          "oklch(60% 0.10268 70.193)",
+          "oklch(75% 0.10268 70.193)",
+          "oklch(87% 0.10268 70.193)",
+          "oklch(95% 0.10268 70.193)"
+        ]
+      },
+      "clay": {
+        "role": "neutral",
+        "displayName": "Clay",
+        "tonalRamp": [
+          "oklch(15% 0.14149 30.297)",
+          "oklch(25% 0.14149 30.297)",
+          "oklch(35% 0.14149 30.297)",
+          "oklch(45% 0.14149 30.297)",
+          "oklch(60% 0.14149 30.297)",
+          "oklch(75% 0.14149 30.297)",
+          "oklch(87% 0.14149 30.297)",
+          "oklch(95% 0.14149 30.297)"
+        ]
+      },
+      "dark-ink": {
+        "role": "neutral",
+        "displayName": "Dark Ink",
+        "tonalRamp": [
+          "oklch(15% 0.01252 255.506)",
+          "oklch(25% 0.01252 255.506)",
+          "oklch(35% 0.01252 255.506)",
+          "oklch(45% 0.01252 255.506)",
+          "oklch(60% 0.01252 255.506)",
+          "oklch(75% 0.01252 255.506)",
+          "oklch(87% 0.01252 255.506)",
+          "oklch(95% 0.01252 255.506)"
+        ]
+      },
+      "dark-ink-soft": {
+        "role": "neutral",
+        "displayName": "Dark Ink Soft",
+        "tonalRamp": [
+          "oklch(15% 0.03083 251.323)",
+          "oklch(25% 0.03083 251.323)",
+          "oklch(35% 0.03083 251.323)",
+          "oklch(45% 0.03083 251.323)",
+          "oklch(60% 0.03083 251.323)",
+          "oklch(75% 0.03083 251.323)",
+          "oklch(87% 0.03083 251.323)",
+          "oklch(95% 0.03083 251.323)"
+        ]
+      },
+      "dark-paper": {
+        "role": "neutral",
+        "displayName": "Dark Paper",
+        "tonalRamp": [
+          "oklch(15% 0.03144 251.450)",
+          "oklch(25% 0.03144 251.450)",
+          "oklch(35% 0.03144 251.450)",
+          "oklch(45% 0.03144 251.450)",
+          "oklch(60% 0.03144 251.450)",
+          "oklch(75% 0.03144 251.450)",
+          "oklch(87% 0.03144 251.450)",
+          "oklch(95% 0.03144 251.450)"
+        ]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Dark Surface",
+        "tonalRamp": [
+          "oklch(15% 0.04590 249.965)",
+          "oklch(25% 0.04590 249.965)",
+          "oklch(35% 0.04590 249.965)",
+          "oklch(45% 0.04590 249.965)",
+          "oklch(60% 0.04590 249.965)",
+          "oklch(75% 0.04590 249.965)",
+          "oklch(87% 0.04590 249.965)",
+          "oklch(95% 0.04590 249.965)"
+        ]
+      },
+      "dark-paper-sunk": {
+        "role": "neutral",
+        "displayName": "Dark Paper Sunk",
+        "tonalRamp": [
+          "oklch(15% 0.05205 247.983)",
+          "oklch(25% 0.05205 247.983)",
+          "oklch(35% 0.05205 247.983)",
+          "oklch(45% 0.05205 247.983)",
+          "oklch(60% 0.05205 247.983)",
+          "oklch(75% 0.05205 247.983)",
+          "oklch(87% 0.05205 247.983)",
+          "oklch(95% 0.05205 247.983)"
+        ]
+      },
+      "dark-line": {
+        "role": "neutral",
+        "displayName": "Dark Line",
+        "tonalRamp": [
+          "oklch(15% 0.05004 246.079)",
+          "oklch(25% 0.05004 246.079)",
+          "oklch(35% 0.05004 246.079)",
+          "oklch(45% 0.05004 246.079)",
+          "oklch(60% 0.05004 246.079)",
+          "oklch(75% 0.05004 246.079)",
+          "oklch(87% 0.05004 246.079)",
+          "oklch(95% 0.05004 246.079)"
+        ]
+      },
+      "dark-primary": {
+        "role": "neutral",
+        "displayName": "Dark Primary",
+        "tonalRamp": [
+          "oklch(15% 0.06618 250.024)",
+          "oklch(25% 0.06618 250.024)",
+          "oklch(35% 0.06618 250.024)",
+          "oklch(45% 0.06618 250.024)",
+          "oklch(60% 0.06618 250.024)",
+          "oklch(75% 0.06618 250.024)",
+          "oklch(87% 0.06618 250.024)",
+          "oklch(95% 0.06618 250.024)"
+        ]
+      },
+      "dark-mint-wash": {
+        "role": "neutral",
+        "displayName": "Dark Mint Wash",
+        "tonalRamp": [
+          "oklch(15% 0.04581 206.291)",
+          "oklch(25% 0.04581 206.291)",
+          "oklch(35% 0.04581 206.291)",
+          "oklch(45% 0.04581 206.291)",
+          "oklch(60% 0.04581 206.291)",
+          "oklch(75% 0.04581 206.291)",
+          "oklch(87% 0.04581 206.291)",
+          "oklch(95% 0.04581 206.291)"
+        ]
+      },
+      "dark-amber": {
+        "role": "neutral",
+        "displayName": "Dark Amber",
+        "tonalRamp": [
+          "oklch(15% 0.10232 76.767)",
+          "oklch(25% 0.10232 76.767)",
+          "oklch(35% 0.10232 76.767)",
+          "oklch(45% 0.10232 76.767)",
+          "oklch(60% 0.10232 76.767)",
+          "oklch(75% 0.10232 76.767)",
+          "oklch(87% 0.10232 76.767)",
+          "oklch(95% 0.10232 76.767)"
+        ]
+      },
+      "dark-clay": {
+        "role": "neutral",
+        "displayName": "Dark Clay",
+        "tonalRamp": [
+          "oklch(15% 0.11149 27.855)",
+          "oklch(25% 0.11149 27.855)",
+          "oklch(35% 0.11149 27.855)",
+          "oklch(45% 0.11149 27.855)",
+          "oklch(60% 0.11149 27.855)",
+          "oklch(75% 0.11149 27.855)",
+          "oklch(87% 0.11149 27.855)",
+          "oklch(95% 0.11149 27.855)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Shared native theme role."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Shared native theme role."
+      },
+      "title-medium": {
+        "displayName": "Title Medium",
+        "purpose": "Shared native theme role."
+      },
+      "title-small": {
+        "displayName": "Title Small",
+        "purpose": "Shared native theme role."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Shared native theme role."
+      },
+      "body-large": {
+        "displayName": "Body Large",
+        "purpose": "Shared native theme role."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Shared native theme role."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Shared native theme role."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "press",
+        "value": "140ms",
+        "purpose": "Surface press feedback; disabled with reduced motion."
+      },
+      {
+        "name": "selection",
+        "value": "200ms",
+        "purpose": "Selection transitions."
+      },
+      {
+        "name": "curve",
+        "value": "cubic-bezier(0.215, 0.61, 0.355, 1)",
+        "purpose": "Preview approximation of Flutter easeOutCubic."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "600px"
+      },
+      {
+        "name": "expanded",
+        "value": "840px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Native Flutter visual preview; see DESIGN.md for behavior.",
+      "html": "<button class=\"ds-component-0\">Continue</button>",
+      "css": ".ds-component-0 {background:#123B64;color:#fff;border:0;border-radius:28px;min-height:52px;padding:12px 24px;font:600 16px OpenSans,sans-serif;transition:transform 140ms cubic-bezier(.215,.61,.355,1);} .ds-component-0:hover {filter:brightness(.97)} .ds-component-0:focus-visible {outline:2px solid #123B64;outline-offset:3px} .ds-component-0:active {transform:scale(.985)} @media(prefers-reduced-motion:reduce) {.ds-component-0 {transition:none} .ds-component-0:active {transform:none}}"
+    },
+    {
+      "name": "Search field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Native Flutter visual preview; see DESIGN.md for behavior.",
+      "html": "<input class=\"ds-component-1\" aria-label=\"Search care\" placeholder=\"Search care\" />",
+      "css": ".ds-component-1 {background:#fff;color:#172B3F;border:1px solid #E1E6EA;border-radius:20px;padding:16px 14px;font:400 16px OpenSans,sans-serif;transition:transform 140ms cubic-bezier(.215,.61,.355,1);} .ds-component-1:hover {filter:brightness(.97)} .ds-component-1:focus-visible {outline:2px solid #123B64;outline-offset:3px} .ds-component-1:active {transform:scale(.985)} @media(prefers-reduced-motion:reduce) {.ds-component-1 {transition:none} .ds-component-1:active {transform:none}}"
+    },
+    {
+      "name": "Patient surface",
+      "kind": "card",
+      "refersTo": "surface",
+      "description": "Native Flutter visual preview; see DESIGN.md for behavior.",
+      "html": "<button class=\"ds-component-2\">Appointment details</button>",
+      "css": ".ds-component-2 {background:#fff;color:#172B3F;border:0;border-radius:20px;padding:20px;text-align:left;font:600 18px OpenSans,sans-serif;transition:transform 140ms cubic-bezier(.215,.61,.355,1);} .ds-component-2:hover {filter:brightness(.97)} .ds-component-2:focus-visible {outline:2px solid #123B64;outline-offset:3px} .ds-component-2:active {transform:scale(.985)} @media(prefers-reduced-motion:reduce) {.ds-component-2 {transition:none} .ds-component-2:active {transform:none}}"
+    },
+    {
+      "name": "Selected filter",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Native Flutter visual preview; see DESIGN.md for behavior.",
+      "html": "<button class=\"ds-component-3\">Available</button>",
+      "css": ".ds-component-3 {background:#E3F5F1;color:#172B3F;border:1px solid #E1E6EA;border-radius:28px;padding:10px 12px;font:400 14px OpenSans,sans-serif;transition:transform 140ms cubic-bezier(.215,.61,.355,1);} .ds-component-3:hover {filter:brightness(.97)} .ds-component-3:focus-visible {outline:2px solid #123B64;outline-offset:3px} .ds-component-3:active {transform:scale(.985)} @media(prefers-reduced-motion:reduce) {.ds-component-3 {transition:none} .ds-component-3:active {transform:none}}"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Native Flutter visual preview; see DESIGN.md for behavior.",
+      "html": "<button class=\"ds-component-4\">Home \u00b7 Services \u00b7 Records \u00b7 Messages \u00b7 Profile</button>",
+      "css": ".ds-component-4 {background:#102E4C;color:#fff;border:0;border-radius:28px;min-height:80px;padding:16px;font:500 11px OpenSans,sans-serif;transition:transform 140ms cubic-bezier(.215,.61,.355,1);} .ds-component-4:hover {filter:brightness(.97)} .ds-component-4:focus-visible {outline:2px solid #123B64;outline-offset:3px} .ds-component-4:active {transform:scale(.985)} @media(prefers-reduced-motion:reduce) {.ds-component-4 {transition:none} .ds-component-4:active {transform:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Human Care",
+    "overview": "Human Care brings the compact search, category grid, grouped appointment details and dark floating navigation of the inspected DocSpot stills into the official A-Health identity. Medical Blue, restrained teal, Open Sans and quiet surfaces support patients finding care and understanding their next action.\n\nThis implemented system supersedes the previous petrol palette, system-font and large-hero direction. The reference guides composition; existing clinical meaning, available data, navigation and native behavior remain authoritative.",
+    "keyCharacteristics": [
+      "Compact search and six care destinations on home.",
+      "Rounded flat surfaces with explicit clinical labels.",
+      "Adaptive reading width and accessible semantic colors."
+    ],
+    "rules": [
+      {
+        "name": "The Clinical Meaning Rule",
+        "body": "Amber means attention and clay means a problem or urgency; status must also have a text label.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do use semantic palette roles in light, dark and accessibility modes.",
+      "Do retain all five labelled navigation destinations and existing workflows.",
+      "Do use real clinician images only when available; otherwise use initials.",
+      "Do respect text scaling, reduced motion and native navigation."
+    ],
+    "donts": [
+      "Do not invent ratings, availability, prices, clinician photos or clinical states.",
+      "Do not use amber or clay for decoration.",
+      "Do not add decorative gradients or glass to operational surfaces.",
+      "Do not distort, recolor or add effects to the supplied logo."
+    ]
+  }
+}

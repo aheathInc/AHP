@@ -1,6 +1,7 @@
+import 'dart:ui' as ui;
+import 'patient_ui.dart';
+import '../core/app_preferences.dart';
 import '../core/l10n.dart';
-
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -41,51 +42,36 @@ class PremiumBentoFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final palette = AppPalette.of(context);
-    return Container(
+    final solid = AppPreferences.instance.solidSurfaces ||
+        AppPreferences.instance.colorVision == ColorVisionMode.highContrast ||
+        (MediaQuery.maybeOf(context)?.highContrast ?? false);
+    final panel = Container(
       padding: padding,
       decoration: BoxDecoration(
-          color: palette.surface,
-          borderRadius: BorderRadius.circular(16),
+          color: palette.surface.withValues(alpha: solid ? 1 : .90),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: palette.line)),
       child: child,
     );
+    if (solid) return panel;
+    return ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8), child: panel));
   }
 }
 
 class _PremiumCardState extends State<PremiumCard> {
-  bool _pressed = false;
-
   @override
-  Widget build(BuildContext context) {
-    Localizations.localeOf(context);
-    final palette = AppPalette.of(context);
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    return AnimatedScale(
-      duration:
-          reduceMotion ? Duration.zero : const Duration(milliseconds: 140),
-      curve: Curves.easeOutCubic,
-      scale: widget.onTap != null && _pressed ? .985 : 1,
-      child: Material(
-        color: widget.background ?? palette.surface,
-        elevation: 1.5,
-        shadowColor: palette.ink.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: widget.onTap,
-          onHighlightChanged: widget.onTap == null
-              ? null
-              : (pressed) => setState(() => _pressed = pressed),
-          child: Padding(padding: widget.padding, child: widget.child),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => PatientSurface(
+      onTap: widget.onTap,
+      padding: widget.padding,
+      color: widget.background,
+      child: widget.child);
 }
 
-/// A single restrained gradient transition, or a static version when the
-/// operating system requests reduced motion.
+/// Compatibility wrapper for a high-emphasis operational summary.
+/// Flat brand colour replaces the former decorative gradient and animation.
 class PremiumAuroraHero extends StatefulWidget {
   const PremiumAuroraHero({
     super.key,
@@ -100,108 +86,12 @@ class PremiumAuroraHero extends StatefulWidget {
   State<PremiumAuroraHero> createState() => _PremiumAuroraHeroState();
 }
 
-class _PremiumAuroraHeroState extends State<PremiumAuroraHero>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _animation = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1100),
-  );
-  bool _reduced = false;
-
+class _PremiumAuroraHeroState extends State<PremiumAuroraHero> {
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final reduced = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    if (reduced != _reduced) {
-      _reduced = reduced;
-      if (reduced) {
-        _animation.stop();
-        _animation.value = .55;
-      } else {
-        _animation.forward(from: 0);
-      }
-    } else if (!reduced && !_animation.isAnimating && _animation.value == 0) {
-      _animation.forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _animation.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Localizations.localeOf(context);
-    return AnimatedBuilder(
-      animation: _animation,
-      child: Padding(padding: widget.padding, child: widget.child),
-      builder: (context, foreground) {
-        final palette = AppPalette.of(context);
-        final t =
-            _reduced ? .55 : Curves.easeOutCubic.transform(_animation.value);
-        return Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            gradient: LinearGradient(
-              begin: Alignment(-1 + .35 * t, -1),
-              end: Alignment(1 - .18 * t, 1),
-              colors: [
-                Color.lerp(palette.heroStart, palette.heroMiddle, t)!,
-                palette.heroMiddle,
-                Color.lerp(palette.heroEnd, palette.deepOcean, t)!,
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: palette.petrol.withValues(alpha: .18),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                right: -76,
-                top: -82,
-                child: ExcludeSemantics(
-                  child: Container(
-                    width: 220,
-                    height: 220,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: .10),
-                        width: 30,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 22,
-                bottom: 12,
-                child: ExcludeSemantics(
-                  child: Transform.rotate(
-                    angle: math.pi / 9,
-                    child: Icon(
-                      Icons.favorite_outline_rounded,
-                      size: 74,
-                      color: Colors.white.withValues(alpha: .07),
-                    ),
-                  ),
-                ),
-              ),
-              foreground!,
-            ],
-          ),
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => PatientSurface(
+      color: AppPalette.of(context).deepOcean,
+      padding: widget.padding,
+      child: widget.child);
 }
 
 class PremiumHeroButton extends StatefulWidget {
@@ -228,7 +118,8 @@ class _PremiumHeroButtonState extends State<PremiumHeroButton> {
     Localizations.localeOf(context);
     final palette = AppPalette.of(context);
     final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+        (MediaQuery.maybeOf(context)?.disableAnimations ?? false) ||
+            AppPreferences.instance.reduceMotion;
     return AnimatedScale(
       scale: _pressed ? .98 : 1,
       duration:
@@ -288,7 +179,10 @@ class PremiumSectionHeading extends StatelessWidget {
           Expanded(
             child: Text(
               L.tr(title),
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
           if (action != null && onAction != null)
@@ -427,7 +321,7 @@ class PremiumStatus extends StatelessWidget {
       label: label,
       child: ExcludeSemantics(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: urgent
                 ? AppPalette.of(context).urgentWash
@@ -437,8 +331,8 @@ class PremiumStatus extends StatelessWidget {
           child: Text(
             L.tr(label),
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
               color: urgent
                   ? AppPalette.of(context).clay
                   : AppPalette.of(context).ink,

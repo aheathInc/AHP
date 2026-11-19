@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -141,14 +142,14 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(S.homeGetHelp)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
             Text(L.tr('Utapata consultation kwa njia gani?'),
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
             if (widget.clinicianName != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -221,7 +222,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
             if (_mode == 'remote') ...[
               const SizedBox(height: 12),
               Text(L.tr('Njia ya mawasiliano'),
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final option in [
@@ -254,7 +255,8 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
             const SizedBox(height: 28),
             Text(
               L.tr('Eleza tatizo lako kwa maneno yako mwenyewe.'),
-              style: TextStyle(color: AppColors.inkSoft, fontSize: 16),
+              style: TextStyle(
+                  color: AppPalette.of(context).inkSoft, fontSize: 16),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -275,7 +277,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
             const SizedBox(height: 28),
             Text(
               L.tr('Inaumiza kiasi gani?'),
-              style: TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
             // 1-10 rather than words: the triage engine weighs this number, and
             // a slider gives the same scale to everyone regardless of how they
@@ -286,7 +288,7 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
               max: 10,
               divisions: 9,
               label: '$_severity',
-              activeColor: AppColors.petrol,
+              activeColor: AppPalette.of(context).petrol,
               onChanged: _busy
                   ? null
                   : (v) {
@@ -296,13 +298,13 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
             ),
             Text(
               L.tr("{0} kati ya 10", [_severity]),
-              style: const TextStyle(color: AppColors.inkSoft),
+              style: TextStyle(color: AppPalette.of(context).inkSoft),
             ),
 
             const SizedBox(height: 24),
             Text(
               L.tr('Kimeanza siku ngapi zilizopita?'),
-              style: TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -320,11 +322,13 @@ class _NewConsultationScreenState extends State<NewConsultationScreen> {
                             _submissionOpId = null;
                             setState(() => _days = d);
                           },
-                    selectedColor: AppColors.petrol,
+                    selectedColor: AppPalette.of(context).action,
                     labelStyle: TextStyle(
-                      color: selected ? Colors.white : AppColors.ink,
+                      color:
+                          selected ? Colors.white : AppPalette.of(context).ink,
                     ),
-                    shape: const RoundedRectangleBorder(),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
                   ),
                 );
               }).toList(),

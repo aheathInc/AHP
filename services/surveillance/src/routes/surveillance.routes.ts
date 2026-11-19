@@ -16,6 +16,8 @@ surveillanceRouter.get('/surveillance/reporting-areas', requireAuth, c.getReport
 surveillanceRouter.post('/surveillance/reporting-areas', requireAuth, c.importReportingAreas);
 surveillanceRouter.post('/surveillance/regional-insights/releases', requireAuth, c.publishRegionalMonth);
 
+surveillanceRouter.get('/surveillance/operations-overview', requireAuth, c.getOperationsOverview);
+
 surveillanceRouter.get('/surveillance/admin-analytics', requireAuth, c.getAdminAnalytics);
 
 surveillanceRouter.get('/surveillance/conditions', requireAuth, c.getConditions);

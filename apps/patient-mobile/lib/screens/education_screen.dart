@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'patient_community_screen.dart' show emergency;
 import 'package:flutter/material.dart';
@@ -77,7 +78,7 @@ class _EducationScreenState extends State<EducationScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Elimu ya afya'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -108,7 +109,7 @@ class _EducationScreenState extends State<EducationScreen> {
                   ],
                   if (_error == null && _articles.isEmpty)
                     Padding(
-                      padding: EdgeInsets.only(top: 20),
+                      padding: const EdgeInsets.only(top: 20),
                       child: Empty(
                           L.tr('Hakuna makala zilizochapishwa kwa sasa.')),
                     ),
@@ -143,9 +144,9 @@ class _EducationScreenState extends State<EducationScreen> {
                                     ),
                                   ),
                                 ),
-                                const Icon(
+                                Icon(
                                   Icons.chevron_right,
-                                  color: AppColors.inkSoft,
+                                  color: AppPalette.of(context).inkSoft,
                                 ),
                               ],
                             ),
@@ -157,7 +158,8 @@ class _EducationScreenState extends State<EducationScreen> {
                                 category,
                                 article['language'] ?? 'lugha haijatajwa'
                               ]),
-                              style: const TextStyle(color: AppColors.inkSoft),
+                              style: TextStyle(
+                                  color: AppPalette.of(context).inkSoft),
                             ),
                           ],
                         ),
@@ -218,7 +220,7 @@ class _EducationArticleScreenState extends State<EducationArticleScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Makala ya afya'))),
       body: _article == null
           ? Center(
@@ -231,7 +233,7 @@ class _EducationArticleScreenState extends State<EducationArticleScreen> {
               children: [
                 Text(
                   widget.category,
-                  style: const TextStyle(color: AppColors.petrol),
+                  style: TextStyle(color: AppPalette.of(context).petrol),
                 ),
                 const SizedBox(height: 8),
                 Text(

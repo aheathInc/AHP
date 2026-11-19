@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -391,7 +392,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
   @override
   Widget build(BuildContext context) {
     final request = _request;
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Dharura / SOS')), actions: [
           EmergencyCallButton(
               key: const Key('emergency-appbar-call'),

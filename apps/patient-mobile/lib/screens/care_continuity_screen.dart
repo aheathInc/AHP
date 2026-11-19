@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'afpe_report_screen.dart';
 import '../core/l10n.dart';
 import 'dart:async';
@@ -179,15 +180,21 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-            color: problem ? const Color(0xFFFFF1EC) : AppColors.paperSunk,
+            color: problem
+                ? const Color(0xFFFFF1EC)
+                : AppPalette.of(context).paperSunk,
             borderRadius: BorderRadius.circular(16),
-            border:
-                Border.all(color: problem ? AppColors.clay : AppColors.line)),
+            border: Border.all(
+                color: problem
+                    ? AppPalette.of(context).clay
+                    : AppPalette.of(context).line)),
         child: Semantics(
             liveRegion: true,
             child: Text(message,
                 style: TextStyle(
-                    color: problem ? AppColors.clay : AppColors.inkSoft,
+                    color: problem
+                        ? AppPalette.of(context).clay
+                        : AppPalette.of(context).inkSoft,
                     fontSize: 14))),
       );
   Widget _panel(List<Widget> children) => Container(
@@ -196,7 +203,7 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
         decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.line)),
+            border: Border.all(color: AppPalette.of(context).line)),
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, children: children),
       );
@@ -211,25 +218,26 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
             false);
     return _panel([
       Row(children: [
-        const Icon(Icons.medication_outlined, color: AppColors.petrol),
+        Icon(Icons.medication_outlined, color: AppPalette.of(context).petrol),
         const SizedBox(width: 10),
         Expanded(
             child: Text(d['medication_name'] as String,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 18)))
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 18)))
       ]),
       const SizedBox(height: 10),
       Text('${d['dosage']} · ${_when(d['scheduled_at'])}'),
       const SizedBox(height: 6),
       Text(_doseLabel(state),
           key: ValueKey('dose-state-${d['id']}'),
-          style: const TextStyle(color: AppColors.inkSoft, fontSize: 14)),
+          style:
+              TextStyle(color: AppPalette.of(context).inkSoft, fontSize: 14)),
       if (!confirmedTiming) ...[
         const SizedBox(height: 8),
         Text(
             L.tr(
                 'Daktari bado hajathibitisha muda wa kikumbusho. Fuata maagizo yako; usibadili matumizi kutokana na saa iliyoonyeshwa.'),
-            style: TextStyle(fontSize: 13, color: AppColors.inkSoft))
+            style:
+                TextStyle(fontSize: 13, color: AppPalette.of(context).inkSoft))
       ],
       if (canReport) ...[
         const SizedBox(height: 14),
@@ -258,7 +266,7 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
         if (_doses.isEmpty)
           _panel([
             Text(L.tr('Hakuna dozi kwenye kipindi hiki.'),
-                style: TextStyle(fontWeight: FontWeight.w600)),
+                style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             Text(L.tr(
                 'Ratiba huonekana baada ya daktari kuthibitisha muda wa dawa kwenye prescription yako.'))
@@ -271,7 +279,7 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
         if (data.plans.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(L.tr('Ratiba zilizowekwa na daktari'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           ...data.plans.map((item) {
             final plan = item['plan'] == null ? null : careObject(item['plan']);
@@ -286,8 +294,8 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
                 Text(
                     L.tr("Kuanzia {0} · {1}",
                         [plan['start_date'], plan['status']]),
-                    style:
-                        const TextStyle(fontSize: 13, color: AppColors.inkSoft))
+                    style: TextStyle(
+                        fontSize: 13, color: AppPalette.of(context).inkSoft))
             ]);
           }),
         ],
@@ -308,7 +316,7 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
                   icon: const Icon(Icons.insights),
                   label: Text(L.tr('Mwenendo wa afya yangu'))),
               Text(L.tr('Mpango wa ufuatiliaji'),
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
               Text(L.tr("Mwisho wa kipindi: {0}", [_when(cycle['end_date'])])),
               if (cycle['review_due'] == true) ...[
@@ -316,7 +324,7 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
                 Text(
                     L.tr(
                         'Kipindi kimeisha; ukaguzi wa daktari unasubiri. Hii haimaanishi umepona.'),
-                    style: TextStyle(color: AppColors.inkSoft))
+                    style: TextStyle(color: AppPalette.of(context).inkSoft))
               ],
               const SizedBox(height: 12),
               OutlinedButton.icon(
@@ -340,12 +348,12 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
                       children: [
                         Text(
                             '${contact['channel'] == 'phone' ? L.tr('Mawasiliano ya simu') : L.tr('Mazungumzo kwenye app')} · ${_when(contact['scheduled_at'])}',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
                         Text(contact['purpose'] as String),
                         Text(L.tr("Hali: {0}", [contact['status']]),
-                            style: const TextStyle(
-                                color: AppColors.inkSoft, fontSize: 13)),
+                            style: TextStyle(
+                                color: AppPalette.of(context).inkSoft,
+                                fontSize: 13)),
                       ]))),
             ])),
         _message(L.tr(
@@ -354,7 +362,7 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
   List<Widget> _reminders(CareOverview data) => [
         _panel([
           Text(L.tr('Vikumbusho vya ujumbe mfupi'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(L.tr(
               'Kwa hiari yako, ruhusu ujumbe wa jumla kwenye namba ya akaunti/guardian. Hautajumuisha jina la dawa. Inahitaji SMS provider aliyesanidiwa.')),
@@ -384,13 +392,13 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
               const SizedBox(height: 6),
               Text(_when(r['due_at'])),
               Text(L.tr("Delivery: {0}", [r['delivery']]),
-                  style:
-                      const TextStyle(fontSize: 13, color: AppColors.inkSoft)),
+                  style: TextStyle(
+                      fontSize: 13, color: AppPalette.of(context).inkSoft)),
               if (r['delivery'] == 'simulated')
                 Text(
                     L.tr(
                         'Majaribio ya ndani; hakuna SMS ya carrier iliyothibitishwa.'),
-                    style: TextStyle(fontSize: 13)),
+                    style: const TextStyle(fontSize: 13)),
               if (r['read_at'] == null)
                 TextButton(
                     onPressed: _busy
@@ -406,7 +414,7 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final data = _data;
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Ufuatiliaji wangu')), actions: [
         IconButton(
             tooltip: L.tr('Sasisha'),
@@ -430,32 +438,32 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
                             padding: const EdgeInsets.all(22),
                             margin: const EdgeInsets.only(bottom: 20),
                             decoration: BoxDecoration(
-                                color: AppColors.petrol,
+                                color: AppPalette.of(context).petrol,
                                 borderRadius: BorderRadius.circular(24)),
                             child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                       L.tr('TUKO PAMOJA, HATA BAADA YA HUDUMA'),
-                                      style: TextStyle(
-                                          color: Color(0xFFD5E9DF),
+                                      style: const TextStyle(
+                                          color: const Color(0xFFD5E9DF),
                                           fontSize: 11,
                                           letterSpacing: 1.2)),
-                                  SizedBox(height: 10),
+                                  const SizedBox(height: 10),
                                   Text(
                                       L.tr(
                                           'Hatua ndogo.\nUfuatiliaji wa karibu.'),
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 27,
                                           fontWeight: FontWeight.w600,
                                           height: 1.15)),
-                                  SizedBox(height: 10),
+                                  const SizedBox(height: 10),
                                   Text(
                                       L.tr(
                                           'Ratiba, majibu yako na mawasiliano ya daktari — sehemu moja.'),
-                                      style: TextStyle(
-                                          color: Color(0xFFE4F0E8),
+                                      style: const TextStyle(
+                                          color: const Color(0xFFE4F0E8),
                                           fontSize: 14)),
                                 ])),
                         if (_loading)
@@ -509,8 +517,9 @@ class _CareContinuityScreenState extends State<CareContinuityScreen>
                           Text(
                               L.tr("Taarifa za seva: {0}",
                                   [_when(data.raw['as_of'])]),
-                              style: const TextStyle(
-                                  color: AppColors.inkSoft, fontSize: 12)),
+                              style: TextStyle(
+                                  color: AppPalette.of(context).inkSoft,
+                                  fontSize: 12)),
                         ],
                         if (_busy)
                           const Padding(

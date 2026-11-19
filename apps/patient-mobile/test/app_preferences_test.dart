@@ -83,6 +83,8 @@ void main() {
     await t.pumpAndSettle();
     expect(Theme.of(t.element(find.byType(AppSettingsScreen))).brightness,
         Brightness.dark);
+    await t.ensureVisible(find.text('Mode clair'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Mode clair'));
     await t.pumpAndSettle();
     expect(Theme.of(t.element(find.byType(AppSettingsScreen))).brightness,

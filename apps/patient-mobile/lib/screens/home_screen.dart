@@ -1,3 +1,7 @@
+import '../widgets/brand_logo.dart';
+import '../core/design_tokens.dart';
+import '../widgets/care_home.dart';
+import 'app_settings_screen.dart';
 import '../core/l10n.dart';
 import 'patient_community_screen.dart';
 import 'feedback_tracking_screen.dart';
@@ -202,68 +206,113 @@ class _HomeScreenState extends State<HomeScreen> {
     Localizations.localeOf(context);
     final expanded = MediaQuery.sizeOf(context).width >= 840;
     return Scaffold(
-      appBar: _selectedIndex == 4 || _selectedIndex == 3
+      appBar: expanded || _selectedIndex == 4 || _selectedIndex == 3
           ? null
           : AppBar(
-              title: Text(
-                _name == null || _name!.trim().isEmpty
-                    ? S.appName
-                    : L.tr("Habari, {0}", [_name]),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              toolbarHeight: 72,
+              title: const BrandLogo(width: 160, height: 44),
               actions: [
-                TextButton.icon(
-                  onPressed: _signOut,
-                  icon: const Icon(Icons.logout_rounded, size: 19),
-                  label: Text(S.signOut),
-                ),
-                const SizedBox(width: 8),
+                IconButton(
+                    tooltip: L.tr('Display & accessibility'),
+                    onPressed: () => _go(const AppSettingsScreen()),
+                    icon: const Icon(Icons.tune_rounded)),
+                Padding(
+                    padding: const EdgeInsets.only(right: 16, left: 4),
+                    child: IconButton.filledTonal(
+                        tooltip: S.profile,
+                        onPressed: () => _select(4),
+                        icon: const Icon(Icons.person_outline_rounded))),
               ],
             ),
-      body: expanded
-          ? Row(
-              children: [
-                NavigationRail(
-                  selectedIndex: _selectedIndex,
-                  onDestinationSelected: _select,
-                  labelType: NavigationRailLabelType.all,
-                  groupAlignment: -.78,
-                  destinations: [
-                    for (final destination in _destinations)
-                      NavigationRailDestination(
-                        icon: Icon(destination.icon),
-                        selectedIcon: Icon(destination.selectedIcon),
-                        label: Text(L.tr(destination.label)),
-                      ),
-                  ],
-                ),
-                const VerticalDivider(width: 1, thickness: 1),
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1040),
-                      child: _selectedPage(),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : _selectedPage(),
+      body: SafeArea(
+          top: expanded,
+          bottom: false,
+          child: expanded
+              ? Row(children: [
+                  _desktopNavigation(),
+                  Expanded(
+                      child: Center(
+                          child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1180),
+                              child: _selectedPage()))),
+                ])
+              : _selectedPage()),
       bottomNavigationBar: expanded
           ? null
-          : NavigationBar(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: _select,
-              destinations: [
-                for (final destination in _destinations)
-                  NavigationDestination(
-                    icon: Icon(destination.icon),
-                    selectedIcon: Icon(destination.selectedIcon),
-                    label: L.tr(destination.label),
-                  ),
-              ],
-            ),
+          : SafeArea(
+              top: false,
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  child: ClipRRect(
+                      borderRadius: BorderRadius.circular(CareRadius.pill),
+                      child: NavigationBar(
+                        selectedIndex: _selectedIndex,
+                        onDestinationSelected: _select,
+                        destinations: [
+                          for (final destination in _destinations)
+                            NavigationDestination(
+                              icon: Icon(destination.icon),
+                              selectedIcon: Icon(destination.selectedIcon),
+                              label: L.tr(destination.label),
+                            ),
+                        ],
+                      )))),
+    );
+  }
+
+  Widget _desktopNavigation() {
+    final palette = AppPalette.of(context);
+    return Container(
+      width: 224,
+      decoration:
+          BoxDecoration(border: Border(right: BorderSide(color: palette.line))),
+      child: Material(
+          color: palette.surface,
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Padding(
+                padding: EdgeInsets.fromLTRB(24, 30, 24, 26),
+                child: BrandLogo(width: 166, height: 48)),
+            Expanded(
+                child: SingleChildScrollView(
+                    child: Column(children: [
+              for (var i = 0; i < _destinations.length; i++)
+                Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    child: Material(
+                        color: _selectedIndex == i
+                            ? palette.mintWash
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListTile(
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            selected: _selectedIndex == i,
+                            selectedColor: palette.petrol,
+                            leading: Icon(_selectedIndex == i
+                                ? _destinations[i].selectedIcon
+                                : _destinations[i].icon),
+                            title: Text(L.tr(_destinations[i].label),
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: _selectedIndex == i
+                                        ? FontWeight.w700
+                                        : FontWeight.w500)),
+                            onTap: () => _select(i)))),
+            ]))),
+            const Divider(indent: 20, endIndent: 20),
+            ListTile(
+                leading: const Icon(Icons.tune_rounded),
+                title: Text(L.tr('Settings'),
+                    style: const TextStyle(fontSize: 14)),
+                onTap: () => _go(const AppSettingsScreen())),
+            ListTile(
+                leading: const Icon(Icons.logout_rounded),
+                title: Text(S.signOut, style: const TextStyle(fontSize: 14)),
+                onTap: _signOut),
+            const SizedBox(height: 20),
+          ])),
     );
   }
 
@@ -279,8 +328,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _listPage(List<Widget> children) => ListView(
+        key: ValueKey(_selectedIndex),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        padding: EdgeInsets.fromLTRB(
+            MediaQuery.sizeOf(context).width >= 840 ? 36 : 20,
+            MediaQuery.sizeOf(context).width >= 840 ? 32 : 12,
+            MediaQuery.sizeOf(context).width >= 840 ? 36 : 20,
+            32),
         children: children,
       );
 
@@ -324,81 +378,112 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
 
   Widget _homePage() => _listPage([
-        ..._syncNotices(),
-        WorkspaceIntro(
-            title: L.tr('Huduma za afya, karibu nawe'),
-            description:
-                L.tr('Angalia foleni na daktari aliyepo kabla ya kwenda.'),
-            action: FilledButton.icon(
-                onPressed: () => _go(const FacilityBrowserScreen()),
-                icon: const Icon(Icons.search),
-                label: Text(L.tr('Tafuta daktari au kituo')))),
-        PremiumBentoFrame(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final emergency = PremiumAction(
-                icon: Icons.warning_amber_rounded,
-                title: S.emergency,
-                subtitle: L.tr('Fungua huduma ya dharura'),
-                iconColor: AppPalette.of(context).clay,
-                iconBackground: AppPalette.of(context).urgentWash,
-                onTap: () => _go(const EmergencyScreen()),
-              );
-              final newConsultation = PremiumAction(
-                icon: Icons.medical_services_outlined,
-                title: S.homeGetHelp,
-                subtitle: L.tr('Anzisha ombi jipya'),
-                onTap: () => _go(const NewConsultationScreen()),
-              );
-              if (constraints.maxWidth < 540) {
-                return Column(
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    emergency,
-                    const SizedBox(height: 12),
-                    newConsultation,
-                  ],
-                );
-              }
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: emergency),
-                  const SizedBox(width: 12),
-                  Expanded(child: newConsultation),
-                ],
-              );
-            },
-          ),
-        ),
+                Text(
+                    _name == null || _name!.trim().isEmpty
+                        ? L.tr('Nyumbani')
+                        : L.tr('Habari, {0}', [_name!.trim().split(' ').first]),
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                Text(L.tr('Your care, in one place.'),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: AppPalette.of(context).inkSoft)),
+              ])),
+          if (MediaQuery.sizeOf(context).width >= 1000)
+            OutlinedButton.icon(
+                onPressed: () => _go(const AppointmentsScreen()),
+                icon: const Icon(Icons.calendar_month_outlined, size: 19),
+                label: Text(L.tr('Miadi'))),
+        ]),
         const SizedBox(height: 20),
-        PremiumSectionHeading(L.tr('Matibabu yanayoendelea')),
-        _consultationsSummary(_active, active: true),
-        if (_recent.isNotEmpty) ...[
-          PremiumSectionHeading(L.tr('Matibabu ya hivi karibuni')),
-          ..._recent.take(3).map(_consultationCard),
-          PremiumLinkRow(
-            icon: Icons.history_rounded,
-            title: L.tr('Angalia rekodi zote'),
-            onTap: () => _select(2),
+        ..._syncNotices(),
+        CareHomeActions(
+            onFindCare: () => _go(const FacilityBrowserScreen()),
+            onConsultation: () => _go(const NewConsultationScreen()),
+            onEmergency: () => _go(const EmergencyScreen())),
+        const SizedBox(height: 24),
+        PremiumSectionHeading(L.tr('Huduma zako'),
+            action: L.tr('Huduma zote'), onAction: () => _select(1)),
+        CareShortcuts(items: [
+          (
+            icon: Icons.medical_services_outlined,
+            label: S.homeGetHelp,
+            onTap: () => _go(const NewConsultationScreen())
           ),
-        ],
-        const SizedBox(height: 12),
-        PremiumSectionHeading(L.tr('Huduma zako')),
-        PremiumLinkRow(
-          icon: Icons.calendar_month_outlined,
-          title: L.tr('Miadi'),
-          onTap: () => _go(const AppointmentsScreen()),
-        ),
-        PremiumLinkRow(
-          icon: Icons.medication_outlined,
-          title: S.medications,
-          onTap: () => _go(const MedicationFollowupScreen()),
-        ),
-        PremiumLinkRow(
-          icon: Icons.chat_bubble_outline_rounded,
-          title: L.tr('Mazungumzo kuhusu ziara'),
-          onTap: () => _select(3),
-        ),
+          (
+            icon: Icons.calendar_month_outlined,
+            label: L.tr('Miadi'),
+            onTap: () => _go(const AppointmentsScreen())
+          ),
+          (
+            icon: Icons.medication_outlined,
+            label: S.medications,
+            onTap: () => _go(const MedicationFollowupScreen())
+          ),
+          (
+            icon: Icons.biotech_outlined,
+            label: L.tr('Vipimo na majibu'),
+            onTap: () => _go(const DiagnosticsScreen())
+          ),
+          (
+            icon: Icons.family_restroom_outlined,
+            label: L.tr('Familia na wategemezi'),
+            onTap: () => _go(const FamilyScreen())
+          ),
+          (
+            icon: Icons.grid_view_outlined,
+            label: L.tr('Huduma zote'),
+            onTap: () => _select(1)
+          ),
+        ]),
+        const SizedBox(height: 24),
+        LayoutBuilder(builder: (context, size) {
+          final visits =
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            PremiumSectionHeading(L.tr('Matibabu yanayoendelea')),
+            _consultationsSummary(_active, active: true),
+            if (_recent.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              PremiumSectionHeading(L.tr('Matibabu ya hivi karibuni'),
+                  action: L.tr('Rekodi'), onAction: () => _select(2)),
+              ..._recent.take(3).map(_consultationCard),
+            ],
+          ]);
+          final support =
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            PremiumSectionHeading(L.tr('Continue your care')),
+            CareLinkGroup(children: [
+              CareLink(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  title: L.tr('Mazungumzo kuhusu ziara'),
+                  onTap: () => _select(3)),
+              CareLink(
+                  icon: Icons.alt_route_rounded,
+                  title: L.tr('Rufaa Zangu'),
+                  onTap: () => _go(const ReferralsScreen())),
+              CareLink(
+                  icon: Icons.map_outlined,
+                  title: L.tr('Pharmacy karibu nami'),
+                  onTap: () => _go(const PharmacyMapScreen())),
+            ]),
+          ]);
+          if (size.maxWidth < 780) {
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [visits, const SizedBox(height: 20), support]);
+          }
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(flex: 6, child: visits),
+            const SizedBox(width: 24),
+            Expanded(flex: 4, child: support),
+          ]);
+        }),
       ]);
 
   Widget _consultationsSummary(
@@ -406,18 +491,26 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool active,
   }) {
     if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const LoadingContent(rows: 1);
     }
     if (consultations.isEmpty) {
       if (!_online) {
         return Empty(L.tr('Hali ya ziara haiwezi kuthibitishwa bila mtandao.'));
       }
-      return Empty(
-        active ? S.homeNothing : L.tr('Hakuna ziara za hivi karibuni.'),
-      );
+      return PremiumCard(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(Icons.medical_information_outlined,
+            color: AppPalette.of(context).petrol, size: 28),
+        const SizedBox(height: 16),
+        Text(active ? S.homeNothing : L.tr('Hakuna ziara za hivi karibuni.'),
+            style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: 12),
+        TextButton.icon(
+            onPressed: () => _go(const NewConsultationScreen()),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(L.tr('Anzisha ombi jipya'))),
+      ]));
     }
     return Column(
       children:
@@ -634,11 +727,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ServiceDirectory(
           sections: sections,
           onOpen: _go,
-          emergency: PremiumLinkRow(
-              icon: Icons.warning_amber_rounded,
-              title: S.emergency,
-              iconColor: AppPalette.of(context).clay,
-              onTap: () => _go(const EmergencyScreen()))),
+          emergency:
+              CareEmergencyLink(onTap: () => _go(const EmergencyScreen()))),
     ]);
   }
 

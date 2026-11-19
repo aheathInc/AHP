@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -68,7 +69,7 @@ class _VaccinationsScreenState extends State<VaccinationsScreen> {
         .toList();
     final given = _rows.where((v) => v['status'] == 'administered').toList();
 
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(S.vaccinations)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -90,8 +91,8 @@ class _VaccinationsScreenState extends State<VaccinationsScreen> {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Panel(
                           accent: v['status'] == 'overdue'
-                              ? AppColors.clay
-                              : AppColors.amber,
+                              ? AppPalette.of(context).clay
+                              : AppPalette.of(context).amber,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -110,14 +111,14 @@ class _VaccinationsScreenState extends State<VaccinationsScreen> {
                                     : L.tr('Inasubiri'),
                                 style: TextStyle(
                                   color: v['status'] == 'overdue'
-                                      ? AppColors.clay
-                                      : AppColors.amber,
+                                      ? AppPalette.of(context).clay
+                                      : AppPalette.of(context).amber,
                                 ),
                               ),
                               Text(
                                 L.tr("Inahitajika: {0}", [_date(v['due_at'])]),
-                                style: const TextStyle(
-                                  color: AppColors.inkSoft,
+                                style: TextStyle(
+                                  color: AppPalette.of(context).inkSoft,
                                 ),
                               ),
                             ],
@@ -136,10 +137,10 @@ class _VaccinationsScreenState extends State<VaccinationsScreen> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.check,
                               size: 18,
-                              color: AppColors.petrol,
+                              color: AppPalette.of(context).petrol,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -151,8 +152,8 @@ class _VaccinationsScreenState extends State<VaccinationsScreen> {
                             if (at != null)
                               Text(
                                 DateFormat('d MMM y').format(at.toLocal()),
-                                style: const TextStyle(
-                                  color: AppColors.inkSoft,
+                                style: TextStyle(
+                                  color: AppPalette.of(context).inkSoft,
                                   fontSize: 13,
                                 ),
                               ),

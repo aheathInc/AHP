@@ -7,6 +7,9 @@ import 'leaflet/dist/leaflet.css';
 import './care-continuity.css';
 import './premium-clinical.css';
 import './research-portal.css';
+import './brand-system.css';
+import './experience.css';
+import { displayBootstrap } from '@/lib/premium/displayPreferences';
 
 /*
  * One family across the scale; weight and size carry the hierarchy. Plex Mono
@@ -16,14 +19,15 @@ import './research-portal.css';
  */
 export const metadata: Metadata = {
   title: 'A-Health',
-  description: 'Clinician care, health operations and research intelligence.',
+  description: 'Connecting Healthcare. Empowering Lives.',
+  icons: {icon:'/brand/app-icon-48.png',apple:'/brand/app-icon-180.png'},
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans">
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('ahp.staff.theme');document.documentElement.dataset.theme=t==='dark'||t==='light'?t:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.density=localStorage.getItem('ahp.staff.density')==='compact'?'compact':'comfortable';}catch(e){}})();` }} />
+        <script dangerouslySetInnerHTML={{ __html: displayBootstrap }} />
         <Providers>
           <DisplayProvider><StaffShell>{children}</StaffShell></DisplayProvider>
         </Providers>

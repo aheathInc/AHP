@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 import '../core/api.dart';
@@ -59,7 +60,7 @@ class _PatientUpdatesScreenState extends State<PatientUpdatesScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Taarifa na ripoti zangu'))),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -75,7 +76,7 @@ class _PatientUpdatesScreenState extends State<PatientUpdatesScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   if (_updates.isEmpty)
                     Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                         child: Text(L.tr('Hakuna taarifa mpya.'))),
                   for (final n in _updates)
                     ListTile(
@@ -91,7 +92,7 @@ class _PatientUpdatesScreenState extends State<PatientUpdatesScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   if (_reports.isEmpty)
                     Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                         child: Text(L.tr('Hakuna ripoti ulizowasilisha.'))),
                   for (final r in _reports)
                     ListTile(

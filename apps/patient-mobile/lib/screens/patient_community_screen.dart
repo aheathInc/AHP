@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -200,7 +201,7 @@ class _PatientCommunityScreenState extends State<PatientCommunityScreen> {
     final setup = _settings ||
         _profile?['consentVersion'] != _version ||
         _profile == null;
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Community ya afya')), actions: [
           IconButton(
               onPressed:
@@ -286,7 +287,7 @@ class _PatientCommunityScreenState extends State<PatientCommunityScreen> {
                         style: Theme.of(context).textTheme.titleLarge),
                     if (_spaces.isEmpty)
                       Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
+                          padding: const EdgeInsets.symmetric(vertical: 24),
                           child: Text(L.tr(
                               'Hakuna community iliyofunguliwa kwa sasa.'))),
                     for (final s in _spaces)
@@ -407,7 +408,7 @@ class _HealthSpaceScreenState extends State<HealthSpaceScreen> {
             style: Theme.of(context).textTheme.titleSmall),
         if (p['parentId'] != null)
           Text(L.tr('Jibu la mjadala'),
-              style: TextStyle(fontStyle: FontStyle.italic)),
+              style: const TextStyle(fontStyle: FontStyle.italic)),
         SelectableText(p['body']),
         Text(p['status'] == 'approved'
             ? L.tr('Imeidhinishwa')
@@ -448,7 +449,7 @@ class _HealthSpaceScreenState extends State<HealthSpaceScreen> {
     Localizations.localeOf(context);
     final roots = _posts.where((p) => p['parentId'] == null).toList();
     final rootIds = roots.map((p) => p['id']).toSet();
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(widget.space['name'])),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -466,7 +467,7 @@ class _HealthSpaceScreenState extends State<HealthSpaceScreen> {
                             color: Theme.of(context).colorScheme.error)),
                   if (_posts.isEmpty)
                     Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
+                        padding: const EdgeInsets.symmetric(vertical: 24),
                         child: Text(L.tr(
                             'Hakuna posts bado. Anzisha mjadala unaoheshimu faragha.'))),
                   for (final root in roots) ...[
@@ -543,7 +544,7 @@ class _PeerChatsScreenState extends State<PeerChatsScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Peer chats'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -705,7 +706,7 @@ class _PeerConversationScreenState extends State<PeerConversationScreen>
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(widget.chat['alias']), actions: [
           IconButton(
               onPressed: _block,

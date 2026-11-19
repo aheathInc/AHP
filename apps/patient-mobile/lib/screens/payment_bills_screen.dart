@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -238,26 +239,15 @@ class _PaymentBillsScreenState extends State<PaymentBillsScreen>
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Bili na risiti'))),
       body: RefreshIndicator(
           onRefresh: load,
           child: ListView(padding: const EdgeInsets.all(20), children: [
-            PremiumAuroraHero(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(L.tr('Lipia huduma yako'),
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(color: Colors.white)),
-                  const SizedBox(height: 8),
-                  Text(
-                      L.tr(
-                          'Bili kutoka kwa mtoa huduma. Kiasi hakiwekwi na mgonjwa. Risiti hutolewa baada ya uthibitisho.'),
-                      style: TextStyle(color: Colors.white)),
-                ])),
+            WorkspaceIntro(
+                title: L.tr('Lipia huduma yako'),
+                description: L.tr(
+                    'Bili kutoka kwa mtoa huduma. Kiasi hakiwekwi na mgonjwa. Risiti hutolewa baada ya uthibitisho.')),
             const SizedBox(height: 16),
             if (options != null && options!['environment'] != 'live')
               Notice(

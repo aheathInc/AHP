@@ -13,18 +13,18 @@ navigation aid and is labelled accordingly.
 
 ## Approved experience
 
-The approved direction is **Premium Modern Healthcare UI A**. It should feel
-calm, clear, contemporary and dependable, while retaining A-Health's existing
-petrol, mint and warm-paper identity. Premium styling must make patient tasks
-easier to find without changing what a workflow means or what the service
-reports.
+The approved direction is **Human Care**, using the inspected DocSpot reference
+for compact search, category tiles, grouped care details and dark floating
+navigation. The official A-Health Medical Blue, Teal Green, Open Sans and logo
+remain the identity authority. Calm surfaces and clear hierarchy make patient
+tasks easier to find without changing workflow or clinical meaning.
 
 The patient can select Kiswahili, English or French for the authored interface;
 Kiswahili is the default. Appearance offers System, Light and Dark, with System
 as the default and the existing dedicated dark palette retained. Both choices
 persist on the device, work offline and apply without restarting the app.
-Aurora gradients, refined Bento Cards, readable typography, restrained motion,
-responsive navigation and accessibility remain part of the approved direction.
+Rounded flat surfaces, readable typography, restrained motion, responsive
+navigation and accessibility form the approved visual direction.
 
 Core experience principles:
 

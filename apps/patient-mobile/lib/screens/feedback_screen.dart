@@ -1,3 +1,5 @@
+import '../core/patient_labels.dart';
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -170,7 +172,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Maoni na malalamiko'))),
       body: RefreshIndicator(
         onRefresh: _loadCompleted,
@@ -194,6 +196,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                   L.tr('Hakuna ombi lililokamilika linaloweza kutathminiwa.')),
             if (_completed.isNotEmpty) ...[
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _consultationId,
                 decoration: InputDecoration(
                   labelText: L.tr('Ombi lililokamilika'),
@@ -252,12 +255,15 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _category,
               decoration:
                   InputDecoration(labelText: L.tr('Muktadha wa ripoti')),
               items: [
                 for (final category in _incidentCategories)
-                  DropdownMenuItem(value: category, child: Text(category)),
+                  DropdownMenuItem(
+                      value: category,
+                      child: Text(patientOptionLabel(category))),
               ],
               onChanged: _busy
                   ? null
@@ -265,6 +271,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: _incidentConsultationId ?? '',
               decoration: InputDecoration(
                 labelText: L.tr('Ombi linalohusiana (hiari)'),

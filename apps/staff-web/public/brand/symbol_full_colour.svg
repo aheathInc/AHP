@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="1000" height="1000" viewBox="0 0 1000 1000" role="img">
+<title>A-HEALTH 02_human_care symbol full_colour</title><desc>Editable vector artwork. No embedded raster images.</desc><g transform="translate(0 0) scale(1.0)"><g xmlns="http://www.w3.org/2000/svg" id="human-care-symbol" transform="translate(-10.2 -25.9) scale(0.82)">
+    <path id="blue-a-and-medical-cross" fill="#123B64" fill-rule="evenodd" d="M 178,1087 C 126,1087 96,1049 117,1002 L 459,306 C 493,236 548,195 624,195 C 700,195 757,232 790,304 L 935,605 C 942,620 919,645 883,670 C 855,691 825,706 800,715 L 649,410 C 638,388 631,381 624,381 C 615,381 607,392 596,413 L 427,762 L 430,774 L 407,824 C 434,852 469,871 501,879 L 501,887 C 468,890 445,908 430,939 L 391,1019 C 369,1065 344,1087 303,1087 Z M 265,872 H 297 Q 305,872 305,880 V 917 H 343 Q 351,917 351,925 V 958 Q 351,966 343,966 H 305 V 1005 Q 305,1013 297,1013 H 265 Q 257,1013 257,1005 V 966 H 218 Q 210,966 210,958 V 925 Q 210,917 218,917 H 257 V 880 Q 257,872 265,872 Z" />
+    <path id="teal-care-crossbar-and-right-foot" fill="#12A99A" d="M 427,762 C 527,818 683,791 811,736 C 869,711 915,678 947,635 L 1127,1003 C 1153,1054 1124,1087 1075,1087 H 989 C 951,1087 930,1067 912,1029 L 830,815 C 716,880 607,906 511,887 C 460,878 422,859 400,835 Q 395,830 399,821 Z" />
+    <circle id="teal-patient-node" cx="625" cy="651" r="82" fill="#12A99A" />
+  </g>
+</g></svg>

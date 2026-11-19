@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import '../core/l10n.dart';
 import 'package:flutter/material.dart';
 
@@ -186,12 +187,12 @@ class _AssistantScreenState extends State<AssistantScreen> {
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Msaidizi wa AI / Uliza A-Health'))),
       body: Column(
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Notice(
               L.tr(
                   'AI PROVIDER — LOCAL/STUB. Huu ni mwongoza huduma wa majaribio, si daktari. Hatoi utambuzi, tafsiri ya vipimo au maagizo ya dawa.'),
@@ -202,7 +203,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
             child: _messages.isEmpty
                 ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(28),
+                      padding: const EdgeInsets.all(28),
                       child: Text(
                         L.tr(
                             'Uliza jinsi ya kufungua huduma zilizopo, kama miadi, daktari, dawa, vipimo au faragha.'),
@@ -217,16 +218,16 @@ class _AssistantScreenState extends State<AssistantScreen> {
                     itemBuilder: (context, index) {
                       if (index == _messages.length) {
                         return Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Row(
                             children: [
-                              SizedBox(
+                              const SizedBox(
                                 width: 18,
                                 height: 18,
                                 child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                    const CircularProgressIndicator(strokeWidth: 2),
                               ),
-                              SizedBox(width: 10),
+                              const SizedBox(width: 10),
                               Text(L.tr('Msaidizi anaandaa jibu...')),
                             ],
                           ),
@@ -244,7 +245,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                   Expanded(
                     child: Text(
                       L.tr(_error!),
-                      style: const TextStyle(color: AppColors.clay),
+                      style: TextStyle(color: AppPalette.of(context).clay),
                     ),
                   ),
                   TextButton(
@@ -269,7 +270,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                       decoration: InputDecoration(
                         labelText: L.tr('Andika swali au huduma unayotafuta'),
                         counterText: '',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                       onSubmitted: (_) => _send(),
                     ),
@@ -290,8 +291,10 @@ class _AssistantScreenState extends State<AssistantScreen> {
   }
 
   Widget _messageCard(_ConversationMessage message) {
-    final background = message.isPatient ? AppColors.petrol : Colors.white;
-    final foreground = message.isPatient ? Colors.white : AppColors.ink;
+    final background =
+        message.isPatient ? AppPalette.of(context).petrol : Colors.white;
+    final foreground =
+        message.isPatient ? Colors.white : AppPalette.of(context).ink;
     return Align(
       alignment:
           message.isPatient ? Alignment.centerRight : Alignment.centerLeft,
@@ -302,7 +305,9 @@ class _AssistantScreenState extends State<AssistantScreen> {
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(14),
-          border: message.isPatient ? null : Border.all(color: AppColors.line),
+          border: message.isPatient
+              ? null
+              : Border.all(color: AppPalette.of(context).line),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +325,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
               Text(
                 L.tr(
                     'Ikiwa uko kwenye hatari ya haraka, tafuta huduma ya dharura. SOS haitatumwa hadi uchague hatua hiyo kwenye ukurasa unaofuata.'),
-                style: TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
             if (message.action != null) ...[
@@ -337,10 +342,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
                 ),
                 label: Text(patientAiActionLabel(message.action!)),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor:
-                      message.isPatient ? Colors.white : AppColors.petrol,
+                  foregroundColor: message.isPatient
+                      ? Colors.white
+                      : AppPalette.of(context).petrol,
                   side: BorderSide(
-                    color: message.isPatient ? Colors.white : AppColors.petrol,
+                    color: message.isPatient
+                        ? Colors.white
+                        : AppPalette.of(context).petrol,
                   ),
                 ),
               ),
@@ -350,7 +358,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
               Text(
                 L.tr(
                     'Hatua hii haijaungwa mkono. Hakuna ukurasa uliofunguliwa.'),
-                style: TextStyle(fontStyle: FontStyle.italic),
+                style: const TextStyle(fontStyle: FontStyle.italic),
               ),
             ],
           ],

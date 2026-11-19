@@ -1,3 +1,4 @@
+import { cohortOperation, cohortResult } from './cohorts.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { Actor, BaseRow, Collection, Evidence, Form, PortalConfig, Rows, SourceGrant, Store, Study, Table, Tx } from './types.js';
 import { check, DOMAINS, filterCells, id, instant, integer, keyed, keys, makeRelease, object, omopReadiness, oneOf, optionalText, parseFields, parseFilters, PortalError, safePdf, seal, sha, SYSTEMS, text, transformEvent, unseal, validateAnswers } from './policy.js';
@@ -80,6 +81,7 @@ export class ResearchPortal {
       const a=actor;
       if(apiKeyId){const key=await tx.get('key',apiKeyId);check(key&&key.status==='active'&&key.ownerId===a.sub&&key.studyId===input.study_id&&key.expiresAt>this.clock()&&action==='query',401,'API_KEY_INVALID','Research key is inactive or out of scope.');await this.audit(tx,a,'api_read',key.studyId,{keyId:key.id});}
       if(/^(extended\.|warehouse\.|ecrf\.|output\.)/.test(action))return this.extensions.run(tx,a,action,input,this.context(),downloadArtifact);
+      if(action.startsWith('cohort.'))return cohortOperation(tx,a,action,input,this.context(),this.clock());
       switch(action){
         case 'bootstrap': {
           keys(input,[]);
@@ -232,10 +234,11 @@ export class ResearchPortal {
         case 'query': {
           this.researcher(a);keys(input,['study_id','filters']);const {study,dataset,release}=await this.approvedStudy(tx,a,input.study_id);
           const filters=parseFilters(input.filters),cells=filterCells(release.cells,filters);await this.audit(tx,a,'aggregate_queried',study.id,{releaseId:release.id,returnedCells:cells.length});
-          return {study_id:study.id,release_id:release.id,release_hash:release.contentHash,minimum_cell_size:release.minimumCellSize,synthetic:dataset.syntheticOnly,fee_tzs:0,cells,disclosure_notice:'Only published cells are returned. Hidden small cells and totals are not exposed. Counts across cells may overlap and must not be summed as unique patients.'};
+          return cohortResult(study,dataset,release,filters,this.clock());
         }
         case 'export.request': {
-          this.researcher(a);keys(input,['study_id','format','filters']);const {study,release}=await this.approvedStudy(tx,a,input.study_id);check(study.allowExport,403,'EXPORT_NOT_AUTHORIZED','Project authorization does not include export.');
+          this.researcher(a);keys(input,['study_id','format','filters','release_id','release_hash']);const {study,release}=await this.approvedStudy(tx,a,input.study_id);check(study.allowExport,403,'EXPORT_NOT_AUTHORIZED','Project authorization does not include export.');
+          check((input.release_id===undefined||input.release_id===release.id)&&(input.release_hash===undefined||input.release_hash===release.contentHash),409,'RELEASE_CHANGED','The displayed result no longer matches the approved release. Run the analysis again.');
           const format=oneOf(input.format,['csv','xlsx','json','xml'],'export format'),filters=parseFilters(input.filters);
           const pending=await tx.list('export',{studyId:study.id,status:'pending'},21);check(pending.length<20,429,'EXPORT_LIMIT','Review pending export requests first.');
           const row=await tx.insert('export',{...this.row(),studyId:study.id,ownerId:a.sub,releaseId:release.id,format,filters,status:'pending',reviewedBy:null,expiresAt:new Date(Math.min(study.expiresAt.getTime(),this.clock().getTime()+7*86400000))});await this.audit(tx,a,'export_requested',row.id);return row;

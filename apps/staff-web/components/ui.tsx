@@ -29,7 +29,7 @@ export function PageShell({ children, className = '' }: { children: ReactNode; c
 export function Notice({ tone = 'problem', children }: { tone?: 'attention' | 'problem'; children: ReactNode }) {
   const c = tone === 'problem' ? 'border-clay text-clay' : 'border-amber text-amber';
   return (
-    <p role="alert" className={`ahp-notice ahp-notice--${tone} rounded-md border-l-4 ${c} bg-paper-sunk py-3 pl-4 pr-3 text-[0.95rem]`}>
+    <p role="alert" className={`ahp-notice ahp-notice--${tone} rounded-md border ${c} bg-paper-sunk py-3 pl-4 pr-3 text-[0.95rem]`}>
       {children}
     </p>
   );
@@ -52,6 +52,7 @@ export function Badge({ children, tone = 'neutral' }: { children: ReactNode; ton
     : 'border-line bg-paper-sunk text-ink-soft';
   return (
     <span className={`ahp-badge ahp-badge--${tone} inline-flex min-h-7 items-center rounded-full border px-2.5 text-xs font-semibold uppercase tracking-wide ${toneClass}`}>
+      {tone !== 'neutral' && <Icon name={tone === 'good' ? 'check' : tone === 'info' ? 'activity' : 'alert'} size={13}/>}
       {children}
     </span>
   );

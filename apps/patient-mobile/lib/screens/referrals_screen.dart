@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'dart:async';
 import '../core/session.dart';
 import '../core/l10n.dart';
@@ -153,7 +154,7 @@ class _ReferralsScreenState extends State<ReferralsScreen>
   @override
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
-    return Scaffold(
+    return PatientScaffold(
       appBar: AppBar(title: Text(L.tr('Rufaa Zangu')), actions: [
         IconButton(
             tooltip: L.tr('Sasisha rufaa'),
@@ -237,10 +238,10 @@ class _ReferralsScreenState extends State<ReferralsScreen>
     final tone = status == 'completed' ||
             status == 'in_care' ||
             status == 'accepted'
-        ? AppColors.petrol
+        ? AppPalette.of(context).petrol
         : status == 'declined' || status == 'cancelled' || status == 'expired'
-            ? AppColors.clay
-            : AppColors.inkSoft;
+            ? AppPalette.of(context).clay
+            : AppPalette.of(context).inkSoft;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
@@ -301,7 +302,7 @@ class _ReferralsScreenState extends State<ReferralsScreen>
             Expanded(
                 flex: 2,
                 child: Text(L.tr(label),
-                    style: const TextStyle(color: AppColors.inkSoft))),
+                    style: TextStyle(color: AppPalette.of(context).inkSoft))),
             const SizedBox(width: 12),
             Expanded(flex: 3, child: SelectableText(value)),
           ],

@@ -15,3 +15,5 @@ export const qualityRouter = Router();
 qualityRouter.post('/consultations/:consultation_id/rating', requireAuth, idempotency, c.rate);
 qualityRouter.post('/incident-reports', requireAuth, idempotency, c.createIncident);
 qualityRouter.get('/incident-reports', requireAuth, c.listIncidents);
+
+qualityRouter.patch('/incident-reports/:incident_id', requireAuth, idempotency, c.updateIncident);

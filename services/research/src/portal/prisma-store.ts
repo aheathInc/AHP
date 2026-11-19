@@ -3,7 +3,7 @@ import { appendAudit } from '@a-health/http';
 import type { Rows, Store, Table, Tx } from './types.js';
 
 const delegates = {
-  application:'researcherApplication',study:'researchStudy',evidence:'researchEvidence',collection:'researchCollection',
+  cohort:'researchSavedCohort',application:'researcherApplication',study:'researchStudy',evidence:'researchEvidence',collection:'researchCollection',
   source:'researchSourceGrant',event:'researchStagedEvent',release:'researchRelease',export:'researchExportRequest',
   form:'researchForm',response:'researchFormResponse',key:'researchAccessKey',mapping:'researchCodeMapping',throttle:'researchThrottle',omopBatch:'researchOmopBatch',omopBuild:'researchOmopBuild',responseSnapshot:'researchResponseSnapshot',output:'researchOutputRequest',
 } as const;

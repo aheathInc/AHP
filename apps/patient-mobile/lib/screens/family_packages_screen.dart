@@ -1,3 +1,4 @@
+import '../widgets/patient_ui.dart';
 import 'package:flutter/material.dart';
 import '../core/api.dart';
 import '../core/care_continuity.dart' show newCareRequestKey;
@@ -295,7 +296,7 @@ class _FamilyPackagesScreenState extends State<FamilyPackagesScreen> {
   Widget build(BuildContext context) {
     Localizations.localeOf(context);
     final pending = _requests.any((x) => x['status'] == 'pending');
-    return Scaffold(
+    return PatientScaffold(
         appBar: AppBar(title: Text(L.tr('Family packages'))),
         body: RefreshIndicator(
             onRefresh: _busy ? () async {} : _load,
